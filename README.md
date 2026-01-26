@@ -1,12 +1,12 @@
 # Bookshelf
 
-An interactive web based library to showcase your book collection. You can interact with the demo page [here](https://aloglu.github.io/bookshelf).
+An interactive web-based library to showcase your book collection. You can interact with a demo page [here](https://aloglu.github.io/bookshelf).
 
 ## Features
 
 - **Three Unique Views**:
-  - **Shelf**: A realistic, scrolling bookshelf with physics based momentum and tilt animations.
-  - **Stacks**: A clean, grid based list view for efficiency (mobile friendly).
+  - **Shelf**: A realistic, scrolling bookshelf with physics-based momentum and tilt animations.
+  - **Stacks**: A clean, grid-based list view for efficiency (mobile-friendly).
   - **Coverflow**: A coverflow view of your library.
 - **Dynamic Physics**: Smooth scrolling and tilt mechanics that react to your scroll velocity.
 - **Performance**: Implements lazy loading for covers and DOM elements, ensuring smooth performance even with large libraries.
@@ -14,7 +14,7 @@ An interactive web based library to showcase your book collection. You can inter
 - **Auto-Theming**: Extracts distinct color palettes from book covers to color-code the spine and details.
 - **Data Pipeline**: Python and PowerShell scripts included to:
   - Read from a simple Excel spreadsheet (or JSON).
-  - Automatically fetch high-quality covers from OpenLibrary or Goodreads.
+  - Automatically fetch high-res covers from OpenLibrary or Goodreads.
   - Extract spine colors for the UI.
 
 ## Getting Started
@@ -47,21 +47,21 @@ Create an Excel file with the following headers:
 - **Published** (Year)
 
 ### 2. Building the Library
-Run the build script to generate the web ready data files and fetch missing covers.
+Run the build script to generate the web-ready data files and fetch missing covers.
 
-**Using Windows (PowerShell)**:
+**Using Windows (PowerShell):**
 ```powershell
-.\build-library.ps1
+.\build\build-library.ps1
 ```
 
-**Using Python (Mac/Linux/Windows)**:
+**Using Python (Mac/Linux/Windows):**
 ```bash
-python3 build-library.py
+python3 build/build-library.py
 ```
 
 The interactive menus of both scripts provide the following options:
 1. **Open Library**: Attempts to fetch covers from the Open Library API. This is the fastest method but may have lower resolution images or gaps in coverage.
-2. **Goodreads**: Scrapes high-quality covers from Goodreads. This method is slower due to rate limiting (to avoid being blocked) but generally yields the best aesthetic results. It’s also the most accurate.
+2. **Goodreads**: Scrapes high-quality covers from Goodreads. This method is slower due to rate-limiting (to avoid being blocked) but generally yields the best aesthetic results.
 3. **Offline Mode**: Useful for regenerating the `books.js` and `books.json` files from your source (Excel) without making any network requests. Use this if you just want to update metadata or titles.
 4. **Apply Manual Covers**: Scans the `data/manual-covers` directory for images matching a book’s ISBN or ID and forcibly applies them, overriding any downloaded images.
 
