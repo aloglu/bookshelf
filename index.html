@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Bookshelf</title>
+    <link rel="stylesheet" href="bookshelf.css" />
+</head>
+
+<body>
+    <main class="page">
+        <header class="intro hero">
+            <div class="hero-heading">
+                <h1>Bookshelf</h1>
+                <p class="instruction-text" id="instruction-text">Click on a book spine to see its details</p>
+
+            </div>
+        </header>
+
+        <div class="controls">
+            <div class="search-wrapper" id="search-control">
+                <input type="text" class="search-input" placeholder="Search books..." aria-label="Search books" />
+                <button class="search-toggle" type="button" aria-label="Open search" data-tooltip="Search">
+                    <span class="search-icon" aria-hidden="true">🔍</span>
+                </button>
+            </div>
+
+            <button class="random-toggle" type="button" aria-label="Pick a random book"
+                data-tooltip="Bring a Random Book">
+                <span class="random-icon" aria-hidden="true">🎲</span>
+            </button>
+
+            <div class="custom-select" id="view-control">
+                <button type="button" class="select-trigger" aria-haspopup="listbox" aria-expanded="false"
+                    aria-label="Change View">
+                    <span class="trigger-text">View as</span>
+                    <span class="trigger-icon" aria-hidden="true">▼</span>
+                </button>
+                <ul class="select-options" role="listbox" id="view-list" hidden>
+                    <li class="option" role="option" data-view="shelf" tabindex="0">Shelf</li>
+                    <li class="option" role="option" data-view="stack" tabindex="0">Stacks</li>
+                    <li class="option" role="option" data-view="coverflow" tabindex="0">Coverflow</li>
+                </ul>
+            </div>
+
+
+            <div class="custom-select" id="sort-control">
+                <button type="button" class="select-trigger" aria-haspopup="listbox" aria-expanded="false"
+                    aria-label="Sort books">
+                    <span class="trigger-text">Sort By</span>
+                    <span class="trigger-icon" aria-hidden="true">▼</span>
+                </button>
+                <ul class="select-options" role="listbox" id="sort-list" hidden>
+                    <li class="option" role="option" data-value="author" tabindex="0">Author</li>
+                    <li class="option" role="option" data-value="title" tabindex="0">Title</li>
+                    <li class="option" role="option" data-value="year" tabindex="0">Year</li>
+                </ul>
+            </div>
+
+        </div>
+
+
+
+        <section class="bookshelf-section">
+            <div id="no-results" class="no-results" hidden>No books found.</div>
+            <div id="bookshelf" class="bookshelf" aria-live="polite"></div>
+        </section>
+
+        <section class="details" id="details" hidden>
+            <h2>Book Details</h2>
+            <div class="details-card" aria-live="polite">
+                <button class="details-close" type="button" aria-label="Close details">×</button>
+                <div class="details-cover" aria-hidden="true"></div>
+                <div class="details-body">
+                    <div class="details-heading">
+                        <p class="details-title" data-field="title"></p>
+                        <p class="details-author" data-field="author"></p>
+                    </div>
+                    <dl class="details-grid">
+                        <div>
+                            <dt>Translator</dt>
+                            <dd data-field="translator"></dd>
+                        </div>
+                        <div>
+                            <dt>Publisher</dt>
+                            <dd data-field="publisher"></dd>
+                        </div>
+                        <div>
+                            <dt>Binding</dt>
+                            <dd data-field="binding"></dd>
+                        </div>
+                        <div>
+                            <dt>Published</dt>
+                            <dd data-field="published"></dd>
+                        </div>
+                        <div>
+                            <dt>ISBN</dt>
+                            <dd class="isbn-field">
+                                <button class="isbn-trigger" type="button" data-field="isbn" aria-haspopup="true"
+                                    aria-controls="isbn-popup" aria-expanded="false">
+                                    -
+                                </button>
+                                <div class="isbn-popup" id="isbn-popup" role="menu" aria-hidden="true">
+                                    <p class="isbn-popup-label">
+                                        Open ISBN in
+                                    </p>
+                                    <a class="isbn-link" data-source="wikipedia" target="_blank"
+                                        rel="noopener noreferrer" role="menuitem">
+                                        Wikipedia Book Sources
+                                    </a>
+                                    <a class="isbn-link" data-source="goodreads" target="_blank"
+                                        rel="noopener noreferrer" role="menuitem">
+                                        Goodreads
+                                    </a>
+                                </div>
+                            </dd>
+                        </div>
+                    </dl>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <noscript>
+        <p class="noscript">
+            JavaScript is required to render the bookshelf.
+        </p>
+    </noscript>
+
+    <footer class="site-footer">
+        Inspired by
+        <a href="https://balajmarius.com/writings/vibe-coding-a-bookshelf-with-claude-code/" target="_blank"
+            rel="noopener noreferrer">
+            Marius Balaj,
+        </a>
+        made by Codex and Gemini
+    </footer>
+
+    <button class="back-to-top" type="button" aria-label="Scroll to top" hidden>
+        <span aria-hidden="true" class="arrow-icon">➜</span>
+    </button>
+
+    <script src="data/books.js"></script>
+    <script src="https://unpkg.com/lenis@1.1.20/dist/lenis.min.js"></script>
+    <script src="bookshelf.js" defer></script>
+</body>
+
+</html>
