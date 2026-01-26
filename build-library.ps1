@@ -1,4 +1,3 @@
-
 param(
     [string]$ExcelPath = "My Library.xlsx",
     [string]$BooksJsonPath = "data\books.json",
@@ -343,3 +342,4 @@ $json | Set-Content -LiteralPath $BooksJsonPath -Encoding UTF8
 
 Write-Host "`nDONE! | Manuals: $($stats.manuals) | Downloads: $($stats.downloads) | Colored: $($stats.colored)" -ForegroundColor Green
 Read-Host "Press Enter to exit..."
+
