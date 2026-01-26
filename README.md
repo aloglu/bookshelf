@@ -49,12 +49,12 @@ Create an Excel file with the following headers:
 ### 2. Building the Library
 Run the build script to generate the web-ready data files and fetch missing covers.
 
-**Using Windows (PowerShell):**
+**Using Windows (PowerShell)**:
 ```powershell
 .\build\build-library.ps1
 ```
 
-**Using Python (Mac/Linux/Windows):**
+**Using Python (Mac/Linux/Windows)**:
 ```bash
 python3 build/build-library.py
 ```
