@@ -68,6 +68,10 @@ The interactive menus of both scripts provide the following options:
 ### 3. Verification
 Check `data/covers/` to ensure images were downloaded. You can override any cover by placing a `.jpg` in `data/manual-covers/` with the book’s ISBN as the filename.
 
+## License
+
+Released under the [MIT License](https://github.com/aloglu/bookshelf/blob/main/LICENSE).
+
 ## Acknowledgements
 
 I was inspired by [Marius Balaj](https://balajmarius.com/writings/vibe-coding-a-bookshelf-with-claude-code/)’s own bookshelf project. This project too was mostly built by Codex and Gemini.
