@@ -97,6 +97,12 @@ body {
     align-items: center;
     gap: 0.8rem;
     z-index: 100;
+    transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.controls.is-hidden {
+    transform: translateY(-200%);
+    pointer-events: none;
 }
 
 .custom-select {
@@ -354,7 +360,7 @@ body {
     color: var(--page-surface);
     padding: 0.4rem 0.65rem;
     border-radius: 0.4rem;
-    font-size: 0.75rem;
+    font-size: 0.85rem;
     white-space: nowrap;
     z-index: 1000;
     pointer-events: none;
@@ -568,6 +574,7 @@ body {
     transform: rotate(var(--tilt, 0deg));
     will-change: transform;
     transition:
+        transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
         box-shadow 0.3s ease,
         filter 0.3s ease;
     box-shadow: none;
@@ -578,6 +585,31 @@ body {
     /* Ensure texture is positioned relative to the book */
     overflow: hidden;
     /* Texture stays inside */
+}
+
+/* Hover Elevation */
+.book:hover {
+    transform: translateY(-30px) rotate(var(--tilt, 0deg));
+    box-shadow:
+        0 20px 30px -10px rgba(0, 0, 0, 0.3),
+        0 0 25px -5px color-mix(in srgb, var(--bg), transparent 30%);
+    /* Add shadow for lifting effect */
+    z-index: 10;
+}
+
+/* Active State - Elevated */
+.book.is-active {
+    transform: translateY(-30px) rotate(var(--tilt, 0deg));
+    box-shadow: 0 15px 30px -10px rgba(0, 0, 0, 0.3);
+    z-index: 10;
+    filter: brightness(1.05);
+}
+
+/* Active + Hover = Glow */
+.book.is-active:hover {
+    box-shadow:
+        0 20px 30px -10px rgba(0, 0, 0, 0.3),
+        0 0 25px -5px color-mix(in srgb, var(--bg), transparent 30%);
 }
 
 /* Texture Overlay */
@@ -608,16 +640,9 @@ body {
     filter: brightness(1.03);
 }
 
-.book.is-active {
-    border-color: transparent;
-    box-shadow: 0 18px 45px rgba(0, 0, 0, 0.22);
-}
 
-@supports (box-shadow: 0 0 10px color-mix(in srgb, red 50%, transparent)) {
-    .book.is-active {
-        box-shadow: 0 24px 60px color-mix(in srgb, var(--bg) 55%, transparent);
-    }
-}
+
+
 
 .book .shelf-text {
     display: flex;
@@ -685,6 +710,7 @@ body {
 
 .details {
     margin-top: 3rem;
+    height: 500px;
     text-align: center;
 }
 
@@ -709,13 +735,12 @@ body {
         color 0.2s ease;
     font-family: "Peachi", "Inter", "Segoe UI", system-ui, sans-serif;
     position: relative;
-    overflow: hidden;
 }
 
-.details-close {
+.details-close,
+.details-copy {
     position: absolute;
     top: 1rem;
-    right: 1rem;
     width: 32px;
     height: 32px;
     border-radius: 50%;
@@ -726,16 +751,26 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 2rem;
-    font-weight: 300;
     line-height: 1;
     z-index: 10;
     opacity: 0.6;
+    transition: opacity 0.2s ease;
 }
 
-.details-close:hover {
-    /* No hover effects requested */
-    opacity: 0.6;
+.details-close {
+    right: 1rem;
+    font-size: 2rem;
+    font-weight: 300;
+}
+
+.details-copy {
+    right: 3rem;
+    font-size: 1.1rem;
+}
+
+.details-close:hover,
+.details-copy:hover {
+    opacity: 1;
 }
 
 .details-card::before {
@@ -750,6 +785,7 @@ body {
     mix-blend-mode: overlay;
     pointer-events: none;
     filter: contrast(120%);
+    border-radius: inherit;
 }
 
 .details-card[hidden] {
@@ -868,7 +904,6 @@ body {
 
 .isbn-popup {
     position: absolute;
-    top: calc(100% + 0.45rem);
     left: 0;
     min-width: 220px;
     padding: 0.75rem;
@@ -882,11 +917,18 @@ body {
     gap: 0.35rem;
     opacity: 0;
     pointer-events: none;
-    transform: translateY(-6px);
-    transition:
-        opacity 0.2s ease,
-        transform 0.2s ease;
     z-index: 4;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.isbn-popup:not(.is-upward) {
+    top: calc(100% + 0.45rem);
+    transform: translateY(-6px);
+}
+
+.isbn-popup.is-upward {
+    bottom: calc(100% + 0.45rem);
+    transform: translateY(6px);
 }
 
 body.theme-dark .isbn-popup {
@@ -1938,4 +1980,366 @@ body.view-stack .book:hover {
 .site-footer a:hover {
     text-decoration: none;
     filter: brightness(1.2);
+}
+
+/* --- Library Statistics Dashboard --- */
+.stats-toggle {
+    position: relative;
+    width: 42px;
+    height: 42px;
+    border-radius: 999px;
+    border: none;
+    background: rgba(30, 30, 40, 0.6);
+    color: var(--text-color);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.15rem;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    transition: all 0.2s ease;
+    backdrop-filter: blur(12px);
+    flex-shrink: 0;
+}
+
+.stats-toggle:hover {
+    background: rgba(40, 40, 50, 0.9);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+}
+
+.stats-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    background: rgba(4, 6, 12, 0.7);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.stats-overlay:not([hidden]) {
+    opacity: 1;
+}
+
+.stats-card {
+    position: relative;
+    width: min(900px, 100%);
+    background: var(--page-surface);
+    border: 1px solid var(--book-border);
+    border-radius: 1.5rem;
+    padding: clamp(1.5rem, 3vw, 2.5rem);
+    box-shadow: var(--details-shadow);
+    transform: translateY(20px);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    max-height: 92vh;
+    overflow-y: auto;
+}
+
+.stats-overlay:not([hidden]) .stats-card {
+    transform: translateY(0);
+}
+
+.stats-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background-image: url("../img/texture.png");
+    background-size: 150px;
+    background-repeat: repeat;
+    opacity: 0.08;
+    mix-blend-mode: overlay;
+    pointer-events: none;
+    border-radius: inherit;
+}
+
+.stats-close {
+    position: absolute;
+    top: 1.25rem;
+    right: 1.25rem;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8rem;
+    font-weight: 300;
+    opacity: 0.4;
+    transition: opacity 0.2s ease;
+}
+
+.stats-close:hover {
+    opacity: 1;
+}
+
+.stats-header {
+    margin-bottom: 2rem;
+    text-align: left;
+}
+
+.stats-header h2 {
+    font-family: "Peachi", sans-serif;
+    font-size: 1.8rem;
+    margin: 0;
+    color: var(--page-blue);
+}
+
+.stats-subtitle {
+    color: var(--muted);
+    font-size: 1rem;
+    margin: 0.5rem 0 0;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(30, 1fr);
+    gap: 0.75rem;
+    margin-bottom: 2rem;
+}
+
+/* Row 1: Premium */
+.stats-item.author-item {
+    grid-column: span 18;
+}
+
+.stats-item.publisher-item {
+    grid-column: span 12;
+}
+
+/* Row 2: Library Metrics */
+.stats-item.total-item,
+.stats-item.unique-authors-item,
+.stats-item.unique-publishers-item {
+    grid-column: span 10;
+}
+
+/* Row 3: Trivia & Color */
+.stats-item.translation-item,
+.stats-item.golden-item,
+.stats-item.color-item {
+    grid-column: span 10;
+}
+
+@media (max-width: 850px) {
+    .stats-grid {
+        grid-template-columns: repeat(20, 1fr);
+    }
+
+    .stats-item.author-item,
+    .stats-item.publisher-item {
+        grid-column: span 10;
+    }
+
+    .stats-item.total-item,
+    .stats-item.unique-authors-item,
+    .stats-item.unique-publishers-item {
+        grid-column: span 10;
+    }
+
+    .stats-item.translation-item,
+    .stats-item.golden-item,
+    .stats-item.color-item {
+        grid-column: span 10;
+    }
+}
+
+@media (max-width: 600px) {
+    .stats-grid {
+        display: flex;
+        flex-direction: column;
+    }
+}
+
+/* Color Pill Integration */
+.color-pill {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    margin-top: 0.2rem;
+}
+
+.color-sample {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    background: var(--page-blue);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+    transition: background 1s ease;
+    flex-shrink: 0;
+}
+
+.color-name {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-color);
+    text-transform: uppercase;
+}
+
+/* Chart Refinements */
+.stats-charts {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.chart-section h3 {
+    font-family: "Peachi", sans-serif;
+    font-size: 0.95rem;
+    margin: 0 0 1.25rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    text-align: left;
+}
+
+.binding-chart-wrapper {
+    background: rgba(255, 255, 255, 0.02);
+    padding: 1.5rem;
+    border-radius: 1.2rem;
+    border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+/* Binding Segment Bar */
+.segment-bar {
+    height: 16px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    display: flex;
+    overflow: hidden;
+    margin-bottom: 1.2rem;
+    gap: 0;
+}
+
+.segment {
+    height: 100%;
+    flex-shrink: 0;
+    border: none;
+    transition: width 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.segment-legend {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem 1rem;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.95rem;
+    color: var(--text-color);
+}
+
+.legend-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.stats-item {
+    background: rgba(255, 255, 255, 0.03);
+    padding: 1.2rem;
+    border-radius: 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.stats-value {
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: var(--text-color);
+    line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.stats-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+}
+
+
+
+.bar-chart {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+    background: rgba(255, 255, 255, 0.02);
+    padding: 1.5rem;
+    border-radius: 1.2rem;
+    border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.chart-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.chart-label {
+    width: 55px;
+    font-size: 0.9rem;
+    color: var(--muted);
+    flex-shrink: 0;
+}
+
+.chart-bar-wrapper {
+    flex-grow: 1;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+}
+
+.chart-bar {
+    height: 100%;
+    background: var(--page-blue);
+    border-radius: 4px;
+    width: 0;
+    transition: width 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.chart-count {
+    width: 35px;
+    font-size: 0.9rem;
+    color: var(--text-color);
+    text-align: right;
+    font-weight: 500;
+}
+
+@media (max-width: 850px) {
+    .bar-chart {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 600px) {
+    .stats-card {
+        padding: 1.5rem;
+    }
+
+    .stats-featured {
+        grid-template-columns: 1fr;
+    }
+
+    .stats-header h2 {
+        font-size: 1.5rem;
+    }
 }

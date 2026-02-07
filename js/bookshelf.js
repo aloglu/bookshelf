@@ -159,6 +159,20 @@
 
   const openIsbnPopup = () => {
     if (!isbnPopup || !isbnTrigger || isbnTrigger.disabled) return;
+
+    // Smart Positioning Logic
+    // Detect if the popup will be cut off by the bottom of the viewport
+    const rect = isbnTrigger.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const isMobile = window.innerWidth <= 720;
+
+    // If less than 180px space below, open upward (unless on mobile where layout is different)
+    if (spaceBelow < 180 && !isMobile) {
+      isbnPopup.classList.add("is-upward");
+    } else {
+      isbnPopup.classList.remove("is-upward");
+    }
+
     isbnPopup.classList.add("is-visible");
     isbnPopup.setAttribute("aria-hidden", "false");
     isbnTrigger.setAttribute("aria-expanded", "true");
@@ -416,7 +430,13 @@
       });
     }
 
-    el.addEventListener("click", () => setActive(book.id, true));
+    el.addEventListener("click", () => {
+      if (activeId === book.id) {
+        setActive(null);
+      } else {
+        setActive(book.id, true);
+      }
+    });
     el.bookData = book;
     return { book, el, left: 0, width: 0 };
   };
@@ -793,9 +813,27 @@
 
     // Toggle Elements
     if (!id) {
-      // Close everything
-      if (detailsSection) detailsSection.hidden = true;
-      if (detailCard) detailCard.hidden = true;
+      // Hide visually immediately but keep layout to allow smooth scroll
+      if (detailsSection) {
+        detailsSection.style.opacity = '0';
+        detailsSection.style.pointerEvents = 'none';
+      }
+
+      // Smooth Scroll back up to the very top
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+
+      // Remove from layout after scroll completes
+      setTimeout(() => {
+        if (!window.activeId) {
+          if (detailsSection) {
+            detailsSection.hidden = true;
+            detailsSection.style.opacity = '';
+            detailsSection.style.pointerEvents = '';
+          }
+          if (detailCard) detailCard.hidden = true;
+        }
+      }, 800);
+
       bookElements.forEach(({ el }) => {
         el.classList.remove("is-active");
         el.setAttribute("aria-pressed", "false");
@@ -809,6 +847,13 @@
       el.setAttribute("aria-pressed", String(isActive));
       if (isActive) {
         updateDetails(book);
+
+        // Auto-Scroll to Details Panel
+        if (detailsSection) {
+          setTimeout(() => {
+            detailsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }, 100);
+        }
 
         // Center the book if requested logic (e.g. from click)
         if (shouldCenter) {
@@ -834,6 +879,32 @@
   };
   window.setActive = setActive;
 
+  const copyLinkBtn = document.getElementById('details-copy-btn');
+  if (copyLinkBtn) {
+    copyLinkBtn.addEventListener('click', () => {
+      const url = window.location.href;
+      navigator.clipboard.writeText(url).then(() => {
+        // Subtle feedback: change icon briefly using unicode checkmark
+        const icon = copyLinkBtn.querySelector('.copy-icon');
+        const originalIcon = icon.innerHTML;
+        icon.innerHTML = "&#x2713;&#xFE0E;"; // Unicode Checkmark (Text Version)
+        setTimeout(() => {
+          icon.innerHTML = originalIcon;
+        }, 1500);
+      }).catch(err => {
+        console.error('Failed to copy: ', err);
+      });
+    });
+  }
+
+  // Close Button Logic
+  const closeDetailsBtn = document.querySelector('.details-close');
+  if (closeDetailsBtn) {
+    closeDetailsBtn.addEventListener('click', () => {
+      setActive(null);
+    });
+  }
+
   const updateDetails = (book) => {
     if (!detailCard) return;
 
@@ -847,10 +918,15 @@
     detailCard.hidden = false;
     if (detailsSection) {
       detailsSection.hidden = false;
+      detailsSection.style.opacity = '';
+      detailsSection.style.pointerEvents = '';
     }
     const palette = pickPalette(book);
     detailCard.style.setProperty("--details-bg", palette.background);
     detailCard.style.setProperty("--details-fg", palette.foreground);
+    // Glow removed as requested
+    // detailCard.style.boxShadow = `0 0 120px -30px ${palette.background}, 0 0 40px -10px rgba(0,0,0,0.5)`;
+
     const headingColor = bestHeadingColor(palette.background);
     detailCard.style.setProperty("--details-heading-color", headingColor);
     if (detailTitle) {
@@ -1274,13 +1350,7 @@
   initResponsiveLayout();
   initSearch();
 
-  // Close Button Logic
-  const closeDetailsBtn = document.querySelector('.details-close');
-  if (closeDetailsBtn) {
-    closeDetailsBtn.addEventListener('click', () => {
-      setActive(null);
-    });
-  }
+
 
   // Global ESC to key to Close
   document.addEventListener("keydown", (e) => {
@@ -1448,6 +1518,50 @@
 
 
     initBackToTop();
+    initAutoHideControls();
+  }
+
+  function initAutoHideControls() {
+    const controls = document.querySelector('.controls');
+    if (!controls) return;
+
+    let lastScrollY = window.scrollY;
+    let ticking = false;
+
+    const onScroll = () => {
+      const currentScrollY = window.scrollY;
+      const scrollDiff = currentScrollY - lastScrollY;
+      const isScrollingDown = scrollDiff > 0;
+      const isScrollingUp = scrollDiff < 0;
+
+      // Threshold to start hiding (avoid hiding at very top)
+      const threshold = 100;
+
+      if (isScrollingDown && currentScrollY > threshold) {
+        controls.classList.add('is-hidden');
+        // Close any open dropdowns when hiding
+        const openDropdowns = controls.querySelectorAll('.select-trigger[aria-expanded="true"]');
+        openDropdowns.forEach(t => {
+          t.setAttribute('aria-expanded', 'false');
+          const listId = t.getAttribute('aria-controls') || t.nextElementSibling?.id; // sibling usually
+          if (t.nextElementSibling && t.nextElementSibling.classList.contains('select-options')) {
+            t.nextElementSibling.hidden = true;
+          }
+        });
+      } else if (isScrollingUp || currentScrollY < threshold) {
+        controls.classList.remove('is-hidden');
+      }
+
+      lastScrollY = currentScrollY;
+      ticking = false;
+    };
+
+    window.addEventListener('scroll', () => {
+      if (!ticking) {
+        window.requestAnimationFrame(onScroll);
+        ticking = true;
+      }
+    }, { passive: true });
   }
 
   function initBackToTop() {
@@ -2012,4 +2126,169 @@
     initView();
   }
 
+})();
+// --- Library Statistics Logic ---
+(function () {
+  const statsToggle = document.querySelector('.stats-toggle');
+  const statsOverlay = document.querySelector('#stats-overlay');
+  const statsClose = document.querySelector('.stats-close');
+  const statsCard = document.querySelector('.stats-card');
+
+  const statsTotal = document.querySelector('#stats-total-books');
+  const statsAuthor = document.querySelector('#stats-top-author');
+  const statsPublisher = document.querySelector('#stats-top-publisher');
+  const decadeChart = document.querySelector('#decade-chart');
+
+  if (!statsToggle || !statsOverlay) return;
+
+  const calculateStats = () => {
+    const books = window.booksData || [];
+    if (!books.length) return;
+
+    // 1. Core Metrics
+    const authors = {};
+    const publishers = {};
+    const years = {};
+    const bindings = {};
+    let translatedCount = 0;
+    const colors = {};
+
+    books.forEach(b => {
+      // Authors
+      if (b.author) authors[b.author] = (authors[b.author] || 0) + 1;
+      // Publishers
+      if (b.publisher) publishers[b.publisher] = (publishers[b.publisher] || 0) + 1;
+      // Years
+      if (b.published) years[b.published] = (years[b.published] || 0) + 1;
+      // Bindings
+      if (b.binding) bindings[b.binding] = (bindings[b.binding] || 0) + 1;
+      // Translations
+      if (b.translator) translatedCount++;
+      // Colors
+      if (b.spineColor) colors[b.spineColor] = (colors[b.spineColor] || 0) + 1;
+    });
+
+    // Top Author
+    const sortedAuthors = Object.entries(authors).sort((a, b) => b[1] - a[1]);
+    const topAuthor = sortedAuthors[0];
+
+    // Top Publisher
+    const topPub = Object.entries(publishers).sort((a, b) => b[1] - a[1])[0];
+
+    // Golden Year
+    const topYear = Object.entries(years).sort((a, b) => b[1] - a[1])[0];
+
+    // Update Basic UI
+    statsTotal.textContent = books.length;
+    document.querySelector('#stats-unique-authors').textContent = Object.keys(authors).length;
+    document.querySelector('#stats-unique-publishers').textContent = Object.keys(publishers).length;
+    document.querySelector('#stats-golden-year').textContent = topYear ? `${topYear[0]} (${topYear[1]})` : '-';
+    statsAuthor.textContent = topAuthor ? topAuthor[0] : '-';
+    statsPublisher.textContent = topPub ? topPub[0] : '-';
+
+    const transPercent = Math.round((translatedCount / books.length) * 100);
+    document.querySelector('#stats-translation-rate').textContent = `${transPercent}%`;
+
+    // 2. Binding Composition (Segment Bar)
+    const bindingBar = document.querySelector('#binding-bar');
+    const bindingLegend = document.querySelector('#binding-legend');
+    bindingBar.innerHTML = '';
+    bindingLegend.innerHTML = '';
+
+    const bindingColors = ['#A5C9FF', '#FFC4C4', '#B2EBD6', '#FCF1B6', '#E0CFFF'];
+    const sortedBindings = Object.entries(bindings).sort((a, b) => b[1] - a[1]);
+
+    const totalKnownBindings = Object.values(bindings).reduce((a, b) => a + b, 0);
+    sortedBindings.forEach(([type, count], i) => {
+      const percentage = (count / totalKnownBindings) * 100;
+      const color = bindingColors[i % bindingColors.length];
+
+      // Bar Segment
+      const segment = document.createElement('div');
+      segment.className = 'segment';
+      segment.style.backgroundColor = color;
+      segment.style.width = '0%';
+      segment.dataset.width = `${percentage}%`;
+      bindingBar.appendChild(segment);
+
+      // Legend Item
+      const legendItem = document.createElement('div');
+      legendItem.className = 'legend-item';
+      legendItem.innerHTML = `
+        <span class="legend-dot" style="background-color: ${color}"></span>
+        <span>${type} (${Math.round(percentage)}%)</span>
+      `;
+      bindingLegend.appendChild(legendItem);
+    });
+
+    // 3. Color Signature
+    const dominantColor = Object.entries(colors).sort((a, b) => b[1] - a[1])[0];
+    const colorSigEl = document.querySelector('#color-signature');
+    const colorNameEl = document.querySelector('#color-name');
+
+    if (dominantColor) {
+      colorSigEl.style.backgroundColor = dominantColor[0];
+      // Simple color naming logic
+      colorNameEl.textContent = dominantColor[0].toUpperCase();
+    }
+
+    // 4. Decade Distribution
+    const decades = {};
+    books.forEach(b => {
+      if (b.published) {
+        const d = Math.floor(b.published / 10) * 10;
+        decades[d] = (decades[d] || 0) + 1;
+      }
+    });
+
+    const sortedDecades = Object.entries(decades).sort((a, b) => b[0] - a[0]);
+    const maxCount = Math.max(...Object.values(decades));
+
+    decadeChart.innerHTML = '';
+    sortedDecades.forEach(([decade, count]) => {
+      const percentage = (count / maxCount) * 100;
+      const row = document.createElement('div');
+      row.className = 'chart-row';
+      row.innerHTML = `
+        <span class="chart-label">${decade}s</span>
+        <div class="chart-bar-wrapper">
+          <div class="chart-bar" style="width: 0%" data-width="${percentage}%"></div>
+        </div>
+        <span class="chart-count">${count}</span>
+      `;
+      decadeChart.appendChild(row);
+    });
+  };
+
+  const openStats = () => {
+    calculateStats();
+    statsOverlay.hidden = false;
+    void statsOverlay.offsetWidth;
+
+    // Trigger bar animations
+    const bars = document.querySelectorAll('.chart-bar, .segment');
+    setTimeout(() => {
+      bars.forEach(bar => {
+        bar.style.width = bar.dataset.width;
+      });
+    }, 50);
+  };
+
+  const closeStats = () => {
+    statsOverlay.hidden = true;
+  };
+
+  statsToggle.addEventListener('click', (e) => {
+    e.stopPropagation();
+    openStats();
+  });
+
+  statsClose.addEventListener('click', closeStats);
+  statsOverlay.addEventListener('click', (e) => {
+    if (e.target === statsOverlay) closeStats();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !statsOverlay.hidden) closeStats();
+  });
 })();
