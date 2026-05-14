@@ -1035,9 +1035,13 @@ body.theme-dark .isbn-popup {
         top: auto;
         right: auto;
         width: 100%;
+        max-width: 100%;
+        flex-wrap: wrap;
         justify-content: center;
+        gap: 0.7rem;
         margin-top: 2.5rem;
         margin-bottom: 2.2rem;
+        padding: 0 0.75rem;
         z-index: 10;
         pointer-events: none;
         /* Let clicks pass through container if needed, but children have auto */
@@ -1052,9 +1056,22 @@ body.theme-dark .isbn-popup {
         pointer-events: auto;
     }
 
+    .search-wrapper {
+        order: 2;
+        flex: 0 1 100%;
+        justify-content: center;
+        max-width: 100%;
+    }
+
+    .stats-toggle,
+    .random-toggle,
+    #sort-control {
+        order: 1;
+    }
+
     /* Force expanded search style on mobile */
     .search-input {
-        width: 190px;
+        width: min(100%, 22rem);
         opacity: 1;
         pointer-events: auto;
         background: rgba(30, 30, 40, 0.9);
@@ -1062,7 +1079,7 @@ body.theme-dark .isbn-popup {
 
     /* Prevent expansion on mobile check */
     .search-wrapper.is-active .search-input {
-        width: 190px;
+        width: min(100%, 22rem);
     }
 
     /* Ensure sort button helps centering by matching height */
