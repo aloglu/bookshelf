@@ -73,6 +73,12 @@ if [ ! -f "$INSTALL_DIR/cli/bookshelf.mjs" ]; then
   exit 1
 fi
 
+if [ ! -f "$INSTALL_DIR/site/public/index.html" ]; then
+  echo "Install failed: $INSTALL_DIR/site/public/index.html was not found." >&2
+  echo "If installing from GitHub, commit and push the site template first." >&2
+  exit 1
+fi
+
 cat > "$BIN_PATH" <<EOF
 #!/usr/bin/env sh
 set -eu
@@ -83,7 +89,8 @@ EOF
 
 chmod +x "$BIN_PATH"
 
-echo "Installed bookshelf to $BIN_PATH"
+echo "Installed bookshelf command: $BIN_PATH"
+echo "Installed bookshelf files: $INSTALL_DIR"
 case ":$PATH:" in
   *":$BIN_DIR:"*) ;;
   *) echo "Add $BIN_DIR to PATH to run bookshelf from any directory." ;;

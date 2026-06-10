@@ -8,14 +8,13 @@ import { existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
-const PROJECT_ROOT = path.resolve(SCRIPT_DIR, "..");
-const BOOKS_JSON = path.join(PROJECT_ROOT, "data", "books.json");
-const BOOKS_JS = path.join(PROJECT_ROOT, "data", "books.js");
-const COVERS_DIR = path.join(PROJECT_ROOT, "data", "covers");
-const MANUAL_COVERS_DIR = path.join(PROJECT_ROOT, "data", "manual-covers");
+const APP_ROOT = path.resolve(SCRIPT_DIR, "..");
+const SITE_TEMPLATE_DIR = path.join(APP_ROOT, "site");
 const OPEN_LIBRARY_URL = "https://covers.openlibrary.org/b/isbn/{isbn}-L.jpg?default=false";
 const DEFAULT_INSTALL_DIR = path.join(process.env.HOME || "", ".local", "share", "bookshelf");
 const DEFAULT_BIN_PATH = path.join(process.env.HOME || "", ".local", "bin", "bookshelf");
+let projectDir = null;
+let projectPaths = null;
 
 const BOOK_FIELDS = [
   "title",
@@ -31,11 +30,13 @@ const OPTIONAL_FIELDS = BOOK_FIELDS.filter((field) => field !== "title");
 
 function usage() {
   console.log(`Usage:
-  bookshelf
-  bookshelf build [--fetch-covers] [--recompute-colors]
-  bookshelf add [--title VALUE] [--author VALUE] [--isbn VALUE] [--fetch-covers]
-  bookshelf update --id-or-isbn VALUE [--title VALUE] [--author VALUE] [...]
-  bookshelf remove --id-or-isbn VALUE
+  bookshelf [--project PATH]
+  bookshelf init [PATH]
+  bookshelf build [--project PATH] [--fetch-covers] [--recompute-colors]
+  bookshelf add [--project PATH] [--title VALUE] [--author VALUE] [--isbn VALUE] [--fetch-covers]
+  bookshelf update [--project PATH] --id-or-isbn VALUE [--title VALUE] [--author VALUE] [...]
+  bookshelf remove [--project PATH] --id-or-isbn VALUE
+  bookshelf covers [--project PATH] [--id-or-isbn VALUE] [--all] [--recompute-colors]
   bookshelf uninstall
   bookshelf validate`);
 }
@@ -67,9 +68,72 @@ function parseArgs(argv) {
   return args;
 }
 
+function shellQuote(value) {
+  return `'${String(value).replace(/'/g, "'\"'\"'")}'`;
+}
+
+function getProjectPaths(root) {
+  const separated = {
+    layout: "separated",
+    root,
+    publicDir: path.join(root, "public"),
+    sourceDir: path.join(root, "library"),
+    booksJson: path.join(root, "library", "books.json"),
+    booksJs: path.join(root, "public", "data", "books.js"),
+    coversDir: path.join(root, "public", "data", "covers"),
+    manualCoversDir: path.join(root, "library", "manual-covers"),
+    indexHtml: path.join(root, "public", "index.html"),
+  };
+
+  const legacy = {
+    layout: "legacy",
+    root,
+    publicDir: root,
+    sourceDir: path.join(root, "data"),
+    booksJson: path.join(root, "data", "books.json"),
+    booksJs: path.join(root, "data", "books.js"),
+    coversDir: path.join(root, "data", "covers"),
+    manualCoversDir: path.join(root, "data", "manual-covers"),
+    indexHtml: path.join(root, "index.html"),
+  };
+
+  if (existsSync(separated.booksJson) || existsSync(separated.indexHtml)) {
+    return separated;
+  }
+
+  return legacy;
+}
+
+function setProjectDir(root) {
+  projectDir = path.resolve(root);
+  projectPaths = getProjectPaths(projectDir);
+}
+
+function resolveProjectDir(args) {
+  const selected = args.project || process.env.BOOKSHELF_PROJECT_DIR || process.cwd();
+  if (selected === true) {
+    throw new Error("--project requires a path.");
+  }
+  return path.resolve(String(selected));
+}
+
+async function assertProject() {
+  if (!projectPaths) {
+    throw new Error("No bookshelf project directory has been selected.");
+  }
+
+  if (!existsSync(projectPaths.booksJson) || !existsSync(projectPaths.indexHtml)) {
+    throw new Error(
+      `No bookshelf project found at ${projectDir}.\n`
+      + "Run `bookshelf init .` in an empty folder, pass `--project PATH`, or cd into an existing bookshelf project.\n"
+      + "Expected either `library/books.json` with `public/index.html`, or the legacy `data/books.json` with `index.html`.",
+    );
+  }
+}
+
 async function ensureDirs() {
-  await fs.mkdir(COVERS_DIR, { recursive: true });
-  await fs.mkdir(MANUAL_COVERS_DIR, { recursive: true });
+  await fs.mkdir(projectPaths.coversDir, { recursive: true });
+  await fs.mkdir(projectPaths.manualCoversDir, { recursive: true });
 }
 
 async function readJsonFile(filePath) {
@@ -81,20 +145,21 @@ async function readJsonFile(filePath) {
 }
 
 async function loadBooks() {
-  const books = await readJsonFile(BOOKS_JSON);
+  await assertProject();
+  const books = await readJsonFile(projectPaths.booksJson);
   if (!Array.isArray(books)) {
-    throw new Error("data/books.json must contain a JSON array.");
+    throw new Error(`${path.relative(projectDir, projectPaths.booksJson)} must contain a JSON array.`);
   }
   return books;
 }
 
 async function saveBooks(books) {
-  await fs.writeFile(BOOKS_JSON, `${JSON.stringify(books, null, 4)}\n`, "utf8");
+  await fs.writeFile(projectPaths.booksJson, `${JSON.stringify(books, null, 4)}\n`, "utf8");
 }
 
 async function saveBooksJs(books) {
   await fs.writeFile(
-    BOOKS_JS,
+    projectPaths.booksJs,
     `window.booksData = ${JSON.stringify(books, null, 4)};\n`,
     "utf8",
   );
@@ -110,6 +175,10 @@ function cleanIsbn(value) {
   const normalized = normalizeBlank(value);
   if (!normalized) return "";
   return normalized.replace(/[^0-9Xx]/g, "").toUpperCase();
+}
+
+function bookKey(book) {
+  return cleanIsbn(book.isbn) || normalizeBlank(book.id);
 }
 
 function slugify(seed) {
@@ -209,7 +278,7 @@ async function findManualCover(book) {
   const paths = [];
   for (const candidate of candidates) {
     for (const ext of extensions) {
-      paths.push(path.join(MANUAL_COVERS_DIR, `${candidate}${ext}`));
+      paths.push(path.join(projectPaths.manualCoversDir, `${candidate}${ext}`));
     }
   }
   return firstExisting(paths);
@@ -265,11 +334,19 @@ async function buildLibrary(options = {}) {
   }
 
   const canConvert = hasConvert();
-  const stats = { books: books.length, manuals: 0, downloads: 0, colored: 0, skipped: 0 };
+  const stats = { books: books.length, processed: 0, manuals: 0, downloads: 0, colored: 0, skipped: 0 };
+  const fetchOnly = options.fetchOnly ? new Set(options.fetchOnly.filter(Boolean)) : null;
+  const processOnly = options.processOnly ? new Set(options.processOnly.filter(Boolean)) : null;
 
   for (const book of books) {
+    if (processOnly && !processOnly.has(bookKey(book))) {
+      continue;
+    }
+
+    stats.processed += 1;
+
     const filename = coverFilename(book);
-    const destPath = path.join(COVERS_DIR, filename);
+    const destPath = path.join(projectPaths.coversDir, filename);
     const manualCover = await findManualCover(book);
 
     if (manualCover) {
@@ -282,7 +359,11 @@ async function buildLibrary(options = {}) {
       }
     }
 
-    if (!existsSync(destPath) && options.fetchCovers && cleanIsbn(book.isbn)) {
+    const shouldFetchCover = options.fetchCovers
+      && cleanIsbn(book.isbn)
+      && (!fetchOnly || fetchOnly.has(bookKey(book)));
+
+    if (!existsSync(destPath) && shouldFetchCover) {
       process.stdout.write(`Fetching cover: ${book.title}... `);
       try {
         if (await fetchCover(cleanIsbn(book.isbn), destPath)) {
@@ -351,7 +432,12 @@ async function addBook(values, options = {}) {
   }
   books.push(book);
   await saveBooks(books);
-  return buildLibrary(options);
+  const key = bookKey(book);
+  return buildLibrary({
+    ...options,
+    fetchOnly: options.fetchCovers ? [key] : null,
+    processOnly: [key],
+  });
 }
 
 async function updateBook(idOrIsbn, updates, options = {}) {
@@ -375,7 +461,12 @@ async function updateBook(idOrIsbn, updates, options = {}) {
 
   books[index] = next;
   await saveBooks(books);
-  return buildLibrary(options);
+  const key = bookKey(next);
+  return buildLibrary({
+    ...options,
+    fetchOnly: options.fetchCovers ? [key] : null,
+    processOnly: [key],
+  });
 }
 
 async function removeBook(idOrIsbn, options = {}) {
@@ -386,8 +477,31 @@ async function removeBook(idOrIsbn, options = {}) {
   }
   const [removed] = books.splice(index, 1);
   await saveBooks(books);
-  const stats = await buildLibrary(options);
+  await saveBooksJs(books);
+  const stats = { books: books.length, processed: 0, manuals: 0, downloads: 0, colored: 0, skipped: 0 };
   return { removed, stats };
+}
+
+async function applyManualCovers(idOrIsbn, options = {}) {
+  const books = (await loadBooks()).map(normalizeBook);
+  const errors = validateBooks(books);
+  if (errors.length) {
+    throw new Error(`Validation failed:\n${errors.map((error) => `- ${error}`).join("\n")}`);
+  }
+
+  if (!idOrIsbn) {
+    return buildLibrary({ recomputeColors: Boolean(options.recomputeColors) });
+  }
+
+  const index = findBookIndex(books, idOrIsbn);
+  if (index === -1) {
+    throw new Error(`No book found for "${idOrIsbn}".`);
+  }
+
+  return buildLibrary({
+    recomputeColors: Boolean(options.recomputeColors),
+    processOnly: [bookKey(books[index])],
+  });
 }
 
 function valuesFromArgs(args) {
@@ -405,14 +519,17 @@ function hasAnyValue(values) {
 }
 
 function printStats(stats) {
-  console.log(`Done. Books: ${stats.books}. Manual covers: ${stats.manuals}. Downloaded: ${stats.downloads}. Colors: ${stats.colored}. Missing covers: ${stats.skipped}.`);
+  const processed = Number.isInteger(stats.processed) ? ` Processed: ${stats.processed}.` : "";
+  console.log(`Done. Books: ${stats.books}.${processed} Manual covers: ${stats.manuals}. Downloaded: ${stats.downloads}. Colors: ${stats.colored}. Missing covers: ${stats.skipped}.`);
 }
 
 async function promptBookFields(rl, existing = {}) {
   const values = {};
   for (const field of BOOK_FIELDS) {
     const current = existing[field];
-    const label = field === "published" ? "Published year" : field[0].toUpperCase() + field.slice(1);
+    let label = field[0].toUpperCase() + field.slice(1);
+    if (field === "isbn") label = "ISBN (978-XXXXXXXXXX)";
+    if (field === "published") label = "Published year";
     const required = field === "title" && !existing.title ? " required" : "";
     const suffix = current !== undefined && current !== null ? ` [${current}]` : "";
     const answer = await rl.question(`${label}${required}${suffix}: `);
@@ -479,7 +596,7 @@ async function interactiveUpdate(rl) {
   if (!selected) return;
   console.log("Press Enter to keep the existing value.");
   const values = await promptBookFields(rl, selected);
-  const fetchAnswer = await rl.question("Fetch missing cover if needed? [y/N]: ");
+  const fetchAnswer = await rl.question("Fetch cover for this book if needed? [y/N]: ");
   const stats = await updateBook(selected.id, values, {
     fetchCovers: /^y(es)?$/i.test(fetchAnswer.trim()),
   });
@@ -500,6 +617,22 @@ async function interactiveRemove(rl) {
   printStats(stats);
 }
 
+async function interactiveCovers(rl) {
+  const allAnswer = await rl.question("Apply all matching manual covers? [y/N]: ");
+  const recomputeAnswer = await rl.question("Recompute spine colors for applied cover(s)? [y/N]: ");
+  const recomputeColors = /^y(es)?$/i.test(recomputeAnswer.trim());
+
+  if (/^y(es)?$/i.test(allAnswer.trim())) {
+    printStats(await applyManualCovers(null, { recomputeColors }));
+    return;
+  }
+
+  const books = (await loadBooks()).map(normalizeBook);
+  const selected = await promptSearch(rl, books);
+  if (!selected) return;
+  printStats(await applyManualCovers(selected.id, { recomputeColors }));
+}
+
 async function interactiveMain() {
   const rl = createInterface({ input, output });
   try {
@@ -509,6 +642,7 @@ async function interactiveMain() {
     console.log("3. Modify an existing book");
     console.log("4. Remove a book");
     console.log("5. Validate library");
+    console.log("6. Apply manual cover(s)");
     console.log("Q. Quit");
 
     const choice = (await rl.question("Choose an option: ")).trim().toLowerCase();
@@ -517,6 +651,7 @@ async function interactiveMain() {
     else if (choice === "3") await interactiveUpdate(rl);
     else if (choice === "4") await interactiveRemove(rl);
     else if (choice === "5") await validateCommand();
+    else if (choice === "6") await interactiveCovers(rl);
     else if (choice === "q" || choice === "quit") return;
     else console.log("Invalid option.");
   } finally {
@@ -574,11 +709,68 @@ async function maybePromptRemove(args, options) {
   }
 }
 
+async function maybePromptCovers(args, options) {
+  if (args.all) {
+    printStats(await applyManualCovers(null, options));
+    return;
+  }
+
+  if (args["id-or-isbn"] || !process.stdin.isTTY) {
+    printStats(await applyManualCovers(args["id-or-isbn"], options));
+    return;
+  }
+
+  const rl = createInterface({ input, output });
+  try {
+    await interactiveCovers(rl);
+  } finally {
+    rl.close();
+  }
+}
+
+async function isDirectoryEmpty(dir) {
+  try {
+    const entries = await fs.readdir(dir);
+    return entries.length === 0;
+  } catch (error) {
+    if (error.code === "ENOENT") return true;
+    throw error;
+  }
+}
+
+async function initProject(targetPath, args) {
+  const targetDir = path.resolve(targetPath || ".");
+  const force = Boolean(args.force);
+
+  if (!existsSync(SITE_TEMPLATE_DIR)) {
+    throw new Error(`Site template not found at ${SITE_TEMPLATE_DIR}.`);
+  }
+
+  if (path.resolve(SITE_TEMPLATE_DIR) === targetDir) {
+    throw new Error("Refusing to initialize a project over the installed site template.");
+  }
+
+  if (existsSync(targetDir) && !(await isDirectoryEmpty(targetDir)) && !force) {
+    throw new Error(`Target directory is not empty: ${targetDir}\nUse --force to copy into it anyway.`);
+  }
+
+  await fs.mkdir(targetDir, { recursive: true });
+  await fs.cp(SITE_TEMPLATE_DIR, targetDir, {
+    recursive: true,
+    force,
+    errorOnExist: false,
+  });
+
+  console.log(`Initialized bookshelf project: ${targetDir}`);
+  console.log(`Run: cd ${shellQuote(targetDir)}`);
+  console.log("Then: bookshelf");
+}
+
 async function uninstallCommand(args) {
   const installDir = process.env.BOOKSHELF_INSTALL_DIR || DEFAULT_INSTALL_DIR;
   const binPath = process.env.BOOKSHELF_BIN_PATH || DEFAULT_BIN_PATH;
   const force = Boolean(args.force);
-  const currentRoot = path.resolve(PROJECT_ROOT);
+  const currentRoot = path.resolve(APP_ROOT);
   const targetRoot = path.resolve(installDir);
 
   if (currentRoot !== targetRoot && !force) {
@@ -608,14 +800,29 @@ async function main() {
     recomputeColors: Boolean(args["recompute-colors"]),
   };
 
+  if (command === "help" || command === "--help" || command === "-h") {
+    usage();
+    return;
+  }
+
+  if (command === "init") {
+    await initProject(args._[1], args);
+    return;
+  }
+
+  if (command === "uninstall") {
+    await uninstallCommand(args);
+    return;
+  }
+
+  setProjectDir(resolveProjectDir(args));
+
   if (!command) {
     await interactiveMain();
     return;
   }
 
-  if (command === "help" || command === "--help" || command === "-h") {
-    usage();
-  } else if (command === "build") {
+  if (command === "build") {
     printStats(await buildLibrary(options));
   } else if (command === "validate") {
     await validateCommand();
@@ -625,8 +832,8 @@ async function main() {
     await maybePromptUpdate(args, options);
   } else if (command === "remove" || command === "delete") {
     await maybePromptRemove(args, options);
-  } else if (command === "uninstall") {
-    await uninstallCommand(args);
+  } else if (command === "covers" || command === "cover") {
+    await maybePromptCovers(args, options);
   } else {
     usage();
     process.exitCode = 1;
