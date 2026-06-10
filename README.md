@@ -1,6 +1,6 @@
 # Bookshelf
 
-An interactive web-based library to showcase your book collection.
+An interactive web-based library to showcase your book collection. To preview what it looks like in production, feel free to visit [my own bookshelf](https://aloglu/bookshelf).
 
 ## Features
 
