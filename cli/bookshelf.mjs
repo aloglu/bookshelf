@@ -104,6 +104,24 @@ function getProjectPaths(root) {
   return legacy;
 }
 
+function hasCompleteProject(root) {
+  const paths = getProjectPaths(path.resolve(root));
+  return existsSync(paths.booksJson) && existsSync(paths.indexHtml);
+}
+
+function hasProjectData(root) {
+  const resolved = path.resolve(root);
+  const candidates = [
+    path.join(resolved, "library", "books.json"),
+    path.join(resolved, "library", "manual-covers"),
+    path.join(resolved, "public", "data", "covers"),
+    path.join(resolved, "data", "books.json"),
+    path.join(resolved, "data", "manual-covers"),
+    path.join(resolved, "data", "covers"),
+  ];
+  return candidates.some((candidate) => existsSync(candidate));
+}
+
 function setProjectDir(root) {
   projectDir = path.resolve(root);
   projectPaths = getProjectPaths(projectDir);
@@ -123,9 +141,16 @@ async function assertProject() {
   }
 
   if (!existsSync(projectPaths.booksJson) || !existsSync(projectPaths.indexHtml)) {
+    if (hasProjectData(projectDir)) {
+      throw new Error(
+        `Found bookshelf data at ${projectDir}, but the site template is missing.\n`
+        + "Run `bookshelf init .` from that directory to add missing site files without overwriting your library data.",
+      );
+    }
+
     throw new Error(
       `No bookshelf project found at ${projectDir}.\n`
-      + "Run `bookshelf init .` in an empty folder, pass `--project PATH`, or cd into an existing bookshelf project.\n"
+      + "Create a dedicated project folder with `bookshelf init ~/my-bookshelf`, pass `--project PATH`, or cd into an existing bookshelf project.\n"
       + "Expected either `library/books.json` with `public/index.html`, or the legacy `data/books.json` with `index.html`.",
     );
   }
@@ -738,9 +763,70 @@ async function isDirectoryEmpty(dir) {
   }
 }
 
+async function copyTemplatePreservingData(source, target, targetRoot = target) {
+  const entries = await fs.readdir(source, { withFileTypes: true });
+  for (const entry of entries) {
+    const sourcePath = path.join(source, entry.name);
+    const targetPath = path.join(target, entry.name);
+    const relativeTarget = path.relative(targetRoot, targetPath);
+    const preserveExisting = [
+      path.join("library", "books.json"),
+      path.join("public", "data", "books.js"),
+    ].includes(relativeTarget);
+
+    if (entry.isDirectory()) {
+      await fs.mkdir(targetPath, { recursive: true });
+      await copyTemplatePreservingData(sourcePath, targetPath, targetRoot);
+    } else if (preserveExisting && existsSync(targetPath)) {
+      continue;
+    } else {
+      await fs.copyFile(sourcePath, targetPath);
+    }
+  }
+}
+
+async function copyIfMissing(source, target) {
+  if (!existsSync(source) || existsSync(target)) return;
+  await fs.mkdir(path.dirname(target), { recursive: true });
+  await fs.cp(source, target, { recursive: true, errorOnExist: false, force: false });
+}
+
+async function mergeDirectoryIfPresent(source, target) {
+  if (!existsSync(source)) return;
+  await fs.mkdir(target, { recursive: true });
+  const entries = await fs.readdir(source, { withFileTypes: true });
+  for (const entry of entries) {
+    const sourcePath = path.join(source, entry.name);
+    const targetPath = path.join(target, entry.name);
+    if (entry.isDirectory()) {
+      await mergeDirectoryIfPresent(sourcePath, targetPath);
+    } else if (!existsSync(targetPath)) {
+      await fs.copyFile(sourcePath, targetPath);
+    }
+  }
+}
+
+async function migrateLegacyData(targetDir) {
+  await copyIfMissing(
+    path.join(targetDir, "data", "books.json"),
+    path.join(targetDir, "library", "books.json"),
+  );
+  await mergeDirectoryIfPresent(
+    path.join(targetDir, "data", "manual-covers"),
+    path.join(targetDir, "library", "manual-covers"),
+  );
+  await mergeDirectoryIfPresent(
+    path.join(targetDir, "data", "covers"),
+    path.join(targetDir, "public", "data", "covers"),
+  );
+}
+
 async function initProject(targetPath, args) {
   const targetDir = path.resolve(targetPath || ".");
-  const force = Boolean(args.force);
+  const isEmpty = await isDirectoryEmpty(targetDir);
+  const hasData = hasProjectData(targetDir);
+  const isComplete = hasCompleteProject(targetDir);
+  const isHome = process.env.HOME && targetDir === path.resolve(process.env.HOME);
 
   if (!existsSync(SITE_TEMPLATE_DIR)) {
     throw new Error(`Site template not found at ${SITE_TEMPLATE_DIR}.`);
@@ -750,16 +836,27 @@ async function initProject(targetPath, args) {
     throw new Error("Refusing to initialize a project over the installed site template.");
   }
 
-  if (existsSync(targetDir) && !(await isDirectoryEmpty(targetDir)) && !force) {
-    throw new Error(`Target directory is not empty: ${targetDir}\nUse --force to copy into it anyway.`);
+  if (isHome && !isComplete && !hasData) {
+    throw new Error(
+      "Refusing to initialize directly into your home directory.\n"
+      + "Create a dedicated folder instead, for example: `bookshelf init ~/my-bookshelf`.",
+    );
+  }
+
+  if (!isEmpty && !hasData && !isComplete) {
+    throw new Error(
+      `Target directory is not empty and does not look like a bookshelf project: ${targetDir}\n`
+      + "Create a dedicated folder instead, for example: `bookshelf init ~/my-bookshelf`.",
+    );
   }
 
   await fs.mkdir(targetDir, { recursive: true });
-  await fs.cp(SITE_TEMPLATE_DIR, targetDir, {
-    recursive: true,
-    force,
-    errorOnExist: false,
-  });
+  await migrateLegacyData(targetDir);
+  await copyTemplatePreservingData(SITE_TEMPLATE_DIR, targetDir);
+
+  setProjectDir(targetDir);
+  const books = await loadBooks();
+  await saveBooksJs(books);
 
   console.log(`Initialized bookshelf project: ${targetDir}`);
   console.log(`Run: cd ${shellQuote(targetDir)}`);
@@ -818,6 +915,7 @@ async function main() {
   setProjectDir(resolveProjectDir(args));
 
   if (!command) {
+    await assertProject();
     await interactiveMain();
     return;
   }

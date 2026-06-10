@@ -103,6 +103,19 @@ A bookshelf project created with `bookshelf init ~/my-bookshelf` separates edita
 
 New projects start with an empty library.
 
+To migrate an old backup into a new folder, copy your old files first, then initialize the folder:
+
+```bash
+mkdir -p ~/my-bookshelf/library ~/my-bookshelf/public/data
+cp old-backup/data/books.json ~/my-bookshelf/library/books.json
+cp -a old-backup/data/covers ~/my-bookshelf/public/data/covers
+cp -a old-backup/data/manual-covers ~/my-bookshelf/library/manual-covers
+bookshelf init ~/my-bookshelf
+bookshelf --project ~/my-bookshelf build
+```
+
+`bookshelf init` adds any missing site files without overwriting `library/books.json`, existing manual covers, or existing published covers.
+
 Run `bookshelf` from inside the project directory. For automation, pass the project path explicitly:
 
 ```bash
