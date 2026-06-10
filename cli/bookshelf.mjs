@@ -648,7 +648,11 @@ async function maybePromptAdd(args, options) {
   const rl = createInterface({ input, output });
   try {
     const prompted = await promptBookFields(rl);
-    const stats = await addBook(prompted, options);
+    const fetchAnswer = await rl.question("Fetch cover now? [y/N]: ");
+    const stats = await addBook(prompted, {
+      ...options,
+      fetchCovers: options.fetchCovers || /^y(es)?$/i.test(fetchAnswer.trim()),
+    });
     printStats(stats);
   } finally {
     rl.close();
