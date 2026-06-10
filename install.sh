@@ -50,20 +50,16 @@ elif command -v git >/dev/null 2>&1; then
     rm -rf "$INSTALL_DIR"
     git clone "$REPO_URL" "$INSTALL_DIR"
   fi
-elif command -v curl >/dev/null 2>&1 || command -v wget >/dev/null 2>&1; then
-  TMP_DIR=$(mktemp -d)
+elif command -v curl >/dev/null 2>&1; then
+  TMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/bookshelf.XXXXXX")
   ARCHIVE_PATH="$TMP_DIR/bookshelf.tar.gz"
-  if command -v curl >/dev/null 2>&1; then
-    curl -fsSL "$ARCHIVE_URL" -o "$ARCHIVE_PATH"
-  else
-    wget -qO "$ARCHIVE_PATH" "$ARCHIVE_URL"
-  fi
+  curl -fsSL "$ARCHIVE_URL" -o "$ARCHIVE_PATH"
   rm -rf "$INSTALL_DIR"
   mkdir -p "$INSTALL_DIR"
   tar -xzf "$ARCHIVE_PATH" -C "$INSTALL_DIR" --strip-components=1
   rm -rf "$TMP_DIR"
 else
-  echo "git, curl, or wget is required for this installer." >&2
+  echo "git or curl is required for this installer." >&2
   exit 1
 fi
 

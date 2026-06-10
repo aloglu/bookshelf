@@ -1,6 +1,6 @@
 # Bookshelf
 
-An interactive web-based library to showcase your book collection. You can interact with a demo page [here](https://aloglu.github.io/bookshelf).
+An interactive web-based library to showcase your book collection.
 
 ## Features
 
@@ -12,13 +12,15 @@ An interactive web-based library to showcase your book collection. You can inter
 - **Performance**: Lazy loading for covers and DOM elements.
 - **Search & Filter**: Instant fuzzy search and filtering by author, title, or year.
 - **Auto-Theming**: Extracts cover colors to color-code book spines and details.
-- **Guided Library Management**: A Linux CLI for building, adding, editing, removing, and validating books.
+- **Guided Library Management**: A CLI for building, adding, editing, removing, and validating books.
 
 ## Requirements
 
-- Linux
+- Linux is the supported target.
 - Node.js 18 or newer
 - Optional: ImageMagick for spine color extraction
+
+The CLI is plain Node.js and may work on macOS, but macOS is not currently tested or documented as a supported platform. The installer intentionally uses the Linux/XDG-style per-user layout under `~/.local`.
 
 ## Installation
 
@@ -26,12 +28,6 @@ Install the `bookshelf` command:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/aloglu/bookshelf/main/install.sh | bash
-```
-
-If you prefer `wget`:
-
-```bash
-wget -qO- https://raw.githubusercontent.com/aloglu/bookshelf/main/install.sh | bash
 ```
 
 The installer follows the usual per-user Linux layout:
