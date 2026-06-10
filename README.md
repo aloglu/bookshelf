@@ -6,67 +6,119 @@ An interactive web-based library to showcase your book collection. You can inter
 
 - **Three Unique Views**:
   - **Shelf**: A realistic, scrolling bookshelf with physics-based momentum and tilt animations.
-  - **Stacks**: A clean, grid-based list view for efficiency (mobile-friendly).
+  - **Stacks**: A clean, grid-based list view for efficiency.
   - **Coverflow**: A coverflow view of your library.
 - **Dynamic Physics**: Smooth scrolling and tilt mechanics that react to your scroll velocity.
-- **Performance**: Implements lazy loading for covers and DOM elements, ensuring smooth performance even with large libraries.
+- **Performance**: Lazy loading for covers and DOM elements.
 - **Search & Filter**: Instant fuzzy search and filtering by author, title, or year.
-- **Auto-Theming**: Extracts distinct color palettes from book covers to color-code the spine and details.
-- **Data Pipeline**: Python and PowerShell scripts included to:
-  - Read from a simple Excel spreadsheet (or JSON).
-  - Automatically fetch high-res covers from OpenLibrary or Goodreads.
-  - Extract spine colors for the UI.
+- **Auto-Theming**: Extracts cover colors to color-code book spines and details.
+- **Guided Library Management**: A Linux CLI for building, adding, editing, removing, and validating books.
 
-## Getting Started
+## Requirements
 
-### Prerequisites
-- A modern web browser.
-- **Optional**: Python 3.x (with `urllib` standard lib) *or* PowerShell (Windows).
-- **Optional**: Microsoft Excel (for managing the library easily).
+- Linux
+- Node.js 18 or newer
+- Optional: ImageMagick for spine color extraction
 
-### Installation
+## Installation
 
-1. Clone or download this repository.
-2. Open `index.html` in your browser.
+Install the `bookshelf` command:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/aloglu/bookshelf/main/install.sh | bash
+```
+
+If you prefer `wget`:
+
+```bash
+wget -qO- https://raw.githubusercontent.com/aloglu/bookshelf/main/install.sh | bash
+```
+
+The installer places the project in `~/.local/share/bookshelf` and creates `~/.local/bin/bookshelf`.
+If `~/.local/bin` is not in your `PATH`, add it to your shell profile.
+
+When developing locally before changes are pushed to GitHub, run the installer from the checkout instead:
+
+```bash
+./install.sh
+```
+
+Uninstall:
+
+```bash
+bookshelf uninstall
+```
+
+If the installed command is broken, run:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/aloglu/bookshelf/main/install.sh | bash -s -- --uninstall
+```
+
+## Viewing the Shelf
+
+Open `index.html` in your browser.
 
 ## Managing Your Library
 
-This project includes build scripts to generate the `books.json` and `books.js` data files from a source of truth (Excel or manual JSON).
+Run the interactive manager:
 
-### 1. The Source Data
-The build scripts look for a file named `My Library.xlsx` in the root directory. If this file is missing, they will default to reading `data/books.json` directly.
-
-**Excel Format** (`My Library.xlsx`):
-Create an Excel file with the following headers:
-- **Title** (Required)
-- **Author**
-- **ISBN** (Highly Recommended for fetching covers)
-- **Translator**
-- **Publisher**
-- **Binding** (Hardcover/Paperback)
-- **Published** (Year)
-
-### 2. Building the Library
-Run the build script to generate the web-ready data files and fetch missing covers.
-
-**Using Windows (PowerShell)**:
-```powershell
-.\build\build-library.ps1
-```
-
-**Using Python (Mac/Linux/Windows)**:
 ```bash
-python3 build/build-library.py
+bookshelf
 ```
 
-The interactive menus of both scripts provide the following options:
-1. **Open Library**: Attempts to fetch covers from the Open Library API. This is the fastest method but may have lower resolution images or gaps in coverage.
-2. **Goodreads**: Scrapes high-quality covers from Goodreads. This method is slower due to rate-limiting (to avoid being blocked) but generally yields the best aesthetic results.
-3. **Offline Mode**: Useful for regenerating the `books.js` and `books.json` files from your source (Excel) without making any network requests. Use this if you just want to update metadata or titles.
-4. **Apply Manual Covers**: Scans the `data/manual-covers` directory for images matching a book’s ISBN or ID and forcibly applies them, overriding any downloaded images.
+The manager asks what you want to do:
 
-### 3. Verification
-Check `data/covers/` to ensure images were downloaded. You can override any cover by placing a `.jpg` in `data/manual-covers/` with the book’s ISBN as the filename.
+- Build or refresh the library
+- Add a new book
+- Modify an existing book
+- Remove a book
+- Validate the library
+
+`data/books.json` is the editable source of truth. `data/books.js` is generated for the frontend.
+
+## Direct Commands
+
+The guided workflow is intended for normal use, but direct commands are available for automation and future web tooling:
+
+```bash
+bookshelf build
+bookshelf add
+bookshelf update
+bookshelf remove
+bookshelf validate
+```
+
+Examples:
+
+```bash
+bookshelf add --title "Dune" --author "Frank Herbert" --isbn "9780441172719"
+bookshelf build --fetch-covers
+bookshelf update --id-or-isbn "9780441172719" --binding "Hardcover"
+bookshelf remove --id-or-isbn "9780441172719"
+```
+
+## Covers
+
+Existing covers live in `data/covers`.
+
+To override a cover manually, place an image in `data/manual-covers` using the book ISBN or id as the filename:
+
+```text
+data/manual-covers/9780441172719.jpg
+```
+
+Then run:
+
+```bash
+bookshelf build
+```
+
+To fetch missing ISBN covers from Open Library:
+
+```bash
+bookshelf build --fetch-covers
+```
 
 ## License
 
@@ -74,4 +126,4 @@ Released under the [MIT License](https://github.com/aloglu/bookshelf/blob/main/L
 
 ## Acknowledgements
 
-I was inspired by [Marius Balaj](https://balajmarius.com/writings/vibe-coding-a-bookshelf-with-claude-code/)’s own bookshelf project. This project too was mostly built by Codex and Gemini.
+I was inspired by [Marius Balaj](https://balajmarius.com/writings/vibe-coding-a-bookshelf-with-claude-code/)’s own bookshelf project.
