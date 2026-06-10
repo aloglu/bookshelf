@@ -33,6 +33,47 @@ fi
 mkdir -p "$BIN_DIR"
 mkdir -p "$(dirname "$INSTALL_DIR")"
 
+BACKUP_DIR=""
+backup_user_data() {
+  if [ -d "$INSTALL_DIR" ]; then
+    BACKUP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/bookshelf-backup.XXXXXX")
+    if [ -d "$INSTALL_DIR/library" ]; then
+      mkdir -p "$BACKUP_DIR"
+      cp -a "$INSTALL_DIR/library" "$BACKUP_DIR/library"
+    fi
+    if [ -d "$INSTALL_DIR/public/data/covers" ]; then
+      mkdir -p "$BACKUP_DIR/public/data"
+      cp -a "$INSTALL_DIR/public/data/covers" "$BACKUP_DIR/public/data/covers"
+    fi
+    if [ -f "$INSTALL_DIR/public/data/books.js" ]; then
+      mkdir -p "$BACKUP_DIR/public/data"
+      cp -a "$INSTALL_DIR/public/data/books.js" "$BACKUP_DIR/public/data/books.js"
+    fi
+  fi
+}
+
+restore_user_data() {
+  if [ -n "$BACKUP_DIR" ] && [ -d "$BACKUP_DIR" ]; then
+    if [ -d "$BACKUP_DIR/library" ]; then
+      rm -rf "$INSTALL_DIR/library"
+      mkdir -p "$INSTALL_DIR"
+      cp -a "$BACKUP_DIR/library" "$INSTALL_DIR/library"
+    fi
+    if [ -d "$BACKUP_DIR/public/data/covers" ]; then
+      rm -rf "$INSTALL_DIR/public/data/covers"
+      mkdir -p "$INSTALL_DIR/public/data"
+      cp -a "$BACKUP_DIR/public/data/covers" "$INSTALL_DIR/public/data/covers"
+    fi
+    if [ -f "$BACKUP_DIR/public/data/books.js" ]; then
+      mkdir -p "$INSTALL_DIR/public/data"
+      cp -a "$BACKUP_DIR/public/data/books.js" "$INSTALL_DIR/public/data/books.js"
+    fi
+    rm -rf "$BACKUP_DIR"
+  fi
+}
+
+backup_user_data
+
 if [ -f "$SCRIPT_DIR/cli/bookshelf.mjs" ]; then
   rm -rf "$INSTALL_DIR"
   mkdir -p "$INSTALL_DIR"
@@ -63,15 +104,23 @@ else
   exit 1
 fi
 
+restore_user_data
+
 if [ ! -f "$INSTALL_DIR/cli/bookshelf.mjs" ]; then
   echo "Install failed: $INSTALL_DIR/cli/bookshelf.mjs was not found." >&2
   echo "If installing from GitHub, commit and push the CLI files first." >&2
   exit 1
 fi
 
-if [ ! -f "$INSTALL_DIR/site/public/index.html" ]; then
-  echo "Install failed: $INSTALL_DIR/site/public/index.html was not found." >&2
-  echo "If installing from GitHub, commit and push the site template first." >&2
+if [ ! -f "$INSTALL_DIR/public/index.html" ]; then
+  echo "Install failed: $INSTALL_DIR/public/index.html was not found." >&2
+  echo "If installing from GitHub, commit and push the public site files first." >&2
+  exit 1
+fi
+
+if [ ! -f "$INSTALL_DIR/library/books.json" ]; then
+  echo "Install failed: $INSTALL_DIR/library/books.json was not found." >&2
+  echo "If installing from GitHub, commit and push the library files first." >&2
   exit 1
 fi
 

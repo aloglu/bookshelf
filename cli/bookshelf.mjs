@@ -9,12 +9,19 @@ import { spawnSync } from "node:child_process";
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const APP_ROOT = path.resolve(SCRIPT_DIR, "..");
-const SITE_TEMPLATE_DIR = path.join(APP_ROOT, "site");
 const OPEN_LIBRARY_URL = "https://covers.openlibrary.org/b/isbn/{isbn}-L.jpg?default=false";
 const DEFAULT_INSTALL_DIR = path.join(process.env.HOME || "", ".local", "share", "bookshelf");
 const DEFAULT_BIN_PATH = path.join(process.env.HOME || "", ".local", "bin", "bookshelf");
-let projectDir = null;
-let projectPaths = null;
+const bookshelfPaths = {
+  root: APP_ROOT,
+  publicDir: path.join(APP_ROOT, "public"),
+  sourceDir: path.join(APP_ROOT, "library"),
+  booksJson: path.join(APP_ROOT, "library", "books.json"),
+  booksJs: path.join(APP_ROOT, "public", "data", "books.js"),
+  coversDir: path.join(APP_ROOT, "public", "data", "covers"),
+  manualCoversDir: path.join(APP_ROOT, "library", "manual-covers"),
+  indexHtml: path.join(APP_ROOT, "public", "index.html"),
+};
 
 const BOOK_FIELDS = [
   "title",
@@ -30,13 +37,12 @@ const OPTIONAL_FIELDS = BOOK_FIELDS.filter((field) => field !== "title");
 
 function usage() {
   console.log(`Usage:
-  bookshelf [--project PATH]
-  bookshelf init [PATH]
-  bookshelf build [--project PATH] [--fetch-covers] [--recompute-colors]
-  bookshelf add [--project PATH] [--title VALUE] [--author VALUE] [--isbn VALUE] [--fetch-covers]
-  bookshelf update [--project PATH] --id-or-isbn VALUE [--title VALUE] [--author VALUE] [...]
-  bookshelf remove [--project PATH] --id-or-isbn VALUE
-  bookshelf covers [--project PATH] [--id-or-isbn VALUE] [--all] [--recompute-colors]
+  bookshelf
+  bookshelf build [--fetch-covers] [--recompute-colors]
+  bookshelf add [--title VALUE] [--author VALUE] [--isbn VALUE] [--fetch-covers]
+  bookshelf update --id-or-isbn VALUE [--title VALUE] [--author VALUE] [...]
+  bookshelf remove --id-or-isbn VALUE
+  bookshelf covers [--id-or-isbn VALUE] [--all] [--recompute-colors]
   bookshelf uninstall
   bookshelf validate`);
 }
@@ -68,97 +74,18 @@ function parseArgs(argv) {
   return args;
 }
 
-function shellQuote(value) {
-  return `'${String(value).replace(/'/g, "'\"'\"'")}'`;
-}
-
-function getProjectPaths(root) {
-  const separated = {
-    layout: "separated",
-    root,
-    publicDir: path.join(root, "public"),
-    sourceDir: path.join(root, "library"),
-    booksJson: path.join(root, "library", "books.json"),
-    booksJs: path.join(root, "public", "data", "books.js"),
-    coversDir: path.join(root, "public", "data", "covers"),
-    manualCoversDir: path.join(root, "library", "manual-covers"),
-    indexHtml: path.join(root, "public", "index.html"),
-  };
-
-  const legacy = {
-    layout: "legacy",
-    root,
-    publicDir: root,
-    sourceDir: path.join(root, "data"),
-    booksJson: path.join(root, "data", "books.json"),
-    booksJs: path.join(root, "data", "books.js"),
-    coversDir: path.join(root, "data", "covers"),
-    manualCoversDir: path.join(root, "data", "manual-covers"),
-    indexHtml: path.join(root, "index.html"),
-  };
-
-  if (existsSync(separated.booksJson) || existsSync(separated.indexHtml)) {
-    return separated;
-  }
-
-  return legacy;
-}
-
-function hasCompleteProject(root) {
-  const paths = getProjectPaths(path.resolve(root));
-  return existsSync(paths.booksJson) && existsSync(paths.indexHtml);
-}
-
-function hasProjectData(root) {
-  const resolved = path.resolve(root);
-  const candidates = [
-    path.join(resolved, "library", "books.json"),
-    path.join(resolved, "library", "manual-covers"),
-    path.join(resolved, "public", "data", "covers"),
-    path.join(resolved, "data", "books.json"),
-    path.join(resolved, "data", "manual-covers"),
-    path.join(resolved, "data", "covers"),
-  ];
-  return candidates.some((candidate) => existsSync(candidate));
-}
-
-function setProjectDir(root) {
-  projectDir = path.resolve(root);
-  projectPaths = getProjectPaths(projectDir);
-}
-
-function resolveProjectDir(args) {
-  const selected = args.project || process.env.BOOKSHELF_PROJECT_DIR || process.cwd();
-  if (selected === true) {
-    throw new Error("--project requires a path.");
-  }
-  return path.resolve(String(selected));
-}
-
-async function assertProject() {
-  if (!projectPaths) {
-    throw new Error("No bookshelf project directory has been selected.");
-  }
-
-  if (!existsSync(projectPaths.booksJson) || !existsSync(projectPaths.indexHtml)) {
-    if (hasProjectData(projectDir)) {
-      throw new Error(
-        `Found bookshelf data at ${projectDir}, but the site template is missing.\n`
-        + "Run `bookshelf init .` from that directory to add missing site files without overwriting your library data.",
-      );
-    }
-
+async function assertBookshelf() {
+  if (!existsSync(bookshelfPaths.booksJson) || !existsSync(bookshelfPaths.indexHtml)) {
     throw new Error(
-      `No bookshelf project found at ${projectDir}.\n`
-      + "Create a dedicated project folder with `bookshelf init ~/my-bookshelf`, pass `--project PATH`, or cd into an existing bookshelf project.\n"
-      + "Expected either `library/books.json` with `public/index.html`, or the legacy `data/books.json` with `index.html`.",
+      `Installed bookshelf files are incomplete at ${APP_ROOT}.\n`
+      + "Reinstall with the curl installer, then run `bookshelf build`.",
     );
   }
 }
 
 async function ensureDirs() {
-  await fs.mkdir(projectPaths.coversDir, { recursive: true });
-  await fs.mkdir(projectPaths.manualCoversDir, { recursive: true });
+  await fs.mkdir(bookshelfPaths.coversDir, { recursive: true });
+  await fs.mkdir(bookshelfPaths.manualCoversDir, { recursive: true });
 }
 
 async function readJsonFile(filePath) {
@@ -170,29 +97,29 @@ async function readJsonFile(filePath) {
 }
 
 async function loadBooks() {
-  await assertProject();
-  const books = await readJsonFile(projectPaths.booksJson);
+  await assertBookshelf();
+  const books = await readJsonFile(bookshelfPaths.booksJson);
   if (!Array.isArray(books)) {
-    throw new Error(`${path.relative(projectDir, projectPaths.booksJson)} must contain a JSON array.`);
+    throw new Error(`${path.relative(APP_ROOT, bookshelfPaths.booksJson)} must contain a JSON array.`);
   }
   return books;
 }
 
 async function saveBooks(books) {
-  await fs.writeFile(projectPaths.booksJson, `${JSON.stringify(books, null, 4)}\n`, "utf8");
+  await fs.writeFile(bookshelfPaths.booksJson, `${JSON.stringify(books, null, 4)}\n`, "utf8");
 }
 
 async function saveBooksJs(books) {
   await fs.writeFile(
-    projectPaths.booksJs,
+    bookshelfPaths.booksJs,
     `window.booksData = ${JSON.stringify(books, null, 4)};\n`,
     "utf8",
   );
 }
 
 async function loadGeneratedBooks() {
-  if (!existsSync(projectPaths.booksJs)) return null;
-  const raw = await fs.readFile(projectPaths.booksJs, "utf8");
+  if (!existsSync(bookshelfPaths.booksJs)) return null;
+  const raw = await fs.readFile(bookshelfPaths.booksJs, "utf8");
   const match = raw.match(/^\s*window\.booksData\s*=\s*([\s\S]*?)\s*;\s*$/);
   if (!match) return null;
   try {
@@ -316,7 +243,7 @@ async function findManualCover(book) {
   const paths = [];
   for (const candidate of candidates) {
     for (const ext of extensions) {
-      paths.push(path.join(projectPaths.manualCoversDir, `${candidate}${ext}`));
+      paths.push(path.join(bookshelfPaths.manualCoversDir, `${candidate}${ext}`));
     }
   }
   return firstExisting(paths);
@@ -364,6 +291,7 @@ async function fetchCover(isbn, destPath) {
 }
 
 async function buildLibrary(options = {}) {
+  await assertBookshelf();
   await ensureDirs();
   await migrateLibraryCovers();
   const books = (await loadBooks()).map(normalizeBook);
@@ -385,7 +313,7 @@ async function buildLibrary(options = {}) {
     stats.processed += 1;
 
     const filename = coverFilename(book);
-    const destPath = path.join(projectPaths.coversDir, filename);
+    const destPath = path.join(bookshelfPaths.coversDir, filename);
     const manualCover = await findManualCover(book);
 
     if (manualCover) {
@@ -457,11 +385,11 @@ async function validateCommand() {
 
   const generatedBooks = await loadGeneratedBooks();
   if (!generatedBooks) {
-    console.warn(`Warning: ${path.relative(projectDir, projectPaths.booksJs)} is missing or invalid. Run \`bookshelf build\` before opening the site.`);
+    console.warn(`Warning: ${path.relative(APP_ROOT, bookshelfPaths.booksJs)} is missing or invalid. Run \`bookshelf build\` before opening the site.`);
   } else if (generatedBooks.length !== books.length) {
     console.warn(
-      `Warning: ${path.relative(projectDir, projectPaths.booksJs)} has ${generatedBooks.length} books, `
-      + `but ${path.relative(projectDir, projectPaths.booksJson)} has ${books.length}. Run \`bookshelf build\` before opening the site.`,
+      `Warning: ${path.relative(APP_ROOT, bookshelfPaths.booksJs)} has ${generatedBooks.length} books, `
+      + `but ${path.relative(APP_ROOT, bookshelfPaths.booksJson)} has ${books.length}. Run \`bookshelf build\` before opening the site.`,
     );
   }
 }
@@ -687,21 +615,21 @@ async function interactiveMain() {
   const rl = createInterface({ input, output });
   try {
     console.log("Bookshelf manager");
-    console.log("1. Build / refresh library");
-    console.log("2. Add a new book");
-    console.log("3. Modify an existing book");
-    console.log("4. Remove a book");
-    console.log("5. Validate library");
-    console.log("6. Apply manual cover(s)");
+    console.log("1. Add a new book");
+    console.log("2. Modify an existing book");
+    console.log("3. Remove a book");
+    console.log("4. Apply manual cover(s)");
+    console.log("5. Build / refresh library");
+    console.log("6. Validate library");
     console.log("Q. Quit");
 
     const choice = (await rl.question("Choose an option: ")).trim().toLowerCase();
-    if (choice === "1") await interactiveBuild(rl);
-    else if (choice === "2") await interactiveAdd(rl);
-    else if (choice === "3") await interactiveUpdate(rl);
-    else if (choice === "4") await interactiveRemove(rl);
-    else if (choice === "5") await validateCommand();
-    else if (choice === "6") await interactiveCovers(rl);
+    if (choice === "1") await interactiveAdd(rl);
+    else if (choice === "2") await interactiveUpdate(rl);
+    else if (choice === "3") await interactiveRemove(rl);
+    else if (choice === "4") await interactiveCovers(rl);
+    else if (choice === "5") await interactiveBuild(rl);
+    else if (choice === "6") await validateCommand();
     else if (choice === "q" || choice === "quit") return;
     else console.log("Invalid option.");
   } finally {
@@ -778,59 +706,6 @@ async function maybePromptCovers(args, options) {
   }
 }
 
-async function isDirectoryEmpty(dir) {
-  try {
-    const entries = await fs.readdir(dir);
-    return entries.length === 0;
-  } catch (error) {
-    if (error.code === "ENOENT") return true;
-    throw error;
-  }
-}
-
-async function copyTemplatePreservingData(source, target, targetRoot = target) {
-  const entries = await fs.readdir(source, { withFileTypes: true });
-  for (const entry of entries) {
-    const sourcePath = path.join(source, entry.name);
-    const targetPath = path.join(target, entry.name);
-    const relativeTarget = path.relative(targetRoot, targetPath);
-    const preserveExisting = [
-      path.join("library", "books.json"),
-      path.join("public", "data", "books.js"),
-    ].includes(relativeTarget);
-
-    if (entry.isDirectory()) {
-      await fs.mkdir(targetPath, { recursive: true });
-      await copyTemplatePreservingData(sourcePath, targetPath, targetRoot);
-    } else if (preserveExisting && existsSync(targetPath)) {
-      continue;
-    } else {
-      await fs.copyFile(sourcePath, targetPath);
-    }
-  }
-}
-
-async function copyIfMissing(source, target) {
-  if (!existsSync(source) || existsSync(target)) return;
-  await fs.mkdir(path.dirname(target), { recursive: true });
-  await fs.cp(source, target, { recursive: true, errorOnExist: false, force: false });
-}
-
-async function mergeDirectoryIfPresent(source, target) {
-  if (!existsSync(source)) return;
-  await fs.mkdir(target, { recursive: true });
-  const entries = await fs.readdir(source, { withFileTypes: true });
-  for (const entry of entries) {
-    const sourcePath = path.join(source, entry.name);
-    const targetPath = path.join(target, entry.name);
-    if (entry.isDirectory()) {
-      await mergeDirectoryIfPresent(sourcePath, targetPath);
-    } else if (!existsSync(targetPath)) {
-      await fs.copyFile(sourcePath, targetPath);
-    }
-  }
-}
-
 async function removeEmptyDirectories(dir) {
   if (!existsSync(dir)) return;
   const entries = await fs.readdir(dir, { withFileTypes: true });
@@ -866,69 +741,10 @@ async function moveDirectoryContents(source, target) {
 }
 
 async function migrateLibraryCovers() {
-  if (!projectPaths || projectPaths.layout !== "separated") return 0;
   return moveDirectoryContents(
-    path.join(projectPaths.sourceDir, "covers"),
-    projectPaths.coversDir,
+    path.join(bookshelfPaths.sourceDir, "covers"),
+    bookshelfPaths.coversDir,
   );
-}
-
-async function migrateLegacyData(targetDir) {
-  await copyIfMissing(
-    path.join(targetDir, "data", "books.json"),
-    path.join(targetDir, "library", "books.json"),
-  );
-  await mergeDirectoryIfPresent(
-    path.join(targetDir, "data", "manual-covers"),
-    path.join(targetDir, "library", "manual-covers"),
-  );
-  await mergeDirectoryIfPresent(
-    path.join(targetDir, "data", "covers"),
-    path.join(targetDir, "public", "data", "covers"),
-  );
-}
-
-async function initProject(targetPath, args) {
-  const targetDir = path.resolve(targetPath || ".");
-  const isEmpty = await isDirectoryEmpty(targetDir);
-  const hasData = hasProjectData(targetDir);
-  const isComplete = hasCompleteProject(targetDir);
-  const isHome = process.env.HOME && targetDir === path.resolve(process.env.HOME);
-
-  if (!existsSync(SITE_TEMPLATE_DIR)) {
-    throw new Error(`Site template not found at ${SITE_TEMPLATE_DIR}.`);
-  }
-
-  if (path.resolve(SITE_TEMPLATE_DIR) === targetDir) {
-    throw new Error("Refusing to initialize a project over the installed site template.");
-  }
-
-  if (isHome && !isComplete && !hasData) {
-    throw new Error(
-      "Refusing to initialize directly into your home directory.\n"
-      + "Create a dedicated folder instead, for example: `bookshelf init ~/my-bookshelf`.",
-    );
-  }
-
-  if (!isEmpty && !hasData && !isComplete) {
-    throw new Error(
-      `Target directory is not empty and does not look like a bookshelf project: ${targetDir}\n`
-      + "Create a dedicated folder instead, for example: `bookshelf init ~/my-bookshelf`.",
-    );
-  }
-
-  await fs.mkdir(targetDir, { recursive: true });
-  await migrateLegacyData(targetDir);
-  await copyTemplatePreservingData(SITE_TEMPLATE_DIR, targetDir);
-
-  setProjectDir(targetDir);
-  await migrateLibraryCovers();
-  const books = await loadBooks();
-  await saveBooksJs(books);
-
-  console.log(`Initialized bookshelf project: ${targetDir}`);
-  console.log(`Run: cd ${shellQuote(targetDir)}`);
-  console.log("Then: bookshelf");
 }
 
 async function uninstallCommand(args) {
@@ -970,20 +786,13 @@ async function main() {
     return;
   }
 
-  if (command === "init") {
-    await initProject(args._[1], args);
-    return;
-  }
-
   if (command === "uninstall") {
     await uninstallCommand(args);
     return;
   }
 
-  setProjectDir(resolveProjectDir(args));
-
   if (!command) {
-    await assertProject();
+    await assertBookshelf();
     await interactiveMain();
     return;
   }
