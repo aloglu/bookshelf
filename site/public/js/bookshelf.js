@@ -31,7 +31,7 @@
 
   if (!bookshelf || !allBooks.length) {
     if (bookshelf) bookshelf.textContent = "No books were found.";
-    eturn;
+    return;
   }
 
   let bookElements = [];

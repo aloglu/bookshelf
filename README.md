@@ -101,6 +101,8 @@ A bookshelf project created with `bookshelf init ~/my-bookshelf` separates edita
     img/
 ```
 
+New projects start with an empty library.
+
 Run `bookshelf` from inside the project directory. For automation, pass the project path explicitly:
 
 ```bash
