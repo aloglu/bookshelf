@@ -190,6 +190,19 @@ async function saveBooksJs(books) {
   );
 }
 
+async function loadGeneratedBooks() {
+  if (!existsSync(projectPaths.booksJs)) return null;
+  const raw = await fs.readFile(projectPaths.booksJs, "utf8");
+  const match = raw.match(/^\s*window\.booksData\s*=\s*([\s\S]*?)\s*;\s*$/);
+  if (!match) return null;
+  try {
+    const books = JSON.parse(match[1]);
+    return Array.isArray(books) ? books : null;
+  } catch {
+    return null;
+  }
+}
+
 function normalizeBlank(value) {
   if (value === undefined || value === null) return null;
   const trimmed = String(value).trim();
@@ -352,6 +365,7 @@ async function fetchCover(isbn, destPath) {
 
 async function buildLibrary(options = {}) {
   await ensureDirs();
+  await migrateLibraryCovers();
   const books = (await loadBooks()).map(normalizeBook);
   const errors = validateBooks(books);
   if (errors.length) {
@@ -440,6 +454,16 @@ async function validateCommand() {
     return;
   }
   console.log(`Library is valid. Books: ${books.length}`);
+
+  const generatedBooks = await loadGeneratedBooks();
+  if (!generatedBooks) {
+    console.warn(`Warning: ${path.relative(projectDir, projectPaths.booksJs)} is missing or invalid. Run \`bookshelf build\` before opening the site.`);
+  } else if (generatedBooks.length !== books.length) {
+    console.warn(
+      `Warning: ${path.relative(projectDir, projectPaths.booksJs)} has ${generatedBooks.length} books, `
+      + `but ${path.relative(projectDir, projectPaths.booksJson)} has ${books.length}. Run \`bookshelf build\` before opening the site.`,
+    );
+  }
 }
 
 async function addBook(values, options = {}) {
@@ -508,6 +532,7 @@ async function removeBook(idOrIsbn, options = {}) {
 }
 
 async function applyManualCovers(idOrIsbn, options = {}) {
+  await migrateLibraryCovers();
   const books = (await loadBooks()).map(normalizeBook);
   const errors = validateBooks(books);
   if (errors.length) {
@@ -806,6 +831,48 @@ async function mergeDirectoryIfPresent(source, target) {
   }
 }
 
+async function removeEmptyDirectories(dir) {
+  if (!existsSync(dir)) return;
+  const entries = await fs.readdir(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    if (entry.isDirectory()) {
+      await removeEmptyDirectories(path.join(dir, entry.name));
+    }
+  }
+
+  const remaining = await fs.readdir(dir);
+  if (!remaining.length) {
+    await fs.rmdir(dir);
+  }
+}
+
+async function moveDirectoryContents(source, target) {
+  if (!existsSync(source)) return 0;
+  await fs.mkdir(target, { recursive: true });
+  let moved = 0;
+  const entries = await fs.readdir(source, { withFileTypes: true });
+  for (const entry of entries) {
+    const sourcePath = path.join(source, entry.name);
+    const targetPath = path.join(target, entry.name);
+    if (entry.isDirectory()) {
+      moved += await moveDirectoryContents(sourcePath, targetPath);
+    } else if (!existsSync(targetPath)) {
+      await fs.rename(sourcePath, targetPath);
+      moved += 1;
+    }
+  }
+  await removeEmptyDirectories(source);
+  return moved;
+}
+
+async function migrateLibraryCovers() {
+  if (!projectPaths || projectPaths.layout !== "separated") return 0;
+  return moveDirectoryContents(
+    path.join(projectPaths.sourceDir, "covers"),
+    projectPaths.coversDir,
+  );
+}
+
 async function migrateLegacyData(targetDir) {
   await copyIfMissing(
     path.join(targetDir, "data", "books.json"),
@@ -855,6 +922,7 @@ async function initProject(targetPath, args) {
   await copyTemplatePreservingData(SITE_TEMPLATE_DIR, targetDir);
 
   setProjectDir(targetDir);
+  await migrateLibraryCovers();
   const books = await loadBooks();
   await saveBooksJs(books);
 
