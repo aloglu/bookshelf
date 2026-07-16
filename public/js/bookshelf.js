@@ -336,6 +336,7 @@
   sentinel.className = "sentinel";
   // Ensure sentinel has dimension so it is tracked correctly in flex layouts
   sentinel.style.cssText = "width:10px;height:10px;flex-shrink:0;opacity:0;pointer-events:none;";
+  let batchObserver = null;
 
   const createBookElement = (book, index) => {
     const metrics = decorateBook(book, index);
@@ -477,23 +478,38 @@
     window.loadMoreBooks(false);
   };
 
+  const maybeLoadMoreForShelf = () => {
+    if (document.body.classList.contains("view-coverflow")) return;
+    const isHorizontalShelf = bookshelf.classList.contains("force-shelf")
+      || document.body.classList.contains("view-shelf");
+    if (!isHorizontalShelf || nextBookIndex >= viewableBooks.length) return;
+
+    const currentScroll = lenis ? lenis.scroll : bookshelf.scrollLeft;
+    const remaining = bookshelf.scrollWidth - (currentScroll + bookshelf.clientWidth);
+    if (remaining <= 400) {
+      loadMoreBooks(batchObserver);
+    }
+  };
+
+  bookshelf.addEventListener("scroll", maybeLoadMoreForShelf, { passive: true });
+
   const initObserver = () => {
-    // Disconnect any existing observer logic handled by variable scope if needed
-    // In this specific flow, observer is created fresh.
+    if (batchObserver) batchObserver.disconnect();
     const options = {
       root: null, // viewport
       rootMargin: "200px", // Reduced margin to ensure lazy loading is felt
       threshold: 0.1 // Require at least a pixel to be visible
     };
 
-    const observer = new IntersectionObserver((entries) => {
+    batchObserver = new IntersectionObserver((entries) => {
       // If the sentinel is visible, load more
       if (entries.some(entry => entry.isIntersecting)) {
-        loadMoreBooks(observer);
+        loadMoreBooks(batchObserver);
       }
     }, options);
 
-    observer.observe(sentinel);
+    batchObserver.observe(sentinel);
+    maybeLoadMoreForShelf();
   };
 
   const applySort = () => {
@@ -767,6 +783,10 @@
   initSortDropdown();
 
   const renderBooks = () => {
+    if (batchObserver) {
+      batchObserver.disconnect();
+      batchObserver = null;
+    }
     bookshelf.innerHTML = "";
     bookElements = []; // Reset global
     nextBookIndex = 0; // Reset
@@ -1216,6 +1236,7 @@
 
     // Get reliable scroll position
     const currentScroll = lenis ? lenis.scroll : bookshelf.scrollLeft;
+    maybeLoadMoreForShelf();
 
     // Initialize lastScroll to prevent jump
     if (lastScroll === -1) {

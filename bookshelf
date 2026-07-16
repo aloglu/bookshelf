@@ -2,4 +2,6 @@
 set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-exec node "$SCRIPT_DIR/cli/bookshelf.mjs" "$@"
+export BOOKSHELF_INSTALL_DIR="$SCRIPT_DIR"
+export GOCACHE="${GOCACHE:-${TMPDIR:-/tmp}/bookshelf-go-cache}"
+exec go run "$SCRIPT_DIR/cmd/bookshelf" "$@"

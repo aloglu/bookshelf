@@ -1,0 +1,59 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Test
+        run: go test ./...
+
+      - name: Build release archives
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          set -eu
+          mkdir -p dist
+          for arch in amd64 arm64; do
+            package_dir="dist/package-$arch"
+            mkdir -p "$package_dir/library/manual-covers"
+            cp -a public "$package_dir/public"
+            cp library/books.json "$package_dir/library/books.json"
+            CGO_ENABLED=0 GOOS=linux GOARCH="$arch" go build \
+              -trimpath \
+              -ldflags "-s -w -X main.version=$VERSION" \
+              -o "$package_dir/bookshelf" \
+              ./cmd/bookshelf
+            tar -C "$package_dir" -czf "dist/bookshelf_linux_${arch}.tar.gz" \
+              bookshelf public library
+            rm -rf "$package_dir"
+          done
+          (
+            cd dist
+            sha256sum bookshelf_linux_*.tar.gz > checksums.txt
+          )
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" dist/* --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" dist/* --generate-notes
+          fi
+

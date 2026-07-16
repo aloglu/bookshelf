@@ -1,45 +1,46 @@
 # Bookshelf
 
-An interactive web-based library to showcase your book collection. To preview what it looks like in production, visit [my own bookshelf](https://alog.lu/bookshelf).
+An interactive web bookshelf and a standalone terminal application for managing
+the books that appear on it.
 
 ## Features
 
-- **Three Unique Views**:
-  - **Shelf**: A realistic, scrolling bookshelf with physics-based momentum and tilt animations.
-  - **Stacks**: A clean, grid-based list view for efficiency.
-  - **Coverflow**: A coverflow view of your library.
-- **Dynamic Physics**: Smooth scrolling and tilt mechanics that react to your scroll velocity.
-- **Performance**: Lazy loading for covers and DOM elements.
-- **Search & Filter**: Instant fuzzy search and filtering by author, title, or year.
-- **Auto-Theming**: Extracts cover colors to color-code book spines and details.
-- **Guided Library Management**: A CLI for building, adding, editing, removing, and validating books.
-
-## Requirements
-
-- Linux is the supported target.
-- Node.js 18 or newer.
-- Optional: ImageMagick for spine color extraction.
-
-The CLI is plain Node.js and may work on macOS, but macOS is not currently tested or documented as a supported platform. The installer intentionally uses the Linux/XDG-style per-user layout under `~/.local`.
+- Shelf, stack, and coverflow website views
+- Fuzzy search and sorting
+- Interactive terminal library browser
+- Add and edit forms
+- Multi-select and batch removal
+- Manual and automatically downloaded covers
+- Pure-Go cover conversion and spine-color extraction
+- Source-versus-published status checks
+- Script-friendly direct commands and JSON output
+- Self-upgrade support
 
 ## Installation
 
-Install the `bookshelf` command:
+Linux on x86-64 and ARM64 is supported.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/aloglu/bookshelf/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/aloglu/bookshelf/main/install.sh | sh
 ```
 
-The installer creates:
+The installer downloads a precompiled, checksum-verified release and creates:
 
 ```text
 ~/.local/bin/bookshelf
 ~/.local/share/bookshelf/
 ```
 
-`~/.local/bin/bookshelf` is the command you run. `~/.local/share/bookshelf` is the single installed bookshelf, including both the local library source and the public site files.
+Users do not need Go, Node.js, Bubble Tea, ImageMagick, or a package manager.
+Bubble Tea and the other Go libraries are compiled into the Bookshelf binary.
 
-If `~/.local/bin` is not in your `PATH`, add it to your shell profile.
+If `~/.local/bin` is not already in `PATH`, add it to your shell profile.
+
+Upgrade:
+
+```bash
+bookshelf upgrade
+```
 
 Uninstall:
 
@@ -47,11 +48,76 @@ Uninstall:
 bookshelf uninstall
 ```
 
-Uninstall removes the installed bookshelf directory. Back up `~/.local/share/bookshelf/library` first if you want to keep your library data.
+Back up `~/.local/share/bookshelf/library` first if you want to keep the
+library after uninstalling.
 
-## Layout
+## Interactive manager
 
-The installed bookshelf uses this structure:
+Run:
+
+```bash
+bookshelf
+```
+
+The manager presents a searchable and paginated library. Common keys include:
+
+```text
+/        Search
+Space    Select or unselect a book
+a        Add a book
+e/Enter  Edit the current book
+d        Remove the current or selected books
+c        Apply manual covers
+b        Build the published library
+v        Validate
+q        Quit
+```
+
+Add and edit actions open guided forms. Removal supports selecting multiple
+books and reviewing the complete selection before confirmation.
+
+Set `BOOKSHELF_ACCESSIBLE=1` to use screen-reader-friendly standard prompts
+instead of full-screen forms.
+
+## Direct commands
+
+Interactive workflows are the default, but direct commands remain available
+for scripts and automation:
+
+```bash
+bookshelf list --plain
+bookshelf list --json
+bookshelf add --title "Dune" --author "Frank Herbert" --isbn "9780441172719"
+bookshelf update --id-or-isbn "9780441172719" --binding "Hardcover"
+bookshelf remove "9780441172719" "9780441172696" --yes
+bookshelf build --fetch-covers
+bookshelf covers --id-or-isbn "9780441172719"
+bookshelf covers --all
+bookshelf validate
+bookshelf upgrade
+```
+
+`bookshelf edit` is an alias for `bookshelf update`.
+
+Non-interactive removal requires `--yes`. Use `--remove-covers` to remove the
+associated published cover files too.
+
+## Library status
+
+`library/books.json` is the editable source of truth. The website reads the
+generated `public/data/books.js`.
+
+The list command compares the two and reports:
+
+- `ready`: source and published records match and a cover is present
+- `missing cover`: source and published records match without a cover
+- `stale`: the published record differs
+- `not generated`: the book is absent from published data
+
+`bookshelf validate` compares complete records rather than only array lengths,
+so same-sized but stale generated libraries are detected.
+
+## Installed layout
 
 ```text
 ~/.local/share/bookshelf/
@@ -69,113 +135,100 @@ The installed bookshelf uses this structure:
     img/
 ```
 
-`library/books.json` is the editable source of truth. `public/data/books.js` is generated for the frontend.
+The installer and `bookshelf upgrade` preserve `library/` and published covers,
+then regenerate `books.js` from the source library.
 
-## Migration
+## Covers
 
-To migrate an old backup, copy your old files into the installed bookshelf:
+Published covers live in:
+
+```text
+~/.local/share/bookshelf/public/data/covers/
+```
+
+For a manual cover, place a JPEG, PNG, WebP, or BMP file in
+`library/manual-covers` named after the ISBN or book id:
+
+```text
+~/.local/share/bookshelf/library/manual-covers/9780441172719.webp
+```
+
+Apply it:
+
+```bash
+bookshelf covers --id-or-isbn "9780441172719"
+```
+
+Bookshelf converts manual images to JPEG and calculates spine colors internally.
+
+Fetch missing ISBN covers from Open Library:
+
+```bash
+bookshelf build --fetch-covers
+```
+
+## Publishing
+
+Build the static site:
+
+```bash
+bookshelf build
+```
+
+Preview it locally by opening:
+
+```text
+~/.local/share/bookshelf/public/index.html
+```
+
+Publish the contents of `public/`. Do not upload `library/`, which contains the
+editable local source.
+
+## Migrating an older installation
+
+Copy an older `books.json` and manual covers into the installed library:
 
 ```bash
 cp old-backup/data/books.json ~/.local/share/bookshelf/library/books.json
 mkdir -p ~/.local/share/bookshelf/library/manual-covers
 cp -a old-backup/data/manual-covers/. ~/.local/share/bookshelf/library/manual-covers/
-mkdir -p ~/.local/share/bookshelf/library/covers
-cp -a old-backup/data/covers/. ~/.local/share/bookshelf/library/covers/
 bookshelf build
 ```
 
-Do not copy old `books.js`; `public/data/books.js` is generated by `bookshelf build`.
+Legacy files in `library/covers` are migrated into `public/data/covers` during
+the next build.
 
-If you put old covers in `library/covers`, `bookshelf build` moves them into `public/data/covers` and removes `library/covers` after it is empty.
+Do not restore an old `books.js`; it is generated from `books.json`.
 
-## Viewing And Publishing
+## Development
 
-Open the local site:
-
-```bash
-xdg-open ~/.local/share/bookshelf/public/index.html
-```
-
-To publish the static bookshelf, upload the contents of:
-
-```text
-~/.local/share/bookshelf/public/
-```
-
-Do not upload `library/`; it is local editable source data.
-
-## Managing Your Library
-
-Run the interactive manager from anywhere:
+Building from source requires Go. Normal installations do not.
 
 ```bash
-bookshelf
+go test ./...
+go build ./cmd/bookshelf
 ```
 
-The manager asks what you want to do:
-
-- Add a new book
-- Modify an existing book
-- Remove a book
-- Apply manual cover files
-- Build or refresh the library
-- Validate the library
-
-## Direct Commands
-
-The guided workflow is intended for normal use, but direct commands are available for automation:
+Run against the repository data:
 
 ```bash
-bookshelf build
-bookshelf add
-bookshelf update
-bookshelf remove
-bookshelf covers
-bookshelf validate
+./bookshelf
 ```
 
-Examples:
+Install a local checkout into the normal per-user layout:
 
 ```bash
-bookshelf add --title "Dune" --author "Frank Herbert" --isbn "9780441172719"
-bookshelf build --fetch-covers
-bookshelf update --id-or-isbn "9780441172719" --binding "Hardcover"
-bookshelf remove --id-or-isbn "9780441172719"
-bookshelf covers --id-or-isbn "9780441172719"
+./install.sh
 ```
 
-## Covers
-
-Published covers live in `public/data/covers`.
-
-To override or add a cover manually, place an image in `library/manual-covers` using the book ISBN or id as the filename:
-
-```text
-~/.local/share/bookshelf/library/manual-covers/9780441172719.jpg
-```
-
-Then apply that one manual cover and regenerate the frontend data:
-
-```bash
-bookshelf covers --id-or-isbn "9780441172719"
-```
-
-To apply all matching manual covers:
-
-```bash
-bookshelf covers --all
-```
-
-To fetch missing ISBN covers from Open Library:
-
-```bash
-bookshelf build --fetch-covers
-```
+Tagged releases are built as static Linux binaries for amd64 and arm64. Release
+archives include the binary and public-site assets; `checksums.txt` is verified
+by the installer.
 
 ## License
 
-Released under the [MIT License](https://github.com/aloglu/bookshelf/blob/main/LICENSE).
+Released under the [MIT License](LICENSE).
 
 ## Acknowledgements
 
-I was inspired by [Marius Balaj](https://balajmarius.com/writings/vibe-coding-a-bookshelf-with-claude-code/)’s own bookshelf project.
+Inspired by [Marius Balaj's bookshelf](https://balajmarius.com/writings/vibe-coding-a-bookshelf-with-claude-code/).

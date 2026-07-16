@@ -1,0 +1,5 @@
+/build/
+/dist/
+tea_debug.log
+*.test
+
