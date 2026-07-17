@@ -35,7 +35,11 @@ type bookItem struct {
 }
 
 func (i bookItem) FilterValue() string {
-	return strings.Join([]string{i.book.Title, i.book.Author, i.book.ISBN, i.book.Slug, i.book.Publisher, i.status}, " ")
+	values := []string{i.book.Title, i.book.Author, i.book.ISBN, i.book.Slug, i.book.Publisher, i.status}
+	if i.showCoverStatus {
+		values = append(values, i.coverStatus())
+	}
+	return strings.Join(values, " ")
 }
 
 func (i bookItem) Title() string {
@@ -62,13 +66,16 @@ func (i bookItem) descriptionParts() []string {
 		metadata = append(metadata, i.status)
 	}
 	if i.showCoverStatus {
-		if i.book.Cover == "" {
-			metadata = append(metadata, "✕")
-		} else {
-			metadata = append(metadata, "✓")
-		}
+		metadata = append(metadata, i.coverStatus())
 	}
 	return metadata
+}
+
+func (i bookItem) coverStatus() string {
+	if i.book.Cover == "" {
+		return "Cover Missing"
+	}
+	return "Has Cover"
 }
 
 type browserModel struct {
@@ -288,10 +295,8 @@ func renderBookDescription(book bookItem, width int, base lipgloss.Style) string
 			style = style.Foreground(lipgloss.Color("#F59E0B"))
 		case library.PublicationChangesNotPublished:
 			style = style.Foreground(lipgloss.Color("#EF4444"))
-		case "✓":
-			style = style.Foreground(lipgloss.Color("#80EF80")).Bold(true)
-		case "✕":
-			style = style.Foreground(lipgloss.Color("#EF4444")).Bold(true)
+		case "Cover Missing":
+			style = style.Foreground(lipgloss.Color("#EF4444"))
 		}
 		rendered = append(rendered, style.Render(part))
 	}

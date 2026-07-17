@@ -11,7 +11,6 @@ import (
 
 type ImportOptions struct {
 	SkipDuplicates bool
-	FetchCovers    bool
 	Build          bool
 	DryRun         bool
 }
@@ -94,9 +93,7 @@ func Import(ctx context.Context, paths Paths, candidates []Book, options ImportO
 		only[book.Key()] = true
 	}
 	stats, err := Build(ctx, paths, BuildOptions{
-		FetchCovers: options.FetchCovers,
 		ProcessOnly: only,
-		FetchOnly:   only,
 	})
 	result.Build = stats
 	return result, err

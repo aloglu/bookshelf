@@ -138,8 +138,8 @@ func TestSettingsCandidateResetsWhenLeavingRow(t *testing.T) {
 
 func TestBookFormStartsWithSensibleSaveDefaults(t *testing.T) {
 	model := newBookFormModel(nil)
-	if !model.fetchCover || !model.build {
-		t.Fatalf("defaults: fetch cover = %v, update website data = %v", model.fetchCover, model.build)
+	if !model.build {
+		t.Fatal("update website data does not default to enabled")
 	}
 	if model.dirty() {
 		t.Fatal("untouched form is dirty")
@@ -169,17 +169,17 @@ func TestBookFormUsesSpaceForTogglesAndDoesNotWrap(t *testing.T) {
 	model.setFocus(len(model.inputs))
 	updated, _ := model.Update(tea.KeyPressMsg{Code: tea.KeySpace, Text: " "})
 	model = updated.(bookFormModel)
-	if model.fetchCover {
-		t.Fatal("space did not toggle the focused cover option")
+	if model.build {
+		t.Fatal("space did not toggle the focused publish option")
 	}
 	updated, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyLeft})
 	model = updated.(bookFormModel)
-	if !model.fetchCover {
+	if !model.build {
 		t.Fatal("left did not choose Yes for the horizontal option")
 	}
 	updated, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyRight})
 	model = updated.(bookFormModel)
-	if model.fetchCover {
+	if model.build {
 		t.Fatal("right did not choose No for the horizontal option")
 	}
 	updated, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
@@ -187,9 +187,9 @@ func TestBookFormUsesSpaceForTogglesAndDoesNotWrap(t *testing.T) {
 	if model.focus != len(model.inputs)+1 {
 		t.Fatalf("enter focus = %d, want next option", model.focus)
 	}
+	model.setFocus(len(model.inputs) + 1)
 	model.setFocus(len(model.inputs) + 2)
-	model.setFocus(len(model.inputs) + 3)
-	if model.focus != len(model.inputs)+2 {
+	if model.focus != len(model.inputs)+1 {
 		t.Fatalf("focus wrapped past Save Book to %d", model.focus)
 	}
 	model.setFocus(-1)
@@ -232,19 +232,18 @@ func TestBookDescriptionUsesCompactSeparatorsAndCoverIcon(t *testing.T) {
 	}
 	item := bookItem{
 		book:            book,
-		status:          library.PublicationPublished,
 		showCoverStatus: true,
 	}
-	if got, want := item.Description(), "James Joyce · 2016 · 978-0143108245 · Published · ✓"; got != want {
+	if got, want := item.Description(), "James Joyce · 2016 · 978-0143108245 · Has Cover"; got != want {
 		t.Fatalf("description = %q, want %q", got, want)
 	}
 	item.book.Cover = ""
-	if !strings.HasSuffix(item.Description(), " · ✕") {
+	if !strings.HasSuffix(item.Description(), " · Cover Missing") {
 		t.Fatalf("missing-cover description = %q", item.Description())
 	}
 }
 
-func TestCoverIndicatorsAreColoredWithoutLabels(t *testing.T) {
+func TestCoverStatusesUseNeutralAndAttentionColors(t *testing.T) {
 	base := lipgloss.NewStyle()
 	covered := renderBookDescription(bookItem{
 		book:            library.Book{Author: "Author", Cover: "data/covers/book.jpg"},
@@ -254,14 +253,14 @@ func TestCoverIndicatorsAreColoredWithoutLabels(t *testing.T) {
 		book:            library.Book{Author: "Author"},
 		showCoverStatus: true,
 	}, 80, base)
-	if !strings.Contains(covered, lipgloss.NewStyle().Foreground(lipgloss.Color("#80EF80")).Bold(true).Render("✓")) {
-		t.Fatalf("covered indicator is not green: %q", covered)
+	if !strings.Contains(covered, base.Render("Has Cover")) {
+		t.Fatalf("covered status is missing: %q", covered)
 	}
-	if !strings.Contains(missing, lipgloss.NewStyle().Foreground(lipgloss.Color("#EF4444")).Bold(true).Render("✕")) {
-		t.Fatalf("missing indicator is not red: %q", missing)
+	if !strings.Contains(missing, lipgloss.NewStyle().Foreground(lipgloss.Color("#EF4444")).Render("Cover Missing")) {
+		t.Fatalf("missing status is not red: %q", missing)
 	}
-	if strings.Contains(covered, "Cover") || strings.Contains(missing, "Missing") {
-		t.Fatalf("cover indicator included a text label: %q / %q", covered, missing)
+	if strings.Contains(covered, library.PublicationPublished) || strings.Contains(missing, library.PublicationPublished) {
+		t.Fatalf("cover rows included publication status: %q / %q", covered, missing)
 	}
 }
 
@@ -303,9 +302,31 @@ func TestListViewIsReadOnly(t *testing.T) {
 	}
 }
 
+func TestPublicationStatusAppearsOnlyInListWorkflow(t *testing.T) {
+	book := library.Normalize(library.Book{Title: "Dune", Cover: "data/covers/dune.jpg"})
+	statuses := map[string]string{book.ID: library.PublicationPublished}
+	listModel := newBrowserModel([]library.Book{book}, statuses)
+	if got := listModel.list.Items()[0].(bookItem).status; got != library.PublicationPublished {
+		t.Fatalf("list publication status = %q", got)
+	}
+	editModel := newEditWorkflowModel([]library.Book{book})
+	if got := editModel.picker.list.Items()[0].(bookItem).status; got != "" {
+		t.Fatalf("edit publication status = %q", got)
+	}
+	removeModel := newRemoveWorkflowModel([]library.Book{book})
+	if got := removeModel.picker.list.Items()[0].(bookItem).status; got != "" {
+		t.Fatalf("remove publication status = %q", got)
+	}
+	coverModel := newCoverWorkflowModel([]library.Book{book}, nil)
+	coverItem := coverModel.picker.list.Items()[0].(bookItem)
+	if coverItem.status != "" || !strings.HasSuffix(coverItem.Description(), "Has Cover") {
+		t.Fatalf("cover item = %#v, description = %q", coverItem, coverItem.Description())
+	}
+}
+
 func TestEditWorkflowPassesTerminalSizeToForm(t *testing.T) {
 	book := library.Normalize(library.Book{Title: "Dune"})
-	model := newEditWorkflowModel([]library.Book{book}, nil)
+	model := newEditWorkflowModel([]library.Book{book})
 	updated, _ := model.Update(tea.WindowSizeMsg{Width: 120, Height: 42})
 	model = updated.(editWorkflowModel)
 	updated, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
@@ -354,7 +375,7 @@ func TestCoverSourceShowsSelectionContextWithoutBackItem(t *testing.T) {
 
 func TestCoverWorkflowTransitionsWithoutQuittingTheProgram(t *testing.T) {
 	book := library.Normalize(library.Book{Title: "Dune"})
-	model := newCoverWorkflowModel([]library.Book{book}, nil, nil)
+	model := newCoverWorkflowModel([]library.Book{book}, nil)
 	updated, command := model.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	model = updated.(coverWorkflowModel)
 	if model.source == nil || command == nil {
@@ -369,7 +390,7 @@ func TestCoverWorkflowTransitionsWithoutQuittingTheProgram(t *testing.T) {
 
 func TestRemoveWorkflowUsesInlineConfirmation(t *testing.T) {
 	book := library.Normalize(library.Book{Title: "Dune"})
-	model := newRemoveWorkflowModel([]library.Book{book}, nil)
+	model := newRemoveWorkflowModel([]library.Book{book})
 	updated, command := model.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	model = updated.(removeWorkflowModel)
 	if model.dialog == nil || command != nil {

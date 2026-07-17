@@ -186,14 +186,12 @@ func commandUsage(output io.Writer, command string) bool {
 
 Single-book fields:
   --title, --author, --isbn, --slug, --translator, --publisher, --binding, --published
-  --fetch-covers    Fetch a cover when one is missing
   --no-build        Save without refreshing published data
 
 Batch options:
   --from FILE          Read JSON or CSV; use - for standard input
   --format json|csv    Override format detection (required with standard input)
   --skip-duplicates    Skip existing or repeated IDs/ISBNs
-  --fetch-covers       Fetch missing covers for imported books
   --no-build           Import without refreshing published data
   --dry-run            Parse and validate without saving
 
@@ -207,7 +205,6 @@ column and supports id, author, isbn, slug, translator, publisher, binding, and 
 Options:
   --format json|csv    Override format detection (required with standard input)
   --skip-duplicates    Skip existing or repeated IDs/ISBNs
-  --fetch-covers       Fetch missing covers for imported books
   --no-build           Import without refreshing published data
   --dry-run            Parse and validate without saving`)
 	case "export":
@@ -221,7 +218,7 @@ book metadata. Existing files are not replaced unless --force is supplied.`)
 	case "list", "ls":
 		fmt.Fprintln(output, "Usage:\n  bookshelf list [--plain|--json]\n\nWithout an output flag, opens the paginated interactive library in a terminal.")
 	case "build":
-		fmt.Fprintln(output, "Usage:\n  bookshelf build [--fetch-covers] [--recompute-colors]")
+		fmt.Fprintln(output, "Usage:\n  bookshelf build [--recompute-colors]")
 	case "preview", "serve":
 		fmt.Fprintln(output, "Usage:\n  bookshelf preview [--port PORT] [--no-open]\n\nServes the generated website on localhost and opens it in the default browser.\nPress Ctrl+C to stop the preview server.")
 	case "validate":
@@ -248,7 +245,7 @@ Options:
 With no options in a terminal, opens the Settings screen.
 Mobile visitors always use the stacks view.`)
 	case "edit":
-		fmt.Fprintln(output, "Usage:\n  bookshelf edit [--id-or-isbn ID] [fields] [--fetch-covers] [--no-build]\n\nWithout an ID in a terminal, opens the book picker.\nThe editable fields are the same as for `bookshelf add`.")
+		fmt.Fprintln(output, "Usage:\n  bookshelf edit [--id-or-isbn ID] [fields] [--no-build]\n\nWithout an ID in a terminal, opens the book picker.\nThe editable fields are the same as for `bookshelf add`.")
 	case "remove", "delete", "rm":
 		fmt.Fprintln(output, "Usage:\n  bookshelf remove [--yes] [--remove-covers] ID [ID...]\n  bookshelf remove --id-or-isbn ID [--id-or-isbn ID...]\n\nWith no IDs in a terminal, opens the interactive manager for selection.")
 	case "covers", "cover":
@@ -282,17 +279,12 @@ Options:
 func buildCommand(ctx context.Context, paths library.Paths, args []string) error {
 	flags := flag.NewFlagSet("build", flag.ContinueOnError)
 	flags.SetOutput(os.Stderr)
-	fetch := flags.Bool("fetch-covers", false, "fetch missing covers")
 	recompute := flags.Bool("recompute-colors", false, "recompute spine colors")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
 	stats, err := library.Build(ctx, paths, library.BuildOptions{
-		FetchCovers:     *fetch,
 		RecomputeColors: *recompute,
-		OnFetch: func(book library.Book, state string) {
-			fmt.Printf("%s: %s\n", state, book.Title)
-		},
 	})
 	if err != nil {
 		return err
@@ -556,7 +548,7 @@ func parseVisibility(value, name string) (bool, error) {
 func addCommand(ctx context.Context, paths library.Paths, args []string) error {
 	flags := flag.NewFlagSet("add", flag.ContinueOnError)
 	flags.SetOutput(os.Stderr)
-	input, fetch, noBuild := bookFlags(flags)
+	input, noBuild := bookFlags(flags)
 	batch := addBatchFlags(flags)
 	if err := flags.Parse(args); err != nil {
 		return err
@@ -564,7 +556,6 @@ func addCommand(ctx context.Context, paths library.Paths, args []string) error {
 	if flags.NArg() != 0 {
 		return fmt.Errorf("unexpected argument %q; run `bookshelf help add`", flags.Arg(0))
 	}
-	batch.fetchCovers = *fetch
 	batch.noBuild = *noBuild
 	if batch.from != "" {
 		if hasBookInput(*input) {
@@ -582,14 +573,12 @@ func addCommand(ctx context.Context, paths library.Paths, args []string) error {
 			return nil
 		}
 		book = result.Book
-		*fetch = result.FetchCover
 		*noBuild = !result.Build
 	} else {
 		book = library.FromInput(*input)
 	}
 	added, stats, err := library.Add(ctx, paths, book, library.ChangeOptions{
-		FetchCover: *fetch,
-		Build:      !*noBuild,
+		Build: !*noBuild,
 	})
 	if err != nil {
 		return err
@@ -605,7 +594,6 @@ type batchImportFlags struct {
 	from           string
 	format         string
 	skipDuplicates bool
-	fetchCovers    bool
 	noBuild        bool
 	dryRun         bool
 }
@@ -625,7 +613,6 @@ func importCommand(ctx context.Context, paths library.Paths, args []string) erro
 	options := &batchImportFlags{}
 	flags.StringVar(&options.format, "format", "", "import format: json or csv")
 	flags.BoolVar(&options.skipDuplicates, "skip-duplicates", false, "skip existing or repeated IDs/ISBNs")
-	flags.BoolVar(&options.fetchCovers, "fetch-covers", false, "fetch missing covers")
 	flags.BoolVar(&options.noBuild, "no-build", false, "save without refreshing published data")
 	flags.BoolVar(&options.dryRun, "dry-run", false, "parse and validate without saving")
 	if len(args) > 0 && (args[0] == "-" || !strings.HasPrefix(args[0], "-")) {
@@ -750,7 +737,6 @@ func runBatchImport(ctx context.Context, paths library.Paths, options *batchImpo
 	}
 	result, err := library.Import(ctx, paths, books, library.ImportOptions{
 		SkipDuplicates: options.skipDuplicates,
-		FetchCovers:    options.fetchCovers,
 		Build:          !options.noBuild,
 		DryRun:         options.dryRun,
 	})
@@ -777,7 +763,7 @@ func editCommand(ctx context.Context, paths library.Paths, args []string) error 
 	flags := flag.NewFlagSet("edit", flag.ContinueOnError)
 	flags.SetOutput(os.Stderr)
 	id := flags.String("id-or-isbn", "", "book id or ISBN")
-	patch, fetch, noBuild := updateFlags(flags)
+	patch, noBuild := updateFlags(flags)
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
@@ -787,13 +773,12 @@ func editCommand(ctx context.Context, paths library.Paths, args []string) error 
 			if err != nil {
 				return err
 			}
-			workflow, err := tui.RunEditWorkflow(books, library.PublicationStatuses(paths, books))
+			workflow, err := tui.RunEditWorkflow(books)
 			if err != nil || !workflow.Confirmed {
 				return err
 			}
 			edited, stats, err := library.Replace(ctx, paths, workflow.Original.ID, workflow.Form.Book, library.ChangeOptions{
-				FetchCover: workflow.Form.FetchCover,
-				Build:      workflow.Form.Build,
+				Build: workflow.Form.Build,
 			})
 			if err != nil {
 				return err
@@ -810,8 +795,7 @@ func editCommand(ctx context.Context, paths library.Paths, args []string) error 
 		return runInteractiveEdit(ctx, paths, *id)
 	}
 	updated, stats, err := library.Update(ctx, paths, *id, *patch, library.ChangeOptions{
-		FetchCover: *fetch,
-		Build:      !*noBuild,
+		Build: !*noBuild,
 	})
 	if err != nil {
 		return err
@@ -833,8 +817,7 @@ func runInteractiveEdit(ctx context.Context, paths library.Paths, id string) err
 		return err
 	}
 	edited, stats, err := library.Replace(ctx, paths, selected[0].ID, form.Book, library.ChangeOptions{
-		FetchCover: form.FetchCover,
-		Build:      form.Build,
+		Build: form.Build,
 	})
 	if err != nil {
 		return err
@@ -862,7 +845,7 @@ func removeCommand(ctx context.Context, paths library.Paths, args []string) erro
 			if loadErr != nil {
 				return loadErr
 			}
-			workflow, workflowErr := tui.RunRemoveWorkflow(books, library.PublicationStatuses(paths, books))
+			workflow, workflowErr := tui.RunRemoveWorkflow(books)
 			if workflowErr != nil || !workflow.Confirmed {
 				return workflowErr
 			}
@@ -918,7 +901,7 @@ func coversCommand(ctx context.Context, paths library.Paths, args []string) erro
 	source := options.source
 	startedInteractively := interactiveSelection
 	if interactiveSelection {
-		workflow, workflowErr := tui.RunCoverWorkflow(books, library.PublicationStatuses(paths, books), nil)
+		workflow, workflowErr := tui.RunCoverWorkflow(books, nil)
 		if workflowErr != nil {
 			return workflowErr
 		}
@@ -948,7 +931,7 @@ selectionLoop:
 				return err
 			}
 		default:
-			ids, confirmed, selectErr := tui.RunBookSelector(books, library.PublicationStatuses(paths, books), previousSelection, "Bookshelf · Covers", true, true)
+			ids, confirmed, selectErr := tui.RunBookSelector(books, nil, previousSelection, "Bookshelf · Covers", true, true)
 			if selectErr != nil {
 				return selectErr
 			}
@@ -1114,7 +1097,7 @@ func listCommand(ctx context.Context, paths library.Paths, args []string) error 
 	return writer.Flush()
 }
 
-func bookFlags(flags *flag.FlagSet) (*library.BookInput, *bool, *bool) {
+func bookFlags(flags *flag.FlagSet) (*library.BookInput, *bool) {
 	input := &library.BookInput{}
 	flags.StringVar(&input.Title, "title", "", "title")
 	flags.StringVar(&input.Author, "author", "", "author")
@@ -1124,12 +1107,11 @@ func bookFlags(flags *flag.FlagSet) (*library.BookInput, *bool, *bool) {
 	flags.StringVar(&input.Publisher, "publisher", "", "publisher")
 	flags.StringVar(&input.Binding, "binding", "", "binding")
 	flags.StringVar(&input.Published, "published", "", "published year")
-	fetch := flags.Bool("fetch-covers", false, "fetch a missing cover")
 	noBuild := flags.Bool("no-build", false, "save without refreshing published data")
-	return input, fetch, noBuild
+	return input, noBuild
 }
 
-func updateFlags(flags *flag.FlagSet) (*library.BookPatch, *bool, *bool) {
+func updateFlags(flags *flag.FlagSet) (*library.BookPatch, *bool) {
 	patch := &library.BookPatch{}
 	optionalStringFlag(flags, "title", "title; pass an empty value only to receive a validation error", &patch.Title)
 	optionalStringFlag(flags, "author", "author; pass an empty value to clear", &patch.Author)
@@ -1139,9 +1121,8 @@ func updateFlags(flags *flag.FlagSet) (*library.BookPatch, *bool, *bool) {
 	optionalStringFlag(flags, "publisher", "publisher; pass an empty value to clear", &patch.Publisher)
 	optionalStringFlag(flags, "binding", "binding; pass an empty value to clear", &patch.Binding)
 	optionalStringFlag(flags, "published", "published year; pass an empty value to clear", &patch.Published)
-	fetch := flags.Bool("fetch-covers", false, "fetch a missing cover")
 	noBuild := flags.Bool("no-build", false, "save without refreshing published data")
-	return patch, fetch, noBuild
+	return patch, noBuild
 }
 
 func optionalStringFlag(flags *flag.FlagSet, name, usage string, destination **string) {
@@ -1286,8 +1267,8 @@ func parseCoversArgs(args []string) (coversOptions, error) {
 }
 
 func printStats(stats library.BuildStats) {
-	fmt.Printf("Done. Books: %d. Processed: %d. Manual covers: %d. Downloaded: %d. Colors: %d. Missing covers: %d.\n",
-		stats.Books, stats.Processed, stats.Manuals, stats.Downloads, stats.Colored, stats.Missing)
+	fmt.Printf("Done. Books: %d. Processed: %d. Manual covers: %d. Colors: %d. Missing covers: %d.\n",
+		stats.Books, stats.Processed, stats.Manuals, stats.Colored, stats.Missing)
 }
 
 func upgradeCommand(ctx context.Context, args []string) error {

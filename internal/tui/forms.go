@@ -9,10 +9,9 @@ import (
 )
 
 type BookFormResult struct {
-	Book       library.Book
-	FetchCover bool
-	Build      bool
-	Cancelled  bool
+	Book      library.Book
+	Build     bool
+	Cancelled bool
 }
 
 func ConfirmUninstall(binPath, installDir string, purge bool) (bool, error) {

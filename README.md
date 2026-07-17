@@ -102,7 +102,7 @@ bookshelf export backup.json
 bookshelf add --from books.json --dry-run
 bookshelf edit --id-or-isbn "9780441172719" --binding "Hardcover"
 bookshelf remove "9780441172719" "9780441172696" --yes
-bookshelf build --fetch-covers
+bookshelf build
 bookshelf preview
 bookshelf covers --id-or-isbn "9780441172719"
 bookshelf covers --all
@@ -117,7 +117,7 @@ with a `books` array. CSV requires a `title` column and also recognizes `id`,
 `author`, `isbn`, `slug`, `translator`, `publisher`, `binding`, and `published`.
 Use `--format json|csv` when reading standard input with `bookshelf import -`.
 Imports are saved together and trigger one final build; `--no-build`,
-`--fetch-covers`, `--skip-duplicates`, and `--dry-run` adjust that behavior.
+`--skip-duplicates`, and `--dry-run` adjust that behavior.
 
 Export infers JSON or CSV from the destination filename:
 
@@ -179,8 +179,8 @@ The list command compares the two and reports:
 - `Changes Not Published`: the published record differs
 - `Not Published`: the book is absent from published data
 
-The Covers screen separately marks stored covers with a green checkmark and
-missing covers with a red cross.
+The Covers screen separately reports `Has Cover` in the normal metadata color
+or `Cover Missing` in red. Publication status appears only in the List screen.
 
 `bookshelf validate` compares complete records rather than only array lengths,
 so same-sized but stale generated libraries are detected.
@@ -269,9 +269,6 @@ skipped, missing, or failed are written to:
 ```text
 ~/.local/share/bookshelf/data/cover-report.json
 ```
-
-`bookshelf build --fetch-covers` is also available for fetching missing ISBN
-covers from Open Library while building.
 
 ## Publishing
 

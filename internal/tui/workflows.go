@@ -24,10 +24,10 @@ type coverWorkflowModel struct {
 	interrupted bool
 }
 
-func newCoverWorkflowModel(books []library.Book, statuses map[string]string, initial []string) coverWorkflowModel {
+func newCoverWorkflowModel(books []library.Book, initial []string) coverWorkflowModel {
 	return coverWorkflowModel{
 		books:  books,
-		picker: newBookSelectorModel(books, statuses, initial, "Bookshelf · Covers", true, true),
+		picker: newBookSelectorModel(books, nil, initial, "Bookshelf · Covers", true, true),
 	}
 }
 
@@ -83,8 +83,8 @@ func (m coverWorkflowModel) View() tea.View {
 	return m.picker.View()
 }
 
-func RunCoverWorkflow(books []library.Book, statuses map[string]string, initial []string) (CoverWorkflowResult, error) {
-	final, err := tea.NewProgram(newCoverWorkflowModel(books, statuses, initial)).Run()
+func RunCoverWorkflow(books []library.Book, initial []string) (CoverWorkflowResult, error) {
+	final, err := tea.NewProgram(newCoverWorkflowModel(books, initial)).Run()
 	if err != nil {
 		return CoverWorkflowResult{}, err
 	}
@@ -115,10 +115,10 @@ type editWorkflowModel struct {
 	interrupted bool
 }
 
-func newEditWorkflowModel(books []library.Book, statuses map[string]string) editWorkflowModel {
+func newEditWorkflowModel(books []library.Book) editWorkflowModel {
 	return editWorkflowModel{
 		books:  books,
-		picker: newBookSelectorModel(books, statuses, nil, "Bookshelf · Edit", false, false),
+		picker: newBookSelectorModel(books, nil, nil, "Bookshelf · Edit", false, false),
 	}
 }
 
@@ -180,8 +180,8 @@ func (m editWorkflowModel) View() tea.View {
 	return m.picker.View()
 }
 
-func RunEditWorkflow(books []library.Book, statuses map[string]string) (EditWorkflowResult, error) {
-	final, err := tea.NewProgram(newEditWorkflowModel(books, statuses)).Run()
+func RunEditWorkflow(books []library.Book) (EditWorkflowResult, error) {
+	final, err := tea.NewProgram(newEditWorkflowModel(books)).Run()
 	if err != nil {
 		return EditWorkflowResult{}, err
 	}
@@ -210,10 +210,10 @@ type removeWorkflowModel struct {
 	interrupted bool
 }
 
-func newRemoveWorkflowModel(books []library.Book, statuses map[string]string) removeWorkflowModel {
+func newRemoveWorkflowModel(books []library.Book) removeWorkflowModel {
 	return removeWorkflowModel{
 		books:  books,
-		picker: newBookSelectorModel(books, statuses, nil, "Bookshelf · Remove", true, false),
+		picker: newBookSelectorModel(books, nil, nil, "Bookshelf · Remove", true, false),
 	}
 }
 
@@ -272,8 +272,8 @@ func (m removeWorkflowModel) View() tea.View {
 	return m.picker.View()
 }
 
-func RunRemoveWorkflow(books []library.Book, statuses map[string]string) (RemoveWorkflowResult, error) {
-	final, err := tea.NewProgram(newRemoveWorkflowModel(books, statuses)).Run()
+func RunRemoveWorkflow(books []library.Book) (RemoveWorkflowResult, error) {
+	final, err := tea.NewProgram(newRemoveWorkflowModel(books)).Run()
 	if err != nil {
 		return RemoveWorkflowResult{}, err
 	}

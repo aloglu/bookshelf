@@ -29,7 +29,6 @@ type bookFormModel struct {
 	width       int
 	height      int
 	title       string
-	fetchCover  bool
 	build       bool
 	dialog      *decisionModel
 	saved       bool
@@ -58,14 +57,13 @@ func newBookFormModel(existing *library.Book) bookFormModel {
 	}
 	inputs[0].Focus()
 	return bookFormModel{
-		inputs:     inputs,
-		initial:    append([]string(nil), values...),
-		title:      title,
-		fetchCover: true,
-		build:      true,
-		width:      80,
-		height:     24,
-		existing:   existing,
+		inputs:   inputs,
+		initial:  append([]string(nil), values...),
+		title:    title,
+		build:    true,
+		width:    80,
+		height:   24,
+		existing: existing,
 	}
 }
 
@@ -79,15 +77,15 @@ func (m *bookFormModel) dirty() bool {
 			return true
 		}
 	}
-	return !m.fetchCover || !m.build
+	return !m.build
 }
 
 func (m *bookFormModel) setFocus(next int) tea.Cmd {
 	if next < 0 {
 		next = 0
 	}
-	if next > len(m.inputs)+2 {
-		next = len(m.inputs) + 2
+	if next > len(m.inputs)+1 {
+		next = len(m.inputs) + 1
 	}
 	m.focus = next
 	var commands []tea.Cmd
@@ -181,9 +179,6 @@ func (m bookFormModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.focus == len(m.inputs) {
 				return m, m.setFocus(m.focus + 1)
 			}
-			if m.focus == len(m.inputs)+1 {
-				return m, m.setFocus(m.focus + 1)
-			}
 			if m.validate() {
 				m.saved = true
 				return m, tea.Quit
@@ -191,28 +186,16 @@ func (m bookFormModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "space":
 			if m.focus == len(m.inputs) {
-				m.fetchCover = !m.fetchCover
-				return m, nil
-			}
-			if m.focus == len(m.inputs)+1 {
 				m.build = !m.build
 				return m, nil
 			}
 		case "left":
 			if m.focus == len(m.inputs) {
-				m.fetchCover = true
-				return m, nil
-			}
-			if m.focus == len(m.inputs)+1 {
 				m.build = true
 				return m, nil
 			}
 		case "right":
 			if m.focus == len(m.inputs) {
-				m.fetchCover = false
-				return m, nil
-			}
-			if m.focus == len(m.inputs)+1 {
 				m.build = false
 				return m, nil
 			}
@@ -292,15 +275,14 @@ func (m bookFormModel) View() tea.View {
 		return labelStyle.Render(label) + "\n  " + choices
 	}
 	afterSaving := sectionStyle.Render("After Saving") + "\n" +
-		toggle(len(m.inputs), "Fetch a missing cover after saving", m.fetchCover) + "\n" +
-		toggle(len(m.inputs)+1, "Update published website data after saving", m.build)
+		toggle(len(m.inputs), "Update published website data after saving", m.build)
 	rows = append(rows, afterSaving)
 	saveStyle := lipgloss.NewStyle().
 		Padding(0, 2).
 		Foreground(lipgloss.Color("#A78BFA")).
 		Bold(true)
 	saveButton := "Save Book"
-	if m.focus == len(m.inputs)+2 {
+	if m.focus == len(m.inputs)+1 {
 		saveStyle = saveStyle.
 			Background(lipgloss.Color("#8B5CF6")).
 			Foreground(lipgloss.Color("#111827"))
@@ -309,9 +291,6 @@ func (m bookFormModel) View() tea.View {
 
 	available := max(2, (m.height-8)/5)
 	viewportFocus := m.focus
-	if viewportFocus > len(m.inputs) {
-		viewportFocus--
-	}
 	start, end := 0, len(rows)
 	if len(rows) > available {
 		start = max(0, viewportFocus-available/2)
@@ -366,5 +345,5 @@ func bookFormResult(model bookFormModel, existing *library.Book) (BookFormResult
 		book.SpineTextColor = existing.SpineTextColor
 		book = library.Normalize(book)
 	}
-	return BookFormResult{Book: book, FetchCover: model.fetchCover, Build: model.build}, nil
+	return BookFormResult{Book: book, Build: model.build}, nil
 }

@@ -79,6 +79,25 @@ func TestCoverOptionsSupportMissingOnlyRetries(t *testing.T) {
 	}
 }
 
+func TestLegacyFetchCoversFlagsAreRemoved(t *testing.T) {
+	var output bytes.Buffer
+	for _, command := range []string{"add", "import", "build", "edit"} {
+		output.Reset()
+		if !commandUsage(&output, command) {
+			t.Fatalf("%s help was not recognized", command)
+		}
+		if strings.Contains(output.String(), "--fetch-covers") {
+			t.Fatalf("%s help still advertises --fetch-covers", command)
+		}
+	}
+	if err := buildCommand(context.Background(), library.Paths{}, []string{"--fetch-covers"}); err == nil {
+		t.Fatal("build accepted the removed --fetch-covers option")
+	}
+	if err := importCommand(context.Background(), library.Paths{}, []string{"--fetch-covers"}); err == nil {
+		t.Fatal("import accepted the removed --fetch-covers option")
+	}
+}
+
 func TestBooksMissingCoversUsesLoadedCoverState(t *testing.T) {
 	books := []library.Book{
 		{ID: "covered", Title: "Covered", Cover: "data/covers/covered.jpg"},

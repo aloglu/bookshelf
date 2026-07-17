@@ -21,6 +21,8 @@ import (
 
 type CoverSource string
 
+const openLibraryURL = "https://covers.openlibrary.org/b/isbn/%s-L.jpg?default=false"
+
 const (
 	CoverSourceAutomatic   CoverSource = "automatic"
 	CoverSourceGoodreads   CoverSource = "goodreads"

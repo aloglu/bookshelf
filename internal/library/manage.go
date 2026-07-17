@@ -9,8 +9,7 @@ import (
 )
 
 type ChangeOptions struct {
-	FetchCover bool
-	Build      bool
+	Build bool
 }
 
 func Add(ctx context.Context, paths Paths, book Book, options ChangeOptions) (Book, BuildStats, error) {
@@ -43,9 +42,7 @@ func Add(ctx context.Context, paths Paths, book Book, options ChangeOptions) (Bo
 		return book, BuildStats{Books: len(books)}, nil
 	}
 	stats, err := Build(ctx, paths, BuildOptions{
-		FetchCovers: options.FetchCover,
 		ProcessOnly: map[string]bool{book.Key(): true},
-		FetchOnly:   map[string]bool{book.Key(): true},
 	})
 	return book, stats, err
 }
@@ -115,9 +112,7 @@ func Update(ctx context.Context, paths Paths, id string, updates BookPatch, opti
 		return current, BuildStats{Books: len(books)}, nil
 	}
 	stats, err := Build(ctx, paths, BuildOptions{
-		FetchCovers: options.FetchCover,
 		ProcessOnly: map[string]bool{current.Key(): true},
-		FetchOnly:   map[string]bool{current.Key(): true},
 	})
 	return current, stats, err
 }
@@ -180,9 +175,7 @@ func Replace(ctx context.Context, paths Paths, id string, replacement Book, opti
 		return replacement, BuildStats{Books: len(books)}, nil
 	}
 	stats, err := Build(ctx, paths, BuildOptions{
-		FetchCovers: options.FetchCover,
 		ProcessOnly: map[string]bool{replacement.Key(): true},
-		FetchOnly:   map[string]bool{replacement.Key(): true},
 	})
 	return replacement, stats, err
 }

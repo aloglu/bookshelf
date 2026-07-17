@@ -6,35 +6,25 @@ import (
 	"image"
 	"image/jpeg"
 	_ "image/png"
-	"io"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	_ "golang.org/x/image/bmp"
 	_ "golang.org/x/image/webp"
 )
 
-const openLibraryURL = "https://covers.openlibrary.org/b/isbn/%s-L.jpg?default=false"
-
 type BuildOptions struct {
-	FetchCovers     bool
 	RecomputeColors bool
 	ProcessOnly     map[string]bool
-	FetchOnly       map[string]bool
-	OnFetch         func(Book, string)
 }
 
 type BuildStats struct {
-	Books      int
-	Processed  int
-	Manuals    int
-	Downloads  int
-	Colored    int
-	Missing    int
-	FetchFails int
+	Books     int
+	Processed int
+	Manuals   int
+	Colored   int
+	Missing   int
 }
 
 func Build(ctx context.Context, paths Paths, options BuildOptions) (BuildStats, error) {
@@ -66,7 +56,6 @@ func Build(ctx context.Context, paths Paths, options BuildOptions) (BuildStats, 
 		}
 	}()
 
-	client := &http.Client{Timeout: 20 * time.Second}
 	for i := range books {
 		book := &books[i]
 		if len(options.ProcessOnly) > 0 && !options.ProcessOnly[book.Key()] {
@@ -91,28 +80,6 @@ func Build(ctx context.Context, paths Paths, options BuildOptions) (BuildStats, 
 				return stats, fmt.Errorf("process manual cover for %q: %w", book.Title, err)
 			}
 			stats.Manuals++
-		}
-
-		shouldFetch := options.FetchCovers && CleanISBN(book.ISBN) != ""
-		if len(options.FetchOnly) > 0 && !options.FetchOnly[book.Key()] {
-			shouldFetch = false
-		}
-		if !fileExists(destination) && shouldFetch {
-			if options.OnFetch != nil {
-				options.OnFetch(*book, "fetching")
-			}
-			ok, fetchErr := fetchCover(ctx, client, CleanISBN(book.ISBN), destination)
-			if fetchErr != nil || !ok {
-				stats.FetchFails++
-				if options.OnFetch != nil {
-					options.OnFetch(*book, "not found")
-				}
-			} else {
-				stats.Downloads++
-				if options.OnFetch != nil {
-					options.OnFetch(*book, "done")
-				}
-			}
 		}
 
 		if fileExists(destination) {
@@ -256,48 +223,6 @@ func transcodeJPEG(source, destination string) error {
 		return err
 	}
 	return os.Rename(tempName, destination)
-}
-
-func fetchCover(ctx context.Context, client *http.Client, isbn, destination string) (bool, error) {
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf(openLibraryURL, isbn), nil)
-	if err != nil {
-		return false, err
-	}
-	request.Header.Set("User-Agent", "BookshelfCLI/2")
-	response, err := client.Do(request)
-	if err != nil {
-		return false, err
-	}
-	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK {
-		return false, nil
-	}
-	temp, err := os.CreateTemp(filepath.Dir(destination), ".download-*.jpg")
-	if err != nil {
-		return false, err
-	}
-	tempName := temp.Name()
-	defer os.Remove(tempName)
-	written, err := io.Copy(temp, io.LimitReader(response.Body, 20<<20))
-	if closeErr := temp.Close(); err == nil {
-		err = closeErr
-	}
-	if err != nil {
-		return false, err
-	}
-	if written < 1000 {
-		return false, nil
-	}
-	file, err := os.Open(tempName)
-	if err != nil {
-		return false, err
-	}
-	_, _, decodeErr := image.DecodeConfig(file)
-	file.Close()
-	if decodeErr != nil {
-		return false, nil
-	}
-	return true, os.Rename(tempName, destination)
 }
 
 func extractPalette(name string) (string, string, error) {
