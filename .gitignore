@@ -3,3 +3,15 @@
 tea_debug.log
 *.test
 CHANGELOG.md
+
+# Local library data
+/library/books.json
+/library/config.json
+/library/cover-report.json
+/library/manual-covers/*
+!/library/manual-covers/.gitkeep
+
+# Generated website data and downloaded covers
+/public/data/books.js
+/public/data/covers/*
+!/public/data/covers/.gitkeep
