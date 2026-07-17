@@ -203,18 +203,23 @@ column and supports id, author, isbn, slug, translator, publisher, binding, and 
   bookshelf import - --format json|csv [options]
 
 Options:
-  --format json|csv    Override format detection (required with standard input)
-  --skip-duplicates    Skip existing or repeated IDs/ISBNs
-  --no-build           Import without refreshing published data
-  --dry-run            Parse and validate without saving`)
+  --format FORMAT       json, csv, or bookshelf
+  --merge               Merge a Bookshelf archive into the current library
+  --replace             Replace the current library with a Bookshelf archive
+  --skip-duplicates     Skip existing or repeated IDs/ISBNs while merging
+  --no-build            Import JSON/CSV without refreshing published data
+  --dry-run             Parse and validate without saving
+
+Importing a .bookshelf archive into a non-empty library requires choosing
+Merge or Replace interactively, or passing the corresponding option.`)
 	case "export":
 		fmt.Fprintln(output, `Usage:
-  bookshelf export FILE [--format json|csv] [--force]
+  bookshelf export FILE [--format json|csv|bookshelf] [--force]
   bookshelf export - --format json|csv
 
-The format is inferred from a .json or .csv filename. CSV output is UTF-8,
-uses Excel-friendly column headings and line endings, and preserves non-ASCII
-book metadata. Existing files are not replaced unless --force is supplied.`)
+The format is inferred from .json, .csv, or .bookshelf. Bookshelf archives are
+standard ZIP files containing books, settings, fetched covers, and manual
+covers. Existing files are not replaced unless --force is supplied.`)
 	case "list", "ls":
 		fmt.Fprintln(output, "Usage:\n  bookshelf list [--plain|--json]\n\nWithout an output flag, opens the paginated interactive library in a terminal.")
 	case "build":
@@ -594,6 +599,8 @@ type batchImportFlags struct {
 	from           string
 	format         string
 	skipDuplicates bool
+	merge          bool
+	replace        bool
 	noBuild        bool
 	dryRun         bool
 }
@@ -613,6 +620,8 @@ func importCommand(ctx context.Context, paths library.Paths, args []string) erro
 	options := &batchImportFlags{}
 	flags.StringVar(&options.format, "format", "", "import format: json or csv")
 	flags.BoolVar(&options.skipDuplicates, "skip-duplicates", false, "skip existing or repeated IDs/ISBNs")
+	flags.BoolVar(&options.merge, "merge", false, "merge a Bookshelf archive into the current library")
+	flags.BoolVar(&options.replace, "replace", false, "replace the current library from a Bookshelf archive")
 	flags.BoolVar(&options.noBuild, "no-build", false, "save without refreshing published data")
 	flags.BoolVar(&options.dryRun, "dry-run", false, "parse and validate without saving")
 	if len(args) > 0 && (args[0] == "-" || !strings.HasPrefix(args[0], "-")) {
@@ -636,7 +645,7 @@ func importCommand(ctx context.Context, paths library.Paths, args []string) erro
 func exportCommand(paths library.Paths, args []string) error {
 	flags := flag.NewFlagSet("export", flag.ContinueOnError)
 	flags.SetOutput(os.Stderr)
-	format := flags.String("format", "", "export format: json or csv")
+	format := flags.String("format", "", "export format: json, csv, or bookshelf")
 	force := flags.Bool("force", false, "replace an existing export file")
 	destination := ""
 	if len(args) > 0 && (args[0] == "-" || !strings.HasPrefix(args[0], "-")) {
@@ -663,8 +672,8 @@ func exportCommand(paths library.Paths, args []string) error {
 		return fmt.Errorf("--format is required when exporting to standard output")
 	}
 	selectedFormat = strings.ToLower(strings.TrimPrefix(selectedFormat, "."))
-	if selectedFormat != "json" && selectedFormat != "csv" {
-		return fmt.Errorf("unsupported export format %q; use json or csv", selectedFormat)
+	if selectedFormat != "json" && selectedFormat != "csv" && selectedFormat != "bookshelf" {
+		return fmt.Errorf("unsupported export format %q; use json, csv, or bookshelf", selectedFormat)
 	}
 
 	books, err := library.Load(paths)
@@ -672,6 +681,9 @@ func exportCommand(paths library.Paths, args []string) error {
 		return err
 	}
 	if destination == "-" {
+		if selectedFormat == "bookshelf" {
+			return fmt.Errorf("Bookshelf archives require a destination file")
+		}
 		return library.EncodeExport(os.Stdout, books, selectedFormat)
 	}
 	if !*force {
@@ -680,6 +692,15 @@ func exportCommand(paths library.Paths, args []string) error {
 		} else if !errors.Is(err, os.ErrNotExist) {
 			return err
 		}
+	}
+	if selectedFormat == "bookshelf" {
+		result, err := writeArchiveFile(destination, paths, books)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("Exported %d book(s), %d cover(s), and %d manual cover(s) to %s (BOOKSHELF).\n",
+			result.Books, result.Covers, result.ManualCovers, destination)
+		return nil
 	}
 	if err := writeExportFile(destination, books, selectedFormat); err != nil {
 		return err
@@ -710,10 +731,44 @@ func writeExportFile(destination string, books []library.Book, format string) er
 	return os.Rename(tempName, destination)
 }
 
+func writeArchiveFile(destination string, paths library.Paths, books []library.Book) (library.ArchiveExportResult, error) {
+	var result library.ArchiveExportResult
+	directory := filepath.Dir(destination)
+	temp, err := os.CreateTemp(directory, "."+filepath.Base(destination)+".tmp-*")
+	if err != nil {
+		return result, err
+	}
+	tempName := temp.Name()
+	defer os.Remove(tempName)
+	result, err = library.EncodeArchive(temp, paths, books)
+	if err != nil {
+		temp.Close()
+		return result, err
+	}
+	if err := temp.Chmod(0o644); err != nil {
+		temp.Close()
+		return result, err
+	}
+	if err := temp.Close(); err != nil {
+		return result, err
+	}
+	return result, os.Rename(tempName, destination)
+}
+
 func runBatchImport(ctx context.Context, paths library.Paths, options *batchImportFlags) error {
 	var reader io.Reader
 	var file *os.File
 	format := strings.TrimSpace(options.format)
+	if format == "" && options.from != "-" {
+		format = strings.TrimPrefix(filepath.Ext(options.from), ".")
+	}
+	format = strings.ToLower(strings.TrimPrefix(format, "."))
+	if format == "bookshelf" {
+		return runArchiveImport(ctx, paths, options)
+	}
+	if options.merge || options.replace {
+		return fmt.Errorf("--merge and --replace are only valid for Bookshelf archives")
+	}
 	if options.from == "-" {
 		reader = os.Stdin
 		if format == "" {
@@ -727,9 +782,6 @@ func runBatchImport(ctx context.Context, paths library.Paths, options *batchImpo
 		file = opened
 		defer file.Close()
 		reader = file
-		if format == "" {
-			format = strings.TrimPrefix(filepath.Ext(options.from), ".")
-		}
 	}
 	books, err := library.DecodeImport(io.LimitReader(reader, 64<<20), format)
 	if err != nil {
@@ -751,6 +803,61 @@ func runBatchImport(ctx context.Context, paths library.Paths, options *batchImpo
 	if !options.noBuild && !options.dryRun && result.Imported > 0 {
 		printStats(result.Build)
 	}
+	return nil
+}
+
+func runArchiveImport(ctx context.Context, paths library.Paths, options *batchImportFlags) error {
+	if options.from == "-" {
+		return fmt.Errorf("Bookshelf archives require an input file")
+	}
+	if options.merge && options.replace {
+		return fmt.Errorf("--merge and --replace cannot be combined")
+	}
+	if options.noBuild {
+		return fmt.Errorf("Bookshelf archives always rebuild published data; --no-build is not supported")
+	}
+	existing, err := library.Load(paths)
+	if err != nil {
+		return err
+	}
+	mode := library.ArchiveImportMode("")
+	switch {
+	case options.merge:
+		mode = library.ArchiveMerge
+	case options.replace:
+		mode = library.ArchiveReplace
+	case len(existing) == 0:
+		mode = library.ArchiveReplace
+	case tui.IsTerminal():
+		var confirmed bool
+		mode, confirmed, err = tui.ChooseArchiveImportMode(len(existing), options.from)
+		if err != nil || !confirmed {
+			return err
+		}
+	default:
+		return fmt.Errorf("the current library is not empty; use --merge or --replace")
+	}
+	if mode == library.ArchiveReplace && options.skipDuplicates {
+		return fmt.Errorf("--skip-duplicates can only be used with --merge")
+	}
+	result, err := library.ImportArchive(ctx, paths, options.from, library.ArchiveImportOptions{
+		Mode:           mode,
+		SkipDuplicates: options.skipDuplicates,
+		DryRun:         options.dryRun,
+	})
+	if err != nil {
+		return err
+	}
+	verb := "Imported"
+	if options.dryRun {
+		verb = "Would import"
+	}
+	action := "merged"
+	if result.Replaced {
+		action = "replaced"
+	}
+	fmt.Printf("%s Bookshelf archive (%s): %d book(s), %d cover(s), %d manual cover(s). Skipped: %d.\n",
+		verb, action, result.Imported, result.Covers, result.ManualCovers, result.Skipped)
 	return nil
 }
 

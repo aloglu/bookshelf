@@ -98,6 +98,45 @@ func TestLegacyFetchCoversFlagsAreRemoved(t *testing.T) {
 	}
 }
 
+func TestBookshelfArchiveCommandsRequireExplicitNonInteractiveConflictMode(t *testing.T) {
+	source := library.NewPaths(t.TempDir())
+	if err := library.Initialize(source); err != nil {
+		t.Fatal(err)
+	}
+	if err := library.Save(source, []library.Book{library.Normalize(library.Book{Title: "Dune"})}); err != nil {
+		t.Fatal(err)
+	}
+	archive := filepath.Join(t.TempDir(), "library.bookshelf")
+	if err := exportCommand(source, []string{archive}); err != nil {
+		t.Fatal(err)
+	}
+	if info, err := os.Stat(archive); err != nil || info.Size() == 0 {
+		t.Fatalf("archive was not created: info = %#v, error = %v", info, err)
+	}
+
+	destination := library.NewPaths(t.TempDir())
+	if err := library.Initialize(destination); err != nil {
+		t.Fatal(err)
+	}
+	if err := library.Save(destination, []library.Book{library.Normalize(library.Book{Title: "Foundation"})}); err != nil {
+		t.Fatal(err)
+	}
+	err := importCommand(context.Background(), destination, []string{archive})
+	if err == nil || !strings.Contains(err.Error(), "--merge or --replace") {
+		t.Fatalf("non-interactive archive conflict error = %v", err)
+	}
+	if err := importCommand(context.Background(), destination, []string{archive, "--replace"}); err != nil {
+		t.Fatal(err)
+	}
+	books, err := library.Load(destination)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(books) != 1 || books[0].Title != "Dune" {
+		t.Fatalf("archive replacement result = %#v", books)
+	}
+}
+
 func TestBooksMissingCoversUsesLoadedCoverState(t *testing.T) {
 	books := []library.Book{
 		{ID: "covered", Title: "Covered", Cover: "data/covers/covered.jpg"},

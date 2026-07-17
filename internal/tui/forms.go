@@ -14,6 +14,27 @@ type BookFormResult struct {
 	Cancelled bool
 }
 
+func ChooseArchiveImportMode(existingBooks int, filename string) (library.ArchiveImportMode, bool, error) {
+	choice, chosen, err := RunDecision(DecisionRequest{
+		Title: "Import Bookshelf Archive?",
+		Description: fmt.Sprintf(
+			"%s\n\nThe current library contains %d book(s). Merge keeps current settings; replace restores the archive as a complete backup.",
+			filename, existingBooks,
+		),
+		Borderless: true,
+		Options: []DecisionOption{
+			{ID: string(library.ArchiveMerge), Label: "Merge"},
+			{ID: string(library.ArchiveReplace), Label: "Replace Library", Tone: DecisionDanger},
+			{ID: "cancel", Label: "Cancel"},
+		},
+		Default: 0,
+	})
+	if err != nil || !chosen || choice == "cancel" {
+		return "", false, err
+	}
+	return library.ArchiveImportMode(choice), true, nil
+}
+
 func ConfirmUninstall(binPath, installDir string, purge bool) (bool, error) {
 	title := "Uninstall Bookshelf?"
 	description := fmt.Sprintf("Remove the command and generated website?\n\n%s\n%s\n\nEverything under data/ will be kept. To remove it too, cancel and run `bookshelf uninstall --purge`.", binPath, filepath.Join(installDir, "public"))

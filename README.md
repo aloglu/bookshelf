@@ -10,7 +10,7 @@ the books that appear on it.
 - Interactive terminal library browser
 - Add and edit forms
 - Multi-select and batch removal
-- JSON and Excel-compatible CSV exports
+- JSON, Excel-compatible CSV, and complete ZIP-based Bookshelf archives
 - Manual and automatically downloaded covers
 - Pure-Go cover conversion and spine-color extraction
 - Source-versus-published status checks
@@ -99,6 +99,7 @@ bookshelf add --title "Dune" --author "Frank Herbert" --isbn "9780441172719"
 bookshelf import books.csv --skip-duplicates
 bookshelf export books.csv
 bookshelf export backup.json
+bookshelf export library.bookshelf
 bookshelf add --from books.json --dry-run
 bookshelf edit --id-or-isbn "9780441172719" --binding "Hardcover"
 bookshelf remove "9780441172719" "9780441172696" --yes
@@ -119,17 +120,37 @@ Use `--format json|csv` when reading standard input with `bookshelf import -`.
 Imports are saved together and trigger one final build; `--no-build`,
 `--skip-duplicates`, and `--dry-run` adjust that behavior.
 
-Export infers JSON or CSV from the destination filename:
+Export infers JSON, CSV, or Bookshelf archive format from the destination filename:
 
 ```bash
 bookshelf export books.csv
 bookshelf export backup.json
+bookshelf export library.bookshelf
 bookshelf export - --format json
 ```
 
 CSV exports use UTF-8 with Excel-compatible headings and line endings, retain
 non-ASCII metadata, and can be imported into Bookshelf again. Existing files
 are protected unless `--force` is supplied.
+
+A `.bookshelf` file is a standard ZIP archive containing `manifest.json`,
+`books.json`, `settings.json`, fetched covers, and manual covers. It can be
+opened with any ZIP program. Generated `public/` files are omitted and rebuilt
+after import.
+
+Importing an archive into an empty library restores it directly. With an
+existing library, Bookshelf asks whether to merge, replace, or cancel:
+
+```bash
+bookshelf import library.bookshelf --merge
+bookshelf import library.bookshelf --merge --skip-duplicates
+bookshelf import library.bookshelf --replace
+```
+
+Merge retains current website settings and copies covers belonging to imported
+books. Replace restores the archive’s books, settings, fetched covers, and
+manual covers as a complete backup. Scripts must specify `--merge` or
+`--replace` when the destination is not empty.
 
 Run `bookshelf help COMMAND`, `bookshelf COMMAND help`, or
 `bookshelf COMMAND --help` to see command-specific options.
