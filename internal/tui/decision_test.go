@@ -4,7 +4,9 @@ import (
 	"strings"
 	"testing"
 
+	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 
 	"github.com/aloglu/bookshelf/internal/library"
 )
@@ -198,7 +200,7 @@ func TestBookFormUsesSpaceForTogglesAndDoesNotWrap(t *testing.T) {
 
 func TestCoverSelectorEnterUsesHighlightedBook(t *testing.T) {
 	book := library.Normalize(library.Book{Title: "Dune", Author: "Frank Herbert"})
-	model := newBookSelectorModel([]library.Book{book}, nil, nil, "Bookshelf · Covers", true)
+	model := newBookSelectorModel([]library.Book{book}, nil, nil, "Bookshelf · Covers", true, true)
 	updated, command := model.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	model = updated.(browserModel)
 	if command == nil || model.result.Action != ActionSelect || len(model.result.IDs) != 1 || model.result.IDs[0] != book.ID {
@@ -216,6 +218,75 @@ func TestBookItemTitleDoesNotEmbedSelectionMarkup(t *testing.T) {
 	selected[book.ID] = true
 	if item.Title() != "Dune" {
 		t.Fatalf("selected title = %q", item.Title())
+	}
+}
+
+func TestBookDescriptionUsesCompactSeparatorsAndCoverIcon(t *testing.T) {
+	published := 2016
+	book := library.Book{
+		Title:     "Ulysses",
+		Author:    "James Joyce",
+		ISBN:      "978-0143108245",
+		Cover:     "data/covers/978-0143108245.jpg",
+		Published: &published,
+	}
+	item := bookItem{
+		book:            book,
+		status:          library.PublicationPublished,
+		showCoverStatus: true,
+	}
+	if got, want := item.Description(), "James Joyce · 2016 · 978-0143108245 · Published · ✓"; got != want {
+		t.Fatalf("description = %q, want %q", got, want)
+	}
+	item.book.Cover = ""
+	if !strings.HasSuffix(item.Description(), " · ✕") {
+		t.Fatalf("missing-cover description = %q", item.Description())
+	}
+}
+
+func TestCoverIndicatorsAreColoredWithoutLabels(t *testing.T) {
+	base := lipgloss.NewStyle()
+	covered := renderBookDescription(bookItem{
+		book:            library.Book{Author: "Author", Cover: "data/covers/book.jpg"},
+		showCoverStatus: true,
+	}, 80, base)
+	missing := renderBookDescription(bookItem{
+		book:            library.Book{Author: "Author"},
+		showCoverStatus: true,
+	}, 80, base)
+	if !strings.Contains(covered, lipgloss.NewStyle().Foreground(lipgloss.Color("#80EF80")).Bold(true).Render("✓")) {
+		t.Fatalf("covered indicator is not green: %q", covered)
+	}
+	if !strings.Contains(missing, lipgloss.NewStyle().Foreground(lipgloss.Color("#EF4444")).Bold(true).Render("✕")) {
+		t.Fatalf("missing indicator is not red: %q", missing)
+	}
+	if strings.Contains(covered, "Cover") || strings.Contains(missing, "Missing") {
+		t.Fatalf("cover indicator included a text label: %q / %q", covered, missing)
+	}
+}
+
+func TestWordFilterRequiresEveryWholeQueryToken(t *testing.T) {
+	targets := []string{
+		"A Portrait of the Artist as a Young Man James Joyce",
+		"Mars: The Pristine Beauty of the Red Planet",
+		"The Upside of Irrationality: The Unexpected Benefits of Defying Logic",
+	}
+	ranks := wordFilter("portrait of", targets)
+	if len(ranks) != 1 || ranks[0].Index != 0 {
+		t.Fatalf("ranks = %#v", ranks)
+	}
+	ranks = wordFilter("joyce portrait", targets)
+	if len(ranks) != 1 || ranks[0].Index != 0 {
+		t.Fatalf("cross-field ranks = %#v", ranks)
+	}
+}
+
+func TestFilteredListsLeaveOneBlankHeaderLine(t *testing.T) {
+	if got := browserHeaderGap(list.Filtering); got != "\n\n" {
+		t.Fatalf("filtering header gap = %q", got)
+	}
+	if got := browserHeaderGap(list.Unfiltered); got != "\n" {
+		t.Fatalf("unfiltered header gap = %q", got)
 	}
 }
 

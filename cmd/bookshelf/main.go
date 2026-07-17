@@ -256,10 +256,12 @@ Mobile visitors always use the stacks view.`)
   bookshelf covers                              Select books and a source
   bookshelf covers [IDs...]                     Fetch covers for specific books
   bookshelf covers --all                        Fetch missing covers for every book
+  bookshelf covers --missing                    Retry every book without a stored cover
   bookshelf covers --all --source goodreads     Choose a source non-interactively
 
 Options:
   --all                  Target every book
+  --missing              Target only books without a stored cover
   --source SOURCE        automatic, goodreads, openlibrary, google, manual, or url
   --url URL              Custom image URL for exactly one book
   --replace              Replace existing stored covers
@@ -909,9 +911,9 @@ func coversCommand(ctx context.Context, paths library.Paths, args []string) erro
 		return err
 	}
 	var selected []library.Book
-	interactiveSelection := !options.all && len(options.ids) == 0 && tui.IsTerminal()
-	if !options.all && len(options.ids) == 0 && !tui.IsTerminal() {
-		return fmt.Errorf("provide book IDs or --all")
+	interactiveSelection := !options.all && !options.missing && len(options.ids) == 0 && tui.IsTerminal()
+	if !options.all && !options.missing && len(options.ids) == 0 && !tui.IsTerminal() {
+		return fmt.Errorf("provide book IDs, --all, or --missing")
 	}
 	source := options.source
 	startedInteractively := interactiveSelection
@@ -934,13 +936,19 @@ selectionLoop:
 		switch {
 		case options.all:
 			selected = books
+		case options.missing:
+			selected = booksMissingCovers(books)
+			if len(selected) == 0 {
+				fmt.Println("Every book already has a stored cover.")
+				return nil
+			}
 		case len(options.ids) > 0:
 			selected, err = booksForIDs(paths, options.ids)
 			if err != nil {
 				return err
 			}
 		default:
-			ids, confirmed, selectErr := tui.RunBookSelector(books, library.PublicationStatuses(paths, books), previousSelection, "Bookshelf · Covers", true)
+			ids, confirmed, selectErr := tui.RunBookSelector(books, library.PublicationStatuses(paths, books), previousSelection, "Bookshelf · Covers", true, true)
 			if selectErr != nil {
 				return selectErr
 			}
@@ -1043,6 +1051,16 @@ selectionLoop:
 		return err
 	}
 	return printCoverSummary(paths, session, summary)
+}
+
+func booksMissingCovers(books []library.Book) []library.Book {
+	missing := make([]library.Book, 0, len(books))
+	for _, book := range books {
+		if book.Cover == "" {
+			missing = append(missing, book)
+		}
+	}
+	return missing
 }
 
 func printCoverSummary(paths library.Paths, session *library.CoverFetchSession, summary library.CoverFetchSummary) error {
@@ -1182,6 +1200,7 @@ func parseRemoveArgs(args []string) (ids []string, yes, removeCovers bool, err e
 type coversOptions struct {
 	ids       []string
 	all       bool
+	missing   bool
 	recompute bool
 	replace   bool
 	source    library.CoverSource
@@ -1196,6 +1215,8 @@ func parseCoversArgs(args []string) (coversOptions, error) {
 		switch {
 		case arg == "--all":
 			options.all = true
+		case arg == "--missing":
+			options.missing = true
 		case arg == "--recompute-colors":
 			options.recompute = true
 		case arg == "--replace":
@@ -1242,6 +1263,18 @@ func parseCoversArgs(args []string) (coversOptions, error) {
 	}
 	if options.all && len(options.ids) > 0 {
 		return coversOptions{}, fmt.Errorf("--all cannot be combined with book IDs")
+	}
+	if options.missing && options.all {
+		return coversOptions{}, fmt.Errorf("--missing cannot be combined with --all")
+	}
+	if options.missing && len(options.ids) > 0 {
+		return coversOptions{}, fmt.Errorf("--missing cannot be combined with book IDs")
+	}
+	if options.missing && options.replace {
+		return coversOptions{}, fmt.Errorf("--missing cannot be combined with --replace")
+	}
+	if options.missing && (options.url != "" || options.source == library.CoverSourceURL) {
+		return coversOptions{}, fmt.Errorf("--missing cannot be combined with a custom URL")
 	}
 	if options.url != "" && options.source != library.CoverSourceURL {
 		return coversOptions{}, fmt.Errorf("--url cannot be combined with a different --source")

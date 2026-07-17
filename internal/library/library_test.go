@@ -134,7 +134,7 @@ func TestGeneratedSiteIsRebuiltFromTemplatesAndDurableCovers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := PublicationStatuses(paths, source)[book.ID]; got != "ready" {
+	if got := PublicationStatuses(paths, source)[book.ID]; got != PublicationPublished {
 		t.Fatalf("published cover status = %q", got)
 	}
 }
@@ -601,8 +601,27 @@ func TestGeneratedComparisonDetectsSameLengthStaleness(t *testing.T) {
 	if GeneratedMatches(source, generated) {
 		t.Fatal("same-length but different generated data was treated as current")
 	}
-	if got := PublicationStatuses(paths, source)["dune"]; got != "not generated" {
+	if got := PublicationStatuses(paths, source)["dune"]; got != PublicationNotPublished {
 		t.Fatalf("status = %q", got)
+	}
+}
+
+func TestPublicationStatusesDistinguishUnpublishedChanges(t *testing.T) {
+	paths := fixture(t)
+	published := Normalize(Book{ID: "dune", Title: "Dune"})
+	if err := Save(paths, []Book{published}); err != nil {
+		t.Fatal(err)
+	}
+	if err := SaveGenerated(paths, []Book{published}); err != nil {
+		t.Fatal(err)
+	}
+	changed := published
+	changed.Title = "Dune: Revised"
+	if got := PublicationStatuses(paths, []Book{changed})[changed.ID]; got != PublicationChangesNotPublished {
+		t.Fatalf("changed status = %q", got)
+	}
+	if got := PublicationStatuses(paths, []Book{published})[published.ID]; got != PublicationPublished {
+		t.Fatalf("published status = %q", got)
 	}
 }
 

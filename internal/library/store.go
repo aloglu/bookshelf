@@ -28,6 +28,12 @@ type Paths struct {
 	IndexHTML       string
 }
 
+const (
+	PublicationPublished           = "Published"
+	PublicationNotPublished        = "Not Published"
+	PublicationChangesNotPublished = "Changes Not Published"
+)
+
 func NewPaths(root string) Paths {
 	root, _ = filepath.Abs(root)
 	return Paths{
@@ -279,7 +285,7 @@ func PublicationStatuses(paths Paths, source []Book) map[string]string {
 	generated, err := LoadGenerated(paths)
 	if err != nil {
 		for _, book := range source {
-			statuses[book.ID] = "not generated"
+			statuses[book.ID] = PublicationNotPublished
 		}
 		return statuses
 	}
@@ -293,13 +299,11 @@ func PublicationStatuses(paths Paths, source []Book) map[string]string {
 		published.CoverFile = ""
 		switch {
 		case !ok:
-			statuses[book.ID] = "not generated"
+			statuses[book.ID] = PublicationNotPublished
 		case !reflect.DeepEqual(book, published):
-			statuses[book.ID] = "stale"
-		case book.Cover == "":
-			statuses[book.ID] = "missing cover"
+			statuses[book.ID] = PublicationChangesNotPublished
 		default:
-			statuses[book.ID] = "ready"
+			statuses[book.ID] = PublicationPublished
 		}
 	}
 	return statuses

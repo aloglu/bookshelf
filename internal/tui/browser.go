@@ -28,9 +28,10 @@ type BrowserResult struct {
 }
 
 type bookItem struct {
-	book     library.Book
-	status   string
-	selected map[string]bool
+	book            library.Book
+	status          string
+	selected        map[string]bool
+	showCoverStatus bool
 }
 
 func (i bookItem) FilterValue() string {
@@ -42,6 +43,10 @@ func (i bookItem) Title() string {
 }
 
 func (i bookItem) Description() string {
+	return strings.Join(i.descriptionParts(), " · ")
+}
+
+func (i bookItem) descriptionParts() []string {
 	author := i.book.Author
 	if author == "" {
 		author = "Unknown author"
@@ -53,8 +58,17 @@ func (i bookItem) Description() string {
 	if i.book.ISBN != "" {
 		metadata = append(metadata, i.book.ISBN)
 	}
-	metadata = append(metadata, i.status)
-	return strings.Join(metadata, "  ·  ")
+	if i.status != "" {
+		metadata = append(metadata, i.status)
+	}
+	if i.showCoverStatus {
+		if i.book.Cover == "" {
+			metadata = append(metadata, "✕")
+		} else {
+			metadata = append(metadata, "✓")
+		}
+	}
+	return metadata
 }
 
 type browserModel struct {
@@ -83,6 +97,7 @@ func newBrowserModel(books []library.Book, statuses map[string]string) browserMo
 	model.SetShowTitle(false)
 	model.SetShowStatusBar(false)
 	model.DisableQuitKeybindings()
+	model.Filter = wordFilter
 	model.AdditionalShortHelpKeys = func() []key.Binding {
 		return []key.Binding{
 			key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "back/quit")),
@@ -96,11 +111,20 @@ func newBrowserModel(books []library.Book, statuses map[string]string) browserMo
 	}
 }
 
-func newBookSelectorModel(books []library.Book, statuses map[string]string, initial []string, title string, multi bool) browserModel {
+func newBookSelectorModel(books []library.Book, statuses map[string]string, initial []string, title string, multi, showCoverStatus bool) browserModel {
 	model := newBrowserModel(books, statuses)
 	model.selecting = true
 	model.multi = multi
 	model.pageTitle = title
+	if showCoverStatus {
+		items := model.list.Items()
+		for index, item := range items {
+			book := item.(bookItem)
+			book.showCoverStatus = true
+			items[index] = book
+		}
+		model.list.SetItems(items)
+	}
 	model.list.SetDelegate(newBookDelegate(true, multi))
 	for _, id := range initial {
 		model.selected[id] = true
@@ -200,11 +224,18 @@ func (m browserModel) View() tea.View {
 		header += metaStyle.Render(" · ") +
 			selectedStyle.Render(fmt.Sprintf("%d Selected", len(m.selected)))
 	}
-	content := lipgloss.NewStyle().PaddingLeft(2).Render(header) + "\n" + m.list.View()
+	content := lipgloss.NewStyle().PaddingLeft(2).Render(header) + browserHeaderGap(m.list.FilterState()) + m.list.View()
 	view := tea.NewView(content)
 	view.AltScreen = true
 	view.WindowTitle = "Bookshelf"
 	return view
+}
+
+func browserHeaderGap(filterState list.FilterState) string {
+	if filterState != list.Unfiltered {
+		return "\n\n"
+	}
+	return "\n"
 }
 
 type bookDelegate struct {
@@ -237,10 +268,60 @@ func (d bookDelegate) Render(writer io.Writer, model list.Model, index int, item
 	}
 	available := max(8, model.Width()-4)
 	title := truncateListText(book.book.Title, max(4, available-2))
-	description := truncateListText(book.Description(), available)
+	description := renderBookDescription(book, available, descriptionStyle)
 	fmt.Fprintf(writer, "%s%s%s\n%s  %s",
 		cursor, marker, titleStyle.Render(title),
-		cursor, descriptionStyle.Render(description))
+		cursor, description)
+}
+
+func renderBookDescription(book bookItem, width int, base lipgloss.Style) string {
+	plain := book.Description()
+	if lipgloss.Width(plain) > width {
+		return base.Render(truncateListText(plain, width))
+	}
+	parts := book.descriptionParts()
+	rendered := make([]string, 0, len(parts))
+	for _, part := range parts {
+		style := base
+		switch part {
+		case library.PublicationNotPublished:
+			style = style.Foreground(lipgloss.Color("#F59E0B"))
+		case library.PublicationChangesNotPublished:
+			style = style.Foreground(lipgloss.Color("#EF4444"))
+		case "✓":
+			style = style.Foreground(lipgloss.Color("#80EF80")).Bold(true)
+		case "✕":
+			style = style.Foreground(lipgloss.Color("#EF4444")).Bold(true)
+		}
+		rendered = append(rendered, style.Render(part))
+	}
+	return strings.Join(rendered, base.Render(" · "))
+}
+
+func wordFilter(term string, targets []string) []list.Rank {
+	words := strings.Fields(strings.ToLower(term))
+	if len(words) == 0 {
+		ranks := make([]list.Rank, len(targets))
+		for index := range targets {
+			ranks[index] = list.Rank{Index: index}
+		}
+		return ranks
+	}
+	ranks := make([]list.Rank, 0, len(targets))
+	for index, target := range targets {
+		searchable := strings.ToLower(target)
+		matches := true
+		for _, word := range words {
+			if !strings.Contains(searchable, word) {
+				matches = false
+				break
+			}
+		}
+		if matches {
+			ranks = append(ranks, list.Rank{Index: index})
+		}
+	}
+	return ranks
 }
 
 func truncateListText(value string, width int) string {
@@ -306,11 +387,11 @@ func RunBrowser(books []library.Book, statuses map[string]string) (BrowserResult
 	return model.result, nil
 }
 
-func RunBookSelector(books []library.Book, statuses map[string]string, initial []string, title string, multi bool) ([]string, bool, error) {
+func RunBookSelector(books []library.Book, statuses map[string]string, initial []string, title string, multi, showCoverStatus bool) ([]string, bool, error) {
 	if len(books) == 0 {
 		return nil, false, nil
 	}
-	final, err := tea.NewProgram(newBookSelectorModel(books, statuses, initial, title, multi)).Run()
+	final, err := tea.NewProgram(newBookSelectorModel(books, statuses, initial, title, multi, showCoverStatus)).Run()
 	if err != nil {
 		return nil, false, err
 	}

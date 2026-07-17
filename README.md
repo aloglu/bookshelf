@@ -6,7 +6,7 @@ the books that appear on it.
 ## Features
 
 - Shelf, stack, and coverflow website views
-- Fuzzy search and sorting
+- Multiword library filtering and sorting
 - Interactive terminal library browser
 - Add and edit forms
 - Multi-select and batch removal
@@ -106,6 +106,7 @@ bookshelf build --fetch-covers
 bookshelf preview
 bookshelf covers --id-or-isbn "9780441172719"
 bookshelf covers --all
+bookshelf covers --missing
 bookshelf validate
 bookshelf settings --default-view coverflow --default-sort author
 bookshelf upgrade
@@ -174,10 +175,12 @@ generated `public/data/books.js`.
 
 The list command compares the two and reports:
 
-- `ready`: source and published records match and a cover is present
-- `missing cover`: source and published records match without a cover
-- `stale`: the published record differs
-- `not generated`: the book is absent from published data
+- `Published`: source and published records match
+- `Changes Not Published`: the published record differs
+- `Not Published`: the book is absent from published data
+
+The Covers screen separately marks stored covers with a green checkmark and
+missing covers with a red cross.
 
 `bookshelf validate` compares complete records rather than only array lengths,
 so same-sized but stale generated libraries are detected.
@@ -245,11 +248,13 @@ automatic fallback:
 ```bash
 bookshelf covers
 bookshelf covers --all
+bookshelf covers --missing
 bookshelf covers --all --source goodreads
 bookshelf covers BOOK_ID --url "https://example.com/cover.jpg"
 ```
 
-Existing covers are skipped unless `--replace` is supplied. Interactive
+Use `--missing` to retry every book that does not currently have a durable
+cover. Existing covers are skipped unless `--replace` is supplied. Interactive
 fetching uses a progress screen. Escape pauses the operation and offers to keep
 the completed downloads, discard the entire session, or continue. Downloads
 remain staged until they are committed, so discarding leaves existing data

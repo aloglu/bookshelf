@@ -27,7 +27,7 @@ type coverWorkflowModel struct {
 func newCoverWorkflowModel(books []library.Book, statuses map[string]string, initial []string) coverWorkflowModel {
 	return coverWorkflowModel{
 		books:  books,
-		picker: newBookSelectorModel(books, statuses, initial, "Bookshelf · Covers", true),
+		picker: newBookSelectorModel(books, statuses, initial, "Bookshelf · Covers", true, true),
 	}
 }
 
@@ -118,7 +118,7 @@ type editWorkflowModel struct {
 func newEditWorkflowModel(books []library.Book, statuses map[string]string) editWorkflowModel {
 	return editWorkflowModel{
 		books:  books,
-		picker: newBookSelectorModel(books, statuses, nil, "Bookshelf · Edit", false),
+		picker: newBookSelectorModel(books, statuses, nil, "Bookshelf · Edit", false, false),
 	}
 }
 
@@ -213,7 +213,7 @@ type removeWorkflowModel struct {
 func newRemoveWorkflowModel(books []library.Book, statuses map[string]string) removeWorkflowModel {
 	return removeWorkflowModel{
 		books:  books,
-		picker: newBookSelectorModel(books, statuses, nil, "Bookshelf · Remove", true),
+		picker: newBookSelectorModel(books, statuses, nil, "Bookshelf · Remove", true, false),
 	}
 }
 

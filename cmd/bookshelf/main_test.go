@@ -58,6 +58,38 @@ func TestCoverOptionsSupportAllSourcesAndReplacement(t *testing.T) {
 	}
 }
 
+func TestCoverOptionsSupportMissingOnlyRetries(t *testing.T) {
+	options, err := parseCoversArgs([]string{"--missing", "--source", "automatic"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !options.missing || options.source != library.CoverSourceAutomatic {
+		t.Fatalf("options = %#v", options)
+	}
+	for _, args := range [][]string{
+		{"--missing", "--all"},
+		{"--missing", "dune"},
+		{"--missing", "--replace"},
+		{"--missing", "--source", "url"},
+		{"--missing", "--url", "https://example.com/cover.jpg"},
+	} {
+		if _, err := parseCoversArgs(args); err == nil {
+			t.Fatalf("incompatible options were accepted: %v", args)
+		}
+	}
+}
+
+func TestBooksMissingCoversUsesLoadedCoverState(t *testing.T) {
+	books := []library.Book{
+		{ID: "covered", Title: "Covered", Cover: "data/covers/covered.jpg"},
+		{ID: "missing", Title: "Missing"},
+	}
+	missing := booksMissingCovers(books)
+	if len(missing) != 1 || missing[0].ID != "missing" {
+		t.Fatalf("missing books = %#v", missing)
+	}
+}
+
 func TestUpgradeDoesNotDownloadInstallerWhenCurrent(t *testing.T) {
 	var installerRequests atomic.Int32
 	previousClient := httpClient
