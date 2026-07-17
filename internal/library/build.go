@@ -34,7 +34,6 @@ type BuildStats struct {
 	Downloads  int
 	Colored    int
 	Missing    int
-	Migrated   int
 	FetchFails int
 }
 
@@ -43,11 +42,6 @@ func Build(ctx context.Context, paths Paths, options BuildOptions) (BuildStats, 
 	if err := Ensure(paths); err != nil {
 		return stats, err
 	}
-	migrated, err := MigrateLegacyCovers(paths)
-	if err != nil {
-		return stats, err
-	}
-	stats.Migrated = migrated
 
 	books, err := Load(paths)
 	if err != nil {
@@ -61,6 +55,16 @@ func Build(ctx context.Context, paths Paths, options BuildOptions) (BuildStats, 
 		return stats, validationError(problems)
 	}
 	stats.Books = len(books)
+	var renameRollbacks []func()
+	committed := false
+	defer func() {
+		if committed {
+			return
+		}
+		for index := len(renameRollbacks) - 1; index >= 0; index-- {
+			renameRollbacks[index]()
+		}
+	}()
 
 	client := &http.Client{Timeout: 20 * time.Second}
 	for i := range books {
@@ -70,7 +74,16 @@ func Build(ctx context.Context, paths Paths, options BuildOptions) (BuildStats, 
 		}
 		stats.Processed++
 
+		previous := *book
+		rollbackRename, err := renameCoverForBook(paths, previous, book)
+		if err != nil {
+			return stats, err
+		}
+		renameRollbacks = append(renameRollbacks, rollbackRename)
 		filename := coverFilename(*book)
+		if filename == "" {
+			filename = preferredCoverFilename(*book)
+		}
 		destination := filepath.Join(paths.CoversDir, filename)
 		manual := findManualCover(paths, *book)
 		if manual != "" {
@@ -103,6 +116,7 @@ func Build(ctx context.Context, paths Paths, options BuildOptions) (BuildStats, 
 		}
 
 		if fileExists(destination) {
+			book.CoverFile = filename
 			book.Cover = filepath.ToSlash(filepath.Join("data", "covers", filename))
 			if options.RecomputeColors || book.SpineColor == "" || book.SpineTextColor == "" {
 				background, foreground, colorErr := extractPalette(destination)
@@ -123,6 +137,7 @@ func Build(ctx context.Context, paths Paths, options BuildOptions) (BuildStats, 
 	if err := Save(paths, books); err != nil {
 		return stats, err
 	}
+	committed = true
 	if err := SaveConfig(paths, config); err != nil {
 		return stats, err
 	}
@@ -152,11 +167,35 @@ func ApplyManualCovers(ctx context.Context, paths Paths, ids []string, recompute
 }
 
 func coverFilename(book Book) string {
-	token := CleanISBN(book.ISBN)
+	filename := strings.TrimSpace(book.CoverFile)
+	if filename == "" || filepath.Base(filename) != filename || !strings.EqualFold(filepath.Ext(filename), ".jpg") {
+		return ""
+	}
+	return filename
+}
+
+func preferredCoverFilename(book Book) string {
+	token := formattedISBNToken(book.ISBN)
 	if token == "" {
 		token = safeToken(book.ID)
 	}
+	if token == "" {
+		return ""
+	}
 	return token + ".jpg"
+}
+
+func formattedISBNToken(value string) string {
+	var token strings.Builder
+	for _, character := range strings.TrimSpace(value) {
+		switch {
+		case character >= '0' && character <= '9':
+			token.WriteRune(character)
+		case character == 'x' || character == 'X' || character == '-':
+			token.WriteRune(character)
+		}
+	}
+	return token.String()
 }
 
 func safeToken(value string) string {
@@ -172,12 +211,14 @@ func safeToken(value string) string {
 }
 
 func findManualCover(paths Paths, book Book) string {
-	candidates := []string{CleanISBN(book.ISBN), safeToken(book.ID)}
+	candidates := []string{formattedISBNToken(book.ISBN), CleanISBN(book.ISBN), safeToken(book.ID)}
+	seen := make(map[string]bool, len(candidates))
 	extensions := []string{".jpg", ".jpeg", ".png", ".webp", ".bmp"}
 	for _, candidate := range candidates {
-		if candidate == "" {
+		if candidate == "" || seen[candidate] {
 			continue
 		}
+		seen[candidate] = true
 		for _, extension := range extensions {
 			name := filepath.Join(paths.ManualCoversDir, candidate+extension)
 			if fileExists(name) {
@@ -297,59 +338,6 @@ func extractPalette(name string) (string, string, error) {
 		foreground = "#1c1c22"
 	}
 	return fmt.Sprintf("#%02X%02X%02X", r, g, b), foreground, nil
-}
-
-func MigrateLegacyCovers(paths Paths) (int, error) {
-	source := filepath.Join(paths.SourceDir, "covers")
-	if _, err := os.Stat(source); err != nil {
-		if os.IsNotExist(err) {
-			return 0, nil
-		}
-		return 0, err
-	}
-	if err := os.MkdirAll(paths.CoversDir, 0o755); err != nil {
-		return 0, err
-	}
-	moved := 0
-	err := filepath.WalkDir(source, func(name string, entry os.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		if entry.IsDir() {
-			return nil
-		}
-		destination := filepath.Join(paths.CoversDir, filepath.Base(name))
-		if fileExists(destination) {
-			return nil
-		}
-		if err := os.Rename(name, destination); err != nil {
-			return err
-		}
-		moved++
-		return nil
-	})
-	if err != nil {
-		return moved, err
-	}
-	removeEmptyTree(source)
-	return moved, nil
-}
-
-func removeEmptyTree(root string) bool {
-	entries, err := os.ReadDir(root)
-	if err != nil {
-		return false
-	}
-	for _, entry := range entries {
-		if entry.IsDir() {
-			removeEmptyTree(filepath.Join(root, entry.Name()))
-		}
-	}
-	entries, err = os.ReadDir(root)
-	if err == nil && len(entries) == 0 {
-		return os.Remove(root) == nil
-	}
-	return false
 }
 
 func validationError(problems []error) error {

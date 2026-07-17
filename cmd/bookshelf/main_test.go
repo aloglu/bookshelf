@@ -137,20 +137,25 @@ func TestVersionComparisonAllowsOptionalVPrefix(t *testing.T) {
 
 func TestSyncDataOnlyWritesGeneratedIndex(t *testing.T) {
 	paths := library.NewPaths(t.TempDir())
-	if err := os.MkdirAll(filepath.Dir(paths.BooksJSON), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.MkdirAll(filepath.Dir(paths.BooksJS), 0o755); err != nil {
+	if err := library.Initialize(paths); err != nil {
 		t.Fatal(err)
 	}
 	books := []library.Book{library.Normalize(library.Book{
 		Title:          "Dune",
 		Author:         "Frank Herbert",
+		ISBN:           "978-0-441-17271-9",
+		CoverFile:      "9780441172719.jpg",
 		Cover:          "data/covers/dune.jpg",
 		SpineColor:     "#123456",
 		SpineTextColor: "#ffffff",
 	})}
 	if err := library.Save(paths, books); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(paths.CoversDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(paths.CoversDir, "9780441172719.jpg"), []byte("cover"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	sourceBefore, err := os.ReadFile(paths.BooksJSON)
@@ -178,10 +183,7 @@ func TestSyncDataOnlyWritesGeneratedIndex(t *testing.T) {
 
 func TestSettingsCommandPublishesPermalinkPreference(t *testing.T) {
 	paths := library.NewPaths(t.TempDir())
-	if err := os.MkdirAll(filepath.Dir(paths.BooksJSON), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.MkdirAll(filepath.Dir(paths.BooksJS), 0o755); err != nil {
+	if err := library.Initialize(paths); err != nil {
 		t.Fatal(err)
 	}
 	if err := library.Save(paths, []library.Book{library.Normalize(library.Book{Title: "Dune"})}); err != nil {
@@ -256,7 +258,35 @@ func TestPreviewHandlerServesGeneratedWebsite(t *testing.T) {
 	}
 }
 
-func TestUninstallPreservesLibraryByDefault(t *testing.T) {
+func TestExportCommandInfersCSVAndProtectsExistingFiles(t *testing.T) {
+	paths := library.NewPaths(t.TempDir())
+	if err := library.Initialize(paths); err != nil {
+		t.Fatal(err)
+	}
+	book := library.Normalize(library.Book{Title: "Příliš hlučná samota", Author: "Bohumil Hrabal"})
+	if err := library.Save(paths, []library.Book{book}); err != nil {
+		t.Fatal(err)
+	}
+	destination := filepath.Join(t.TempDir(), "books.csv")
+	if err := exportCommand(paths, []string{destination}); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(destination)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.HasPrefix(raw, []byte{0xef, 0xbb, 0xbf}) || !strings.Contains(string(raw), book.Title) {
+		t.Fatalf("CSV export = %q", raw)
+	}
+	if err := exportCommand(paths, []string{destination}); err == nil || !strings.Contains(err.Error(), "--force") {
+		t.Fatalf("existing export error = %v", err)
+	}
+	if err := exportCommand(paths, []string{destination, "--force"}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestUninstallPreservesDataByDefault(t *testing.T) {
 	binPath, installDir := uninstallFixture(t)
 	t.Setenv("BOOKSHELF_BIN_PATH", binPath)
 	t.Setenv("BOOKSHELF_INSTALL_DIR", installDir)
@@ -265,7 +295,8 @@ func TestUninstallPreservesLibraryByDefault(t *testing.T) {
 	}
 	assertMissing(t, binPath)
 	assertMissing(t, filepath.Join(installDir, "public"))
-	assertExists(t, filepath.Join(installDir, "library", "books.json"))
+	assertExists(t, filepath.Join(installDir, "data", "books.json"))
+	assertExists(t, filepath.Join(installDir, "data", "covers", "dune.jpg"))
 	for _, completionPath := range completionPaths(filepath.Dir(filepath.Dir(binPath))) {
 		assertMissing(t, completionPath)
 	}
@@ -306,16 +337,22 @@ func uninstallFixture(t *testing.T) (string, string) {
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(root, "config"))
 	binPath := filepath.Join(root, "bin", "bookshelf")
 	installDir := filepath.Join(root, "share", "bookshelf")
-	for _, directory := range []string{filepath.Dir(binPath), filepath.Join(installDir, "library", "manual-covers"), filepath.Join(installDir, "public")} {
+	for _, directory := range []string{
+		filepath.Dir(binPath),
+		filepath.Join(installDir, "data", "covers"),
+		filepath.Join(installDir, "data", "manual-covers"),
+		filepath.Join(installDir, "public"),
+	} {
 		if err := os.MkdirAll(directory, 0o755); err != nil {
 			t.Fatal(err)
 		}
 	}
 	for name, contents := range map[string]string{
 		binPath: "binary",
-		filepath.Join(installDir, "library", "books.json"):  "[]\n",
-		filepath.Join(installDir, "library", "config.json"): `{"permalinkStyle":"formatted-isbn"}`,
-		filepath.Join(installDir, "public", "index.html"):   "<!doctype html>",
+		filepath.Join(installDir, "data", "books.json"):         "[]\n",
+		filepath.Join(installDir, "data", "settings.json"):      `{"permalinkStyle":"formatted-isbn"}`,
+		filepath.Join(installDir, "data", "covers", "dune.jpg"): "cover",
+		filepath.Join(installDir, "public", "index.html"):       "<!doctype html>",
 	} {
 		if err := os.WriteFile(name, []byte(contents), 0o644); err != nil {
 			t.Fatal(err)

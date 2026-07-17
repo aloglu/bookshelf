@@ -9,21 +9,10 @@ VERSION="${BOOKSHELF_VERSION:-latest}"
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 
 TMP_DIR=""
-BACKUP_DIR=""
-INSTALL_IN_PROGRESS=0
-HAD_EXISTING_LIBRARY=0
 
 cleanup() {
-  if [ "$INSTALL_IN_PROGRESS" -eq 1 ] && [ -n "$BACKUP_DIR" ] && [ -d "$BACKUP_DIR" ]; then
-    echo "Installation did not complete; restoring user library data." >&2
-    mkdir -p "$INSTALL_DIR"
-    restore_user_data
-  fi
   if [ -n "$TMP_DIR" ] && [ -d "$TMP_DIR" ]; then
     rm -rf "$TMP_DIR"
-  fi
-  if [ -n "$BACKUP_DIR" ] && [ -d "$BACKUP_DIR" ]; then
-    rm -rf "$BACKUP_DIR"
   fi
 }
 trap cleanup EXIT HUP INT TERM
@@ -113,11 +102,6 @@ verify_checksum() {
 }
 
 prepare_local_checkout() {
-  if [ ! -f "$SCRIPT_DIR/public/index.html" ]; then
-    echo "Local source checkout is incomplete: public/index.html was not found." >&2
-    echo "Restore the public directory or use the curl installer to install a published release." >&2
-    exit 1
-  fi
   if ! command -v go >/dev/null 2>&1; then
     echo "Go is required only when installing from a source checkout." >&2
     echo "Normal users should run the curl installer, which downloads a precompiled binary." >&2
@@ -130,15 +114,6 @@ prepare_local_checkout() {
     CGO_ENABLED=0 go build -buildvcs=false -trimpath -ldflags "-s -w -X main.version=dev" \
       -o "$TMP_DIR/package/bookshelf" ./cmd/bookshelf
   )
-  cp -a "$SCRIPT_DIR/public" "$TMP_DIR/package/public"
-  rm -rf "$TMP_DIR/package/public/data/covers"
-  mkdir -p "$TMP_DIR/package/public/data/covers"
-  printf '%s\n' \
-    'window.bookshelfConfig = {"permalinkStyle":"formatted-isbn"};' \
-    'window.booksData = [];' \
-    > "$TMP_DIR/package/public/data/books.js"
-  mkdir -p "$TMP_DIR/package/library/manual-covers"
-  printf '[]\n' > "$TMP_DIR/package/library/books.json"
 }
 
 prepare_release() {
@@ -162,29 +137,6 @@ prepare_release() {
   tar -xzf "$archive" -C "$TMP_DIR/package"
 }
 
-backup_user_data() {
-  BACKUP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/bookshelf-backup.XXXXXX")
-  if [ -d "$INSTALL_DIR/library" ]; then
-    cp -a "$INSTALL_DIR/library" "$BACKUP_DIR/library"
-  fi
-  if [ -d "$INSTALL_DIR/public/data/covers" ]; then
-    mkdir -p "$BACKUP_DIR/public/data"
-    cp -a "$INSTALL_DIR/public/data/covers" "$BACKUP_DIR/public/data/covers"
-  fi
-}
-
-restore_user_data() {
-  if [ -d "$BACKUP_DIR/library" ]; then
-    rm -rf "$INSTALL_DIR/library"
-    cp -a "$BACKUP_DIR/library" "$INSTALL_DIR/library"
-  fi
-  if [ -d "$BACKUP_DIR/public/data/covers" ]; then
-    rm -rf "$INSTALL_DIR/public/data/covers"
-    mkdir -p "$INSTALL_DIR/public/data"
-    cp -a "$BACKUP_DIR/public/data/covers" "$INSTALL_DIR/public/data/covers"
-  fi
-}
-
 remove_completions() {
   data_home="${XDG_DATA_HOME:-$HOME/.local/share}"
   config_home="${XDG_CONFIG_HOME:-$HOME/.config}"
@@ -196,10 +148,6 @@ remove_completions() {
 }
 
 TMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/bookshelf-install.XXXXXX")
-
-if [ -f "$INSTALL_DIR/library/books.json" ]; then
-  HAD_EXISTING_LIBRARY=1
-fi
 
 LOCAL_SOURCE=0
 case "$0" in
@@ -220,28 +168,12 @@ if [ ! -x "$TMP_DIR/package/bookshelf" ]; then
   echo "Install failed: release does not contain the Bookshelf binary." >&2
   exit 1
 fi
-if [ ! -f "$TMP_DIR/package/public/index.html" ]; then
-  echo "Install failed: release does not contain the public site." >&2
-  exit 1
-fi
-
-backup_user_data
-INSTALL_IN_PROGRESS=1
 mkdir -p "$BIN_DIR"
-mkdir -p "$(dirname "$INSTALL_DIR")"
-rm -rf "$INSTALL_DIR"
 mkdir -p "$INSTALL_DIR"
-cp -a "$TMP_DIR/package/public" "$INSTALL_DIR/public"
-cp -a "$TMP_DIR/package/library" "$INSTALL_DIR/library"
-restore_user_data
 install -m 0755 "$TMP_DIR/package/bookshelf" "$BIN_PATH"
 remove_completions
 
-if [ "$HAD_EXISTING_LIBRARY" -eq 1 ]; then
-  echo "Synchronizing existing library with the updated app..."
-  BOOKSHELF_INSTALL_DIR="$INSTALL_DIR" BOOKSHELF_BIN_PATH="$BIN_PATH" "$BIN_PATH" _sync-data
-fi
-INSTALL_IN_PROGRESS=0
+BOOKSHELF_INSTALL_DIR="$INSTALL_DIR" BOOKSHELF_BIN_PATH="$BIN_PATH" "$BIN_PATH" _init
 
 echo "Installed Bookshelf command: $BIN_PATH"
 echo "Installed Bookshelf files: $INSTALL_DIR"

@@ -30,22 +30,14 @@ jobs:
           mkdir -p dist
           for arch in amd64 arm64; do
             package_dir="dist/package-$arch"
-            mkdir -p "$package_dir/library/manual-covers"
-            cp -a public "$package_dir/public"
-            rm -rf "$package_dir/public/data/covers"
-            mkdir -p "$package_dir/public/data/covers"
-            printf '%s\n' \
-              'window.bookshelfConfig = {"permalinkStyle":"formatted-isbn"};' \
-              'window.booksData = [];' \
-              > "$package_dir/public/data/books.js"
-            printf '[]\n' > "$package_dir/library/books.json"
+            mkdir -p "$package_dir"
             CGO_ENABLED=0 GOOS=linux GOARCH="$arch" go build \
               -trimpath \
               -ldflags "-s -w -X main.version=$VERSION" \
               -o "$package_dir/bookshelf" \
               ./cmd/bookshelf
             tar -C "$package_dir" -czf "dist/bookshelf_linux_${arch}.tar.gz" \
-              bookshelf public library
+              bookshelf
             rm -rf "$package_dir"
           done
           (

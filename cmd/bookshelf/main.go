@@ -74,6 +74,8 @@ func run(ctx context.Context, args []string) error {
 		return upgradeCommand(ctx, args)
 	case "uninstall":
 		return uninstallCommand(args)
+	case "_init":
+		return initializeCommand()
 	}
 
 	root, err := library.ResolveRoot()
@@ -98,6 +100,8 @@ func run(ctx context.Context, args []string) error {
 		return addCommand(ctx, paths, args)
 	case "import":
 		return importCommand(ctx, paths, args)
+	case "export":
+		return exportCommand(paths, args)
 	case "edit":
 		return editCommand(ctx, paths, args)
 	case "remove", "delete", "rm":
@@ -128,6 +132,22 @@ func syncDataCommand(paths library.Paths) error {
 	return library.SaveGenerated(paths, books)
 }
 
+func initializeCommand() error {
+	root := strings.TrimSpace(os.Getenv("BOOKSHELF_INSTALL_DIR"))
+	if root == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return err
+		}
+		root = filepath.Join(home, ".local", "share", "bookshelf")
+	}
+	paths := library.NewPaths(root)
+	if err := library.Initialize(paths); err != nil {
+		return err
+	}
+	return syncDataCommand(paths)
+}
+
 func usage(output io.Writer) {
 	fmt.Fprintln(output, `Bookshelf — manage and publish your book collection
 
@@ -136,6 +156,7 @@ Usage:
   bookshelf list [--plain|--json]   Browse or print the library
   bookshelf add [fields]            Add a book
   bookshelf import FILE [options]   Import books from JSON or CSV
+  bookshelf export FILE [options]   Export books as JSON or Excel-compatible CSV
   bookshelf edit --id-or-isbn ID    Edit an existing book
   bookshelf remove [IDs...]         Remove one or more books
   bookshelf build [options]         Generate published data and covers
@@ -189,6 +210,14 @@ Options:
   --fetch-covers       Fetch missing covers for imported books
   --no-build           Import without refreshing published data
   --dry-run            Parse and validate without saving`)
+	case "export":
+		fmt.Fprintln(output, `Usage:
+  bookshelf export FILE [--format json|csv] [--force]
+  bookshelf export - --format json|csv
+
+The format is inferred from a .json or .csv filename. CSV output is UTF-8,
+uses Excel-friendly column headings and line endings, and preserves non-ASCII
+book metadata. Existing files are not replaced unless --force is supplied.`)
 	case "list", "ls":
 		fmt.Fprintln(output, "Usage:\n  bookshelf list [--plain|--json]\n\nWithout an output flag, opens the paginated interactive library in a terminal.")
 	case "build":
@@ -233,13 +262,13 @@ Options:
   --all                  Target every book
   --source SOURCE        automatic, goodreads, openlibrary, google, manual, or url
   --url URL              Custom image URL for exactly one book
-  --replace              Replace existing published covers
+  --replace              Replace existing stored covers
   --recompute-colors     Recompute colors when applying manual covers
   --id-or-isbn ID        Target a book by ID or ISBN; repeatable`)
 	case "upgrade":
 		fmt.Fprintln(output, "Usage:\n  bookshelf upgrade [--check] [--force] [--yes]\n\n  --check  Report whether an upgrade is available without installing\n  --force  Reinstall even when the installed version is current\n  --yes    Skip confirmation; required when no terminal is available")
 	case "uninstall":
-		fmt.Fprintln(output, "Usage:\n  bookshelf uninstall [--purge|--delete-data] [--yes]\n\nBy default, removes the command and generated website while preserving the source library, manual covers, and settings.\n\n  --purge        Also permanently delete all Bookshelf user data\n  --delete-data  Alias for --purge\n  --yes          Skip confirmation; required when no terminal is available")
+		fmt.Fprintln(output, "Usage:\n  bookshelf uninstall [--purge|--delete-data] [--yes]\n\nBy default, removes the command and generated website while preserving everything under data/.\n\n  --purge        Also permanently delete all Bookshelf user data\n  --delete-data  Alias for --purge\n  --yes          Skip confirmation; required when no terminal is available")
 	case "version":
 		fmt.Fprintln(output, "Usage:\n  bookshelf version")
 	default:
@@ -615,6 +644,83 @@ func importCommand(ctx context.Context, paths library.Paths, args []string) erro
 	return runBatchImport(ctx, paths, options)
 }
 
+func exportCommand(paths library.Paths, args []string) error {
+	flags := flag.NewFlagSet("export", flag.ContinueOnError)
+	flags.SetOutput(os.Stderr)
+	format := flags.String("format", "", "export format: json or csv")
+	force := flags.Bool("force", false, "replace an existing export file")
+	destination := ""
+	if len(args) > 0 && (args[0] == "-" || !strings.HasPrefix(args[0], "-")) {
+		destination = args[0]
+		args = args[1:]
+	}
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+	if destination == "" && flags.NArg() == 1 {
+		destination = flags.Arg(0)
+	} else if flags.NArg() != 0 {
+		return fmt.Errorf("provide exactly one export file")
+	}
+	if destination == "" {
+		return fmt.Errorf("export file is required; run `bookshelf help export`")
+	}
+
+	selectedFormat := strings.TrimSpace(*format)
+	if selectedFormat == "" && destination != "-" {
+		selectedFormat = strings.TrimPrefix(filepath.Ext(destination), ".")
+	}
+	if selectedFormat == "" {
+		return fmt.Errorf("--format is required when exporting to standard output")
+	}
+	selectedFormat = strings.ToLower(strings.TrimPrefix(selectedFormat, "."))
+	if selectedFormat != "json" && selectedFormat != "csv" {
+		return fmt.Errorf("unsupported export format %q; use json or csv", selectedFormat)
+	}
+
+	books, err := library.Load(paths)
+	if err != nil {
+		return err
+	}
+	if destination == "-" {
+		return library.EncodeExport(os.Stdout, books, selectedFormat)
+	}
+	if !*force {
+		if _, err := os.Stat(destination); err == nil {
+			return fmt.Errorf("%s already exists; use --force to replace it", destination)
+		} else if !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+	}
+	if err := writeExportFile(destination, books, selectedFormat); err != nil {
+		return err
+	}
+	fmt.Printf("Exported %d book(s) to %s (%s).\n", len(books), destination, strings.ToUpper(selectedFormat))
+	return nil
+}
+
+func writeExportFile(destination string, books []library.Book, format string) error {
+	directory := filepath.Dir(destination)
+	temp, err := os.CreateTemp(directory, "."+filepath.Base(destination)+".tmp-*")
+	if err != nil {
+		return err
+	}
+	tempName := temp.Name()
+	defer os.Remove(tempName)
+	if err := library.EncodeExport(temp, books, format); err != nil {
+		temp.Close()
+		return err
+	}
+	if err := temp.Chmod(0o644); err != nil {
+		temp.Close()
+		return err
+	}
+	if err := temp.Close(); err != nil {
+		return err
+	}
+	return os.Rename(tempName, destination)
+}
+
 func runBatchImport(ctx context.Context, paths library.Paths, options *batchImportFlags) error {
 	var reader io.Reader
 	var file *os.File
@@ -917,7 +1023,7 @@ selectionLoop:
 		}
 		if summary.Downloaded > 0 {
 			if len(selected) == 1 && summary.Downloaded == 1 {
-				return tui.OfferCoverPreview(library.PublishedCoverPath(paths, selected[0]), false)
+				return tui.OfferCoverPreview(library.CoverPath(paths, selected[0]), false)
 			}
 			return tui.OfferCoverPreview(paths.CoversDir, true)
 		}
@@ -1364,7 +1470,7 @@ func uninstallCommand(args []string) error {
 	}
 	_ = os.Remove(installDir)
 	fmt.Printf("Removed Bookshelf command and generated website:\n%s\n%s\n", binPath, publicDir)
-	fmt.Printf("Preserved user library and settings in %s\n", filepath.Join(installDir, "library"))
+	fmt.Printf("Preserved books, covers, and settings in %s\n", filepath.Join(installDir, "data"))
 	fmt.Println("To delete them later, remove that directory or reinstall and run `bookshelf uninstall --purge`.")
 	return nil
 }

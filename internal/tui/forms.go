@@ -17,11 +17,11 @@ type BookFormResult struct {
 
 func ConfirmUninstall(binPath, installDir string, purge bool) (bool, error) {
 	title := "Uninstall Bookshelf?"
-	description := fmt.Sprintf("Remove the command and generated website?\n\n%s\n%s\n\nYour library, manual covers, and settings will be kept. To remove them too, cancel and run `bookshelf uninstall --purge`.", binPath, filepath.Join(installDir, "public"))
+	description := fmt.Sprintf("Remove the command and generated website?\n\n%s\n%s\n\nEverything under data/ will be kept. To remove it too, cancel and run `bookshelf uninstall --purge`.", binPath, filepath.Join(installDir, "public"))
 	affirmative := "Uninstall"
 	if purge {
 		title = "Delete Bookshelf and all data?"
-		description = fmt.Sprintf("This permanently removes the command and the entire Bookshelf directory, including your source library, manual covers, settings, generated website, and downloaded covers.\n\n%s\n%s", binPath, installDir)
+		description = fmt.Sprintf("This permanently removes the command, books, covers, settings, reports, and generated website.\n\n%s\n%s", binPath, installDir)
 		affirmative = "Delete Everything"
 	}
 	choice, chosen, err := RunDecision(DecisionRequest{

@@ -21,16 +21,7 @@ func fixture(t *testing.T) Paths {
 	t.Helper()
 	root := t.TempDir()
 	paths := NewPaths(root)
-	if err := os.MkdirAll(filepath.Dir(paths.BooksJSON), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.MkdirAll(filepath.Dir(paths.BooksJS), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(paths.BooksJSON, []byte("[]\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(paths.IndexHTML, []byte("<!doctype html>\n"), 0o644); err != nil {
+	if err := Initialize(paths); err != nil {
 		t.Fatal(err)
 	}
 	return paths
@@ -86,7 +77,7 @@ func TestGoodreadsCoverIsStagedUntilCommit(t *testing.T) {
 	if outcome.Status != CoverFetchDownloaded || outcome.Source != CoverSourceGoodreads {
 		t.Fatalf("outcome = %#v", outcome)
 	}
-	destination := filepath.Join(paths.CoversDir, coverFilename(book))
+	destination := filepath.Join(paths.CoversDir, preferredCoverFilename(book))
 	if fileExists(destination) {
 		t.Fatal("cover was published before commit")
 	}
@@ -100,9 +91,154 @@ func TestGoodreadsCoverIsStagedUntilCommit(t *testing.T) {
 	}
 }
 
+func TestGeneratedSiteIsRebuiltFromTemplatesAndDurableCovers(t *testing.T) {
+	paths := fixture(t)
+	book := Normalize(Book{Title: "Dune", ISBN: "978-0-441-17271-9"})
+	book.CoverFile = preferredCoverFilename(book)
+	durable := filepath.Join(paths.CoversDir, book.CoverFile)
+	if err := os.MkdirAll(filepath.Dir(durable), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(durable, []byte("durable cover"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(paths.PublicDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(paths.PublicDir, "obsolete.txt"), []byte("old"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := Save(paths, []Book{book}); err != nil {
+		t.Fatal(err)
+	}
+	if err := SaveGenerated(paths, []Book{book}); err != nil {
+		t.Fatal(err)
+	}
+
+	if fileExists(filepath.Join(paths.PublicDir, "obsolete.txt")) {
+		t.Fatal("obsolete generated file survived rebuild")
+	}
+	if !fileExists(paths.IndexHTML) {
+		t.Fatal("website template was not published")
+	}
+	for _, asset := range []string{"css/bookshelf.css", "js/bookshelf.js", "fonts/peachi.woff2"} {
+		if !fileExists(filepath.Join(paths.PublicDir, filepath.FromSlash(asset))) {
+			t.Fatalf("embedded website asset %q was not published", asset)
+		}
+	}
+	if !fileExists(filepath.Join(paths.PublicDir, "data", "covers", book.CoverFile)) {
+		t.Fatal("durable cover was not published")
+	}
+	source, err := Load(paths)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := PublicationStatuses(paths, source)[book.ID]; got != "ready" {
+		t.Fatalf("published cover status = %q", got)
+	}
+}
+
+func TestSourceLibraryDoesNotPersistPublishedCoverPaths(t *testing.T) {
+	paths := fixture(t)
+	book := Normalize(Book{
+		Title:     "Dune",
+		ISBN:      "978-0-441-17271-9",
+		CoverFile: "9780441172719.jpg",
+		Cover:     "data/covers/9780441172719.jpg",
+	})
+	if err := Save(paths, []Book{book}); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(paths.BooksJSON)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(raw), `"cover"`) {
+		t.Fatalf("source library contains a generated cover path:\n%s", raw)
+	}
+	if !strings.Contains(string(raw), `"coverFile": "9780441172719.jpg"`) {
+		t.Fatalf("source library does not contain its durable cover reference:\n%s", raw)
+	}
+}
+
+func TestISBNChangeRenamesCoverButKeepsReadableFilename(t *testing.T) {
+	paths := fixture(t)
+	book := Normalize(Book{Title: "Dune", ISBN: "978-0-441-17271-9"})
+	book.CoverFile = preferredCoverFilename(book)
+	oldPath := filepath.Join(paths.CoversDir, book.CoverFile)
+	if err := os.WriteFile(oldPath, []byte("cover"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := Save(paths, []Book{book}); err != nil {
+		t.Fatal(err)
+	}
+
+	newISBN := "978-0-441-17270-2"
+	updated, _, err := Update(context.Background(), paths, book.ID, BookPatch{ISBN: &newISBN}, ChangeOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.CoverFile != "978-0-441-17270-2.jpg" {
+		t.Fatalf("cover filename = %q", updated.CoverFile)
+	}
+	if fileExists(oldPath) {
+		t.Fatal("old ISBN cover filename still exists")
+	}
+	if !fileExists(filepath.Join(paths.CoversDir, updated.CoverFile)) {
+		t.Fatal("cover was not renamed to the new ISBN")
+	}
+}
+
+func TestISBNCoverFilenamePreservesEnteredHyphenation(t *testing.T) {
+	formatted := Normalize(Book{Title: "Dune", ISBN: "978-0-441-17271-9"})
+	if got := preferredCoverFilename(formatted); got != "978-0-441-17271-9.jpg" {
+		t.Fatalf("formatted ISBN cover filename = %q", got)
+	}
+	compact := Normalize(Book{Title: "Dune", ISBN: "9780441172719"})
+	if got := preferredCoverFilename(compact); got != "9780441172719.jpg" {
+		t.Fatalf("compact ISBN cover filename = %q", got)
+	}
+}
+
+func TestBuildReconcilesCoverFilenameWithISBNHyphenation(t *testing.T) {
+	paths := fixture(t)
+	book := Normalize(Book{Title: "Dune", ISBN: "978-0-441-17271-9"})
+	book.CoverFile = "9780441172719.jpg"
+	oldPath := filepath.Join(paths.CoversDir, book.CoverFile)
+	if err := os.WriteFile(oldPath, []byte("cover"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := Save(paths, []Book{book}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Build(context.Background(), paths, BuildOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	want := "978-0-441-17271-9.jpg"
+	if fileExists(oldPath) || !fileExists(filepath.Join(paths.CoversDir, want)) {
+		t.Fatal("build did not reconcile the cover filename")
+	}
+	books, err := Load(paths)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if books[0].CoverFile != want {
+		t.Fatalf("saved cover filename = %q", books[0].CoverFile)
+	}
+}
+
+func TestISBNLessCoverUsesInternalBookIDFilename(t *testing.T) {
+	book := Normalize(Book{Title: "An Old Book", Author: "A. Writer"})
+	if got, want := preferredCoverFilename(book), book.ID+".jpg"; got != want {
+		t.Fatalf("cover filename = %q, want %q", got, want)
+	}
+}
+
 func TestDiscardCoverSessionPreservesExistingCover(t *testing.T) {
 	paths := fixture(t)
 	book := Normalize(Book{Title: "Dune", ISBN: "978-0-441-17271-9"})
+	book.CoverFile = preferredCoverFilename(book)
 	if err := Save(paths, []Book{book}); err != nil {
 		t.Fatal(err)
 	}

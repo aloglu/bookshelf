@@ -5,16 +5,20 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
+
+	"github.com/aloglu/bookshelf/internal/siteassets"
 )
 
 type Paths struct {
 	Root            string
+	DataDir         string
 	PublicDir       string
-	SourceDir       string
 	BooksJSON       string
 	ConfigJSON      string
 	CoverReportJSON string
@@ -28,14 +32,14 @@ func NewPaths(root string) Paths {
 	root, _ = filepath.Abs(root)
 	return Paths{
 		Root:            root,
+		DataDir:         filepath.Join(root, "data"),
 		PublicDir:       filepath.Join(root, "public"),
-		SourceDir:       filepath.Join(root, "library"),
-		BooksJSON:       filepath.Join(root, "library", "books.json"),
-		ConfigJSON:      filepath.Join(root, "library", "config.json"),
-		CoverReportJSON: filepath.Join(root, "library", "cover-report.json"),
+		BooksJSON:       filepath.Join(root, "data", "books.json"),
+		ConfigJSON:      filepath.Join(root, "data", "settings.json"),
+		CoverReportJSON: filepath.Join(root, "data", "cover-report.json"),
 		BooksJS:         filepath.Join(root, "public", "data", "books.js"),
-		CoversDir:       filepath.Join(root, "public", "data", "covers"),
-		ManualCoversDir: filepath.Join(root, "library", "manual-covers"),
+		CoversDir:       filepath.Join(root, "data", "covers"),
+		ManualCoversDir: filepath.Join(root, "data", "manual-covers"),
 		IndexHTML:       filepath.Join(root, "public", "index.html"),
 	}
 }
@@ -46,7 +50,7 @@ func ResolveRoot() (string, error) {
 	}
 	if cwd, err := os.Getwd(); err == nil {
 		paths := NewPaths(cwd)
-		if fileExists(paths.BooksJSON) && fileExists(paths.IndexHTML) {
+		if fileExists(paths.BooksJSON) {
 			return paths.Root, nil
 		}
 	}
@@ -56,20 +60,35 @@ func ResolveRoot() (string, error) {
 	}
 	root := filepath.Join(home, ".local", "share", "bookshelf")
 	paths := NewPaths(root)
-	if fileExists(paths.BooksJSON) && fileExists(paths.IndexHTML) {
+	if fileExists(paths.BooksJSON) {
 		return root, nil
 	}
-	return "", fmt.Errorf("bookshelf files were not found; expected library/books.json and public/index.html under %s", root)
+	return "", fmt.Errorf("bookshelf data was not found; expected data/books.json under %s", root)
 }
 
 func Ensure(paths Paths) error {
-	if !fileExists(paths.BooksJSON) || !fileExists(paths.IndexHTML) {
-		return fmt.Errorf("installed bookshelf files are incomplete at %s", paths.Root)
+	if !fileExists(paths.BooksJSON) {
+		return fmt.Errorf("bookshelf data is incomplete at %s", paths.Root)
 	}
 	if err := os.MkdirAll(paths.CoversDir, 0o755); err != nil {
 		return err
 	}
 	return os.MkdirAll(paths.ManualCoversDir, 0o755)
+}
+
+func Initialize(paths Paths) error {
+	if err := os.MkdirAll(paths.CoversDir, 0o755); err != nil {
+		return err
+	}
+	if err := os.MkdirAll(paths.ManualCoversDir, 0o755); err != nil {
+		return err
+	}
+	if !fileExists(paths.BooksJSON) {
+		if err := atomicWrite(paths.BooksJSON, []byte("[]\n"), 0o644); err != nil {
+			return err
+		}
+	}
+	return Ensure(paths)
 }
 
 func Load(paths Paths) ([]Book, error) {
@@ -85,6 +104,15 @@ func Load(paths Paths) ([]Book, error) {
 	for i := range books {
 		books[i] = Normalize(books[i])
 		books[i].Permalink = ""
+		filename := coverFilename(books[i])
+		if filename != "" && fileExists(filepath.Join(paths.CoversDir, filename)) {
+			books[i].Cover = filepath.ToSlash(filepath.Join("data", "covers", filename))
+		} else {
+			books[i].CoverFile = ""
+			books[i].Cover = ""
+			books[i].SpineColor = ""
+			books[i].SpineTextColor = ""
+		}
 	}
 	AssignTitleSlugs(books)
 	return books, nil
@@ -94,6 +122,7 @@ func Save(paths Paths, books []Book) error {
 	sourceBooks := make([]Book, len(books))
 	copy(sourceBooks, books)
 	for index := range sourceBooks {
+		sourceBooks[index].Cover = ""
 		sourceBooks[index].TitleSlug = ""
 		sourceBooks[index].Permalink = ""
 	}
@@ -105,6 +134,9 @@ func Save(paths Paths, books []Book) error {
 }
 
 func SaveGenerated(paths Paths, books []Book) error {
+	if err := Ensure(paths); err != nil {
+		return err
+	}
 	config, err := LoadConfig(paths)
 	if err != nil {
 		return err
@@ -112,7 +144,18 @@ func SaveGenerated(paths Paths, books []Book) error {
 	publishedBooks := make([]Book, len(books))
 	copy(publishedBooks, books)
 	AssignTitleSlugs(publishedBooks)
+	coverFiles := make([]string, 0, len(publishedBooks))
 	for index := range publishedBooks {
+		filename := coverFilename(publishedBooks[index])
+		if filename != "" && fileExists(filepath.Join(paths.CoversDir, filename)) {
+			publishedBooks[index].Cover = filepath.ToSlash(filepath.Join("data", "covers", filename))
+			coverFiles = append(coverFiles, filename)
+		} else {
+			publishedBooks[index].Cover = ""
+			publishedBooks[index].SpineColor = ""
+			publishedBooks[index].SpineTextColor = ""
+		}
+		publishedBooks[index].CoverFile = ""
 		publishedBooks[index].Permalink = PreferredPermalink(publishedBooks[index], config.PermalinkStyle)
 	}
 	raw, err := json.MarshalIndent(publishedBooks, "", "    ")
@@ -128,7 +171,28 @@ func SaveGenerated(paths Paths, books []Book) error {
 	data = append(data, []byte("window.booksData = ")...)
 	data = append(data, raw...)
 	data = append(data, ';', '\n')
-	return atomicWrite(paths.BooksJS, data, 0o644)
+
+	stage, err := os.MkdirTemp(filepath.Dir(paths.PublicDir), ".bookshelf-public-")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(stage)
+	if err := copyEmbeddedSite(stage); err != nil {
+		return err
+	}
+	stageCovers := filepath.Join(stage, "data", "covers")
+	if err := os.MkdirAll(stageCovers, 0o755); err != nil {
+		return err
+	}
+	for _, filename := range coverFiles {
+		if err := copyFile(filepath.Join(paths.CoversDir, filename), filepath.Join(stageCovers, filename)); err != nil {
+			return err
+		}
+	}
+	if err := atomicWrite(filepath.Join(stage, "data", "books.js"), data, 0o644); err != nil {
+		return err
+	}
+	return replaceDirectory(paths.PublicDir, stage)
 }
 
 func LoadGenerated(paths Paths) ([]Book, error) {
@@ -207,7 +271,7 @@ func Validate(books []Book) []error {
 }
 
 func GeneratedMatches(source, generated []Book) bool {
-	return reflect.DeepEqual(source, generated)
+	return reflect.DeepEqual(comparableBooks(source), comparableBooks(generated))
 }
 
 func PublicationStatuses(paths Paths, source []Book) map[string]string {
@@ -225,6 +289,8 @@ func PublicationStatuses(paths Paths, source []Book) map[string]string {
 	}
 	for _, book := range source {
 		published, ok := byID[book.ID]
+		book.CoverFile = ""
+		published.CoverFile = ""
 		switch {
 		case !ok:
 			statuses[book.ID] = "not generated"
@@ -237,6 +303,14 @@ func PublicationStatuses(paths Paths, source []Book) map[string]string {
 		}
 	}
 	return statuses
+}
+
+func comparableBooks(books []Book) []Book {
+	result := append([]Book(nil), books...)
+	for index := range result {
+		result[index].CoverFile = ""
+	}
+	return result
 }
 
 func FindIndex(books []Book, idOrISBN string) int {
@@ -272,6 +346,71 @@ func atomicWrite(name string, data []byte, mode os.FileMode) error {
 		return err
 	}
 	return os.Rename(tempName, name)
+}
+
+func copyFile(source, destination string) error {
+	input, err := os.Open(source)
+	if err != nil {
+		return err
+	}
+	defer input.Close()
+	if err := os.MkdirAll(filepath.Dir(destination), 0o755); err != nil {
+		return err
+	}
+	output, err := os.OpenFile(destination, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o644)
+	if err != nil {
+		return err
+	}
+	_, copyErr := io.Copy(output, input)
+	closeErr := output.Close()
+	if copyErr != nil {
+		return copyErr
+	}
+	return closeErr
+}
+
+func copyEmbeddedSite(destination string) error {
+	return fs.WalkDir(siteassets.Files, "assets", func(name string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		relative, err := filepath.Rel("assets", name)
+		if err != nil {
+			return err
+		}
+		target := filepath.Join(destination, relative)
+		if entry.IsDir() {
+			return os.MkdirAll(target, 0o755)
+		}
+		data, err := siteassets.Files.ReadFile(name)
+		if err != nil {
+			return err
+		}
+		return atomicWrite(target, data, 0o644)
+	})
+}
+
+func replaceDirectory(destination, stage string) error {
+	backup := destination + ".previous"
+	if err := os.RemoveAll(backup); err != nil {
+		return err
+	}
+	hadDestination := false
+	if _, err := os.Stat(destination); err == nil {
+		hadDestination = true
+		if err := os.Rename(destination, backup); err != nil {
+			return err
+		}
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+	if err := os.Rename(stage, destination); err != nil {
+		if hadDestination {
+			_ = os.Rename(backup, destination)
+		}
+		return err
+	}
+	return os.RemoveAll(backup)
 }
 
 func fileExists(name string) bool {

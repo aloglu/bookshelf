@@ -142,7 +142,7 @@ func newCoverFetchSession(paths Paths, books []Book, replace bool, config coverF
 	if err := Ensure(paths); err != nil {
 		return nil, err
 	}
-	stageDir, err := os.MkdirTemp(paths.PublicDir, ".cover-fetch-")
+	stageDir, err := os.MkdirTemp(paths.DataDir, ".cover-fetch-")
 	if err != nil {
 		return nil, err
 	}
@@ -171,15 +171,19 @@ func (s *CoverFetchSession) SetCustomURL(value string) {
 	s.customURL = strings.TrimSpace(value)
 }
 
-func PublishedCoverPath(paths Paths, book Book) string {
-	return filepath.Join(paths.CoversDir, coverFilename(book))
+func CoverPath(paths Paths, book Book) string {
+	filename := coverFilename(book)
+	if filename == "" {
+		filename = preferredCoverFilename(book)
+	}
+	return filepath.Join(paths.CoversDir, filename)
 }
 
 func (s *CoverFetchSession) Fetch(ctx context.Context, index int, source CoverSource) CoverFetchOutcome {
 	book := s.books[index]
 	outcome := CoverFetchOutcome{Book: book, Source: source}
-	destination := filepath.Join(s.paths.CoversDir, coverFilename(book))
-	if !s.replace && fileExists(destination) {
+	existingFilename := coverFilename(book)
+	if !s.replace && existingFilename != "" && fileExists(filepath.Join(s.paths.CoversDir, existingFilename)) {
 		outcome.Status = CoverFetchSkipped
 		outcome.Message = "cover already exists"
 		return outcome
@@ -330,7 +334,11 @@ func (s *CoverFetchSession) Commit() (CoverFetchSummary, error) {
 			rollback()
 			return summary, fmt.Errorf("book %q was removed during cover fetching", outcome.Book.Title)
 		}
-		destination := filepath.Join(s.paths.CoversDir, coverFilename(books[index]))
+		filename := coverFilename(books[index])
+		if filename == "" {
+			filename = preferredCoverFilename(books[index])
+		}
+		destination := filepath.Join(s.paths.CoversDir, filename)
 		backup := ""
 		if fileExists(destination) {
 			backup = filepath.Join(s.stageDir, "backup-"+filepath.Base(destination))
@@ -347,6 +355,7 @@ func (s *CoverFetchSession) Commit() (CoverFetchSummary, error) {
 			return summary, err
 		}
 		moved = append(moved, movedCover{destination: destination, backup: backup})
+		books[index].CoverFile = filename
 		books[index].Cover = filepath.ToSlash(filepath.Join("data", "covers", filepath.Base(destination)))
 		background, foreground, paletteErr := extractPalette(destination)
 		if paletteErr == nil {

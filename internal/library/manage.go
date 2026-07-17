@@ -102,8 +102,13 @@ func Update(ctx context.Context, paths Paths, id string, updates BookPatch, opti
 			return Book{}, BuildStats{}, fmt.Errorf("a book with ISBN %q already exists", isbn)
 		}
 	}
+	rollbackCover, err := renameCoverForBook(paths, books[index], &current)
+	if err != nil {
+		return Book{}, BuildStats{}, err
+	}
 	books[index] = current
 	if err := Save(paths, books); err != nil {
+		rollbackCover()
 		return Book{}, BuildStats{}, err
 	}
 	if !options.Build {
@@ -140,6 +145,7 @@ func Replace(ctx context.Context, paths Paths, id string, replacement Book, opti
 		return Book{}, BuildStats{}, fmt.Errorf("no book found for %q", id)
 	}
 	replacement.ID = books[index].ID
+	replacement.CoverFile = books[index].CoverFile
 	replacement.Cover = books[index].Cover
 	replacement.SpineColor = books[index].SpineColor
 	replacement.SpineTextColor = books[index].SpineTextColor
@@ -161,8 +167,13 @@ func Replace(ctx context.Context, paths Paths, id string, replacement Book, opti
 			return Book{}, BuildStats{}, fmt.Errorf("a book with ISBN %q already exists", isbn)
 		}
 	}
+	rollbackCover, err := renameCoverForBook(paths, books[index], &replacement)
+	if err != nil {
+		return Book{}, BuildStats{}, err
+	}
 	books[index] = replacement
 	if err := Save(paths, books); err != nil {
+		rollbackCover()
 		return Book{}, BuildStats{}, err
 	}
 	if !options.Build {
@@ -195,7 +206,9 @@ func Remove(paths Paths, ids []string, removeCovers bool) ([]Book, error) {
 		if removeIndexes[i] {
 			removed = append(removed, book)
 			if removeCovers {
-				_ = os.Remove(filepath.Join(paths.CoversDir, coverFilename(book)))
+				if filename := coverFilename(book); filename != "" {
+					_ = os.Remove(filepath.Join(paths.CoversDir, filename))
+				}
 			}
 			continue
 		}
@@ -208,4 +221,36 @@ func Remove(paths Paths, ids []string, removeCovers bool) ([]Book, error) {
 		return nil, err
 	}
 	return removed, nil
+}
+
+func renameCoverForBook(paths Paths, previous Book, current *Book) (func(), error) {
+	oldFilename := coverFilename(previous)
+	if oldFilename == "" {
+		return func() {}, nil
+	}
+	newFilename := preferredCoverFilename(*current)
+	if newFilename == oldFilename {
+		current.CoverFile = oldFilename
+		return func() {}, nil
+	}
+	source := filepath.Join(paths.CoversDir, oldFilename)
+	if !fileExists(source) {
+		current.CoverFile = ""
+		current.Cover = ""
+		current.SpineColor = ""
+		current.SpineTextColor = ""
+		return func() {}, nil
+	}
+	destination := filepath.Join(paths.CoversDir, newFilename)
+	if fileExists(destination) {
+		return nil, fmt.Errorf("cannot rename cover to %q because that file already exists", newFilename)
+	}
+	if err := os.Rename(source, destination); err != nil {
+		return nil, fmt.Errorf("rename cover for %q: %w", current.Title, err)
+	}
+	current.CoverFile = newFilename
+	current.Cover = filepath.ToSlash(filepath.Join("data", "covers", newFilename))
+	return func() {
+		_ = os.Rename(destination, source)
+	}, nil
 }

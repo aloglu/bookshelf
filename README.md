@@ -10,6 +10,7 @@ the books that appear on it.
 - Interactive terminal library browser
 - Add and edit forms
 - Multi-select and batch removal
+- JSON and Excel-compatible CSV exports
 - Manual and automatically downloaded covers
 - Pure-Go cover conversion and spine-color extraction
 - Source-versus-published status checks
@@ -49,7 +50,7 @@ bookshelf uninstall
 ```
 
 The command asks for confirmation, removes the executable and generated
-website, and preserves the source library, manual covers, and settings. To
+website, and preserves books, fetched and manual covers, and settings. To
 permanently delete all Bookshelf data as well, use:
 
 ```bash
@@ -96,6 +97,8 @@ bookshelf list --plain
 bookshelf list --json
 bookshelf add --title "Dune" --author "Frank Herbert" --isbn "9780441172719"
 bookshelf import books.csv --skip-duplicates
+bookshelf export books.csv
+bookshelf export backup.json
 bookshelf add --from books.json --dry-run
 bookshelf edit --id-or-isbn "9780441172719" --binding "Hardcover"
 bookshelf remove "9780441172719" "9780441172696" --yes
@@ -114,6 +117,18 @@ with a `books` array. CSV requires a `title` column and also recognizes `id`,
 Use `--format json|csv` when reading standard input with `bookshelf import -`.
 Imports are saved together and trigger one final build; `--no-build`,
 `--fetch-covers`, `--skip-duplicates`, and `--dry-run` adjust that behavior.
+
+Export infers JSON or CSV from the destination filename:
+
+```bash
+bookshelf export books.csv
+bookshelf export backup.json
+bookshelf export - --format json
+```
+
+CSV exports use UTF-8 with Excel-compatible headings and line endings, retain
+non-ASCII metadata, and can be imported into Bookshelf again. Existing files
+are protected unless `--force` is supplied.
 
 Run `bookshelf help COMMAND`, `bookshelf COMMAND help`, or
 `bookshelf COMMAND --help` to see command-specific options.
@@ -150,11 +165,11 @@ Custom footer text supports safe inline Markdown links, emphasis, bold text,
 inline code, and line breaks. Raw HTML is displayed as text.
 
 Non-interactive removal requires `--yes`. Use `--remove-covers` to remove the
-associated published cover files too.
+associated durable cover files too.
 
 ## Library status
 
-`library/books.json` is the editable source of truth. The website reads the
+`data/books.json` is the editable source of truth. The website reads the
 generated `public/data/books.js`.
 
 The list command compares the two and reports:
@@ -171,42 +186,49 @@ so same-sized but stale generated libraries are detected.
 
 ```text
 ~/.local/share/bookshelf/
-  library/
+  data/
     books.json
-    config.json        # created when website settings are saved
+    settings.json      # created when website settings are saved
+    covers/            # durable fetched and processed covers
     manual-covers/
+    cover-report.json
   public/
-    index.html
-    css/
-    js/
+    ...                # generated, disposable publishing output
     data/
       books.js
       covers/
-    fonts/
-    img/
 ```
 
 A fresh installation starts with an empty library and generated index, even
-when installed from a checkout containing development books or covers.
-Upgrades and reinstalls preserve the installed `library/` and published covers,
-then synchronize only the derived `books.js` index with the updated app; cover
-processing remains an explicit user operation. `bookshelf upgrade` checks the
-latest GitHub release first and does nothing when that version is already
-installed; use `--check` to check only or `--force` to reinstall it.
+when installed from a checkout containing development books or covers. Website
+templates are embedded in the executable. Upgrades replace only that executable
+and regenerate `public/` without fetching or processing covers; everything in
+`data/` remains untouched. `bookshelf upgrade` checks the latest GitHub release
+first and does nothing when that version is already installed; use `--check` to
+check only or `--force` to reinstall it.
 
 ## Covers
 
-Published covers live in:
+Canonical covers live in durable user storage:
 
 ```text
-~/.local/share/bookshelf/public/data/covers/
+~/.local/share/bookshelf/data/covers/
 ```
 
+`bookshelf build` copies them into `public/data/covers/`; that published copy
+can be deleted and recreated at any time.
+
+ISBN-backed covers retain their entered formatting in searchable filenames,
+such as `978-0-441-17271-9.jpg` or `9780441172719.jpg`.
+Books without ISBNs use their permanent internal book ID. The durable filename
+is recorded separately from the website URL, and Bookshelf renames the file
+when an ISBN changes.
+
 For a manual cover, place a JPEG, PNG, WebP, or BMP file in
-`library/manual-covers` named after the ISBN or book id:
+`data/manual-covers` named after the ISBN or book id:
 
 ```text
-~/.local/share/bookshelf/library/manual-covers/9780441172719.webp
+~/.local/share/bookshelf/data/manual-covers/978-0-441-17271-9.webp
 ```
 
 Apply matching manual files by choosing “manual” interactively or directly:
@@ -240,11 +262,11 @@ default image viewer and displays the saved path. Batch results that were
 skipped, missing, or failed are written to:
 
 ```text
-~/.local/share/bookshelf/library/cover-report.json
+~/.local/share/bookshelf/data/cover-report.json
 ```
 
-`bookshelf build --fetch-covers` remains available as a compatibility shortcut
-for fetching missing ISBN covers from Open Library.
+`bookshelf build --fetch-covers` is also available for fetching missing ISBN
+covers from Open Library while building.
 
 ## Publishing
 
@@ -264,24 +286,8 @@ The preview command starts a local server, opens the website in the default
 browser, and runs until you press Ctrl+C. Use `--port PORT` to select another
 port or `--no-open` to keep the browser closed.
 
-Publish the contents of `public/`. Do not upload `library/`, which contains the
-editable local source.
-
-## Migrating an older installation
-
-Copy an older `books.json` and manual covers into the installed library:
-
-```bash
-cp old-backup/data/books.json ~/.local/share/bookshelf/library/books.json
-mkdir -p ~/.local/share/bookshelf/library/manual-covers
-cp -a old-backup/data/manual-covers/. ~/.local/share/bookshelf/library/manual-covers/
-bookshelf build
-```
-
-Legacy files in `library/covers` are migrated into `public/data/covers` during
-the next build.
-
-Do not restore an old `books.js`; it is generated from `books.json`.
+Publish the contents of `public/`. Do not upload `data/`, which contains the
+editable local source and durable cover collection.
 
 ## Development
 
@@ -304,9 +310,9 @@ Install a local checkout into the normal per-user layout:
 ./install.sh
 ```
 
-Tagged releases are built as static Linux binaries for amd64 and arm64. Release
-archives include the binary and public-site assets; `checksums.txt` is verified
-by the installer.
+Tagged releases are built as self-contained static Linux binaries for amd64 and
+arm64. Release archives contain only the binary; `checksums.txt` is verified by
+the installer.
 
 ## License
 

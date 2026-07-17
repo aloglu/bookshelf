@@ -27,6 +27,7 @@ type Book struct {
 	Publisher      string `json:"publisher,omitempty"`
 	Binding        string `json:"binding,omitempty"`
 	Published      *int   `json:"published,omitempty"`
+	CoverFile      string `json:"coverFile,omitempty"`
 	Cover          string `json:"cover,omitempty"`
 	SpineColor     string `json:"spineColor,omitempty"`
 	SpineTextColor string `json:"spineTextColor,omitempty"`
@@ -67,6 +68,7 @@ func (b *Book) UnmarshalJSON(data []byte) error {
 		Publisher      json.RawMessage `json:"publisher"`
 		Binding        json.RawMessage `json:"binding"`
 		Published      json.RawMessage `json:"published"`
+		CoverFile      json.RawMessage `json:"coverFile"`
 		Cover          json.RawMessage `json:"cover"`
 		SpineColor     json.RawMessage `json:"spineColor"`
 		SpineTextColor json.RawMessage `json:"spineTextColor"`
@@ -87,6 +89,7 @@ func (b *Book) UnmarshalJSON(data []byte) error {
 		Publisher:      flexibleString(wire.Publisher),
 		Binding:        flexibleString(wire.Binding),
 		Published:      flexibleYear(wire.Published),
+		CoverFile:      flexibleString(wire.CoverFile),
 		Cover:          flexibleString(wire.Cover),
 		SpineColor:     flexibleString(wire.SpineColor),
 		SpineTextColor: flexibleString(wire.SpineTextColor),
@@ -171,6 +174,7 @@ func Normalize(input Book) Book {
 	input.Translator = NormalizeTypography(strings.TrimSpace(input.Translator))
 	input.Publisher = NormalizeTypography(strings.TrimSpace(input.Publisher))
 	input.Binding = NormalizeTypography(strings.TrimSpace(input.Binding))
+	input.CoverFile = strings.TrimSpace(input.CoverFile)
 	input.Cover = strings.TrimSpace(input.Cover)
 	input.SpineColor = strings.TrimSpace(input.SpineColor)
 	input.SpineTextColor = strings.TrimSpace(input.SpineTextColor)

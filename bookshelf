@@ -4,4 +4,7 @@ set -eu
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 export BOOKSHELF_INSTALL_DIR="$SCRIPT_DIR"
 export GOCACHE="${GOCACHE:-${TMPDIR:-/tmp}/bookshelf-go-cache}"
+if [ ! -f "$SCRIPT_DIR/data/books.json" ]; then
+  go run "$SCRIPT_DIR/cmd/bookshelf" _init
+fi
 exec go run "$SCRIPT_DIR/cmd/bookshelf" "$@"

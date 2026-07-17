@@ -153,6 +153,9 @@ func decodeCSVImport(reader io.Reader) ([]Book, error) {
 		}
 		var input BookInput
 		var id string
+		var coverFile string
+		var spineColor string
+		var spineTextColor string
 		for column, value := range record {
 			if column >= len(headers) {
 				continue
@@ -176,9 +179,18 @@ func decodeCSVImport(reader io.Reader) ([]Book, error) {
 				input.Binding = value
 			case "published", "year", "publishedyear":
 				input.Published = value
+			case "coverfile":
+				coverFile = value
+			case "spinecolor":
+				spineColor = value
+			case "spinetextcolor":
+				spineTextColor = value
 			}
 		}
 		book := FromInput(input)
+		book.CoverFile = strings.TrimSpace(coverFile)
+		book.SpineColor = strings.TrimSpace(spineColor)
+		book.SpineTextColor = strings.TrimSpace(spineTextColor)
 		if strings.TrimSpace(id) != "" {
 			book.ID = strings.TrimSpace(id)
 			book = Normalize(book)
