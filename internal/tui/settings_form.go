@@ -260,6 +260,15 @@ func (m settingsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.dialog != nil {
 			m.dialog.width = msg.Width
 		}
+	case tea.PasteMsg:
+		if m.dialog == nil && m.cursor < len(settingsRows) && settingsRows[m.cursor].kind == settingText {
+			input := m.inputs[m.cursor]
+			var command tea.Cmd
+			input, command = input.Update(msg)
+			m.inputs[m.cursor] = input
+			m.syncText(m.cursor)
+			return m, command
+		}
 	case tea.KeyPressMsg:
 		if msg.String() == "ctrl+c" {
 			m.interrupted = true

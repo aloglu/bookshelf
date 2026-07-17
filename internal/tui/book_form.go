@@ -127,6 +127,13 @@ func (m bookFormModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.dialog != nil {
 			m.dialog.width = msg.Width
 		}
+	case tea.PasteMsg:
+		if m.dialog == nil && m.focus < len(m.inputs) {
+			var command tea.Cmd
+			m.inputs[m.focus], command = m.inputs[m.focus].Update(msg)
+			m.validation = ""
+			return m, command
+		}
 	case tea.KeyPressMsg:
 		if msg.String() == "ctrl+c" {
 			m.cancelled = true

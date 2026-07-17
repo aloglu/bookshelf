@@ -76,6 +76,13 @@ func (m coverSourceModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.decision.width = msg.Width
 		m.input.SetWidth(min(64, max(24, msg.Width-12)))
+	case tea.PasteMsg:
+		if m.enterURL {
+			var command tea.Cmd
+			m.input, command = m.input.Update(msg)
+			m.errText = ""
+			return m, command
+		}
 	case tea.KeyPressMsg:
 		if msg.String() == "ctrl+c" {
 			m.interrupted = true

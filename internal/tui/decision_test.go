@@ -137,6 +137,24 @@ func TestBookFormStartsWithSensibleSaveDefaults(t *testing.T) {
 	}
 }
 
+func TestBookFormAcceptsBracketedPaste(t *testing.T) {
+	model := newBookFormModel(nil)
+	updated, _ := model.Update(tea.PasteMsg{Content: "The Left Hand of Darkness"})
+	model = updated.(bookFormModel)
+	if model.inputs[0].Value() != "The Left Hand of Darkness" {
+		t.Fatalf("pasted title = %q", model.inputs[0].Value())
+	}
+}
+
+func TestSettingsTextInputAcceptsBracketedPaste(t *testing.T) {
+	model := newSettingsModel(library.DefaultConfig())
+	updated, _ := model.Update(tea.PasteMsg{Content: " Library"})
+	model = updated.(settingsModel)
+	if model.config.SiteTitle != "Bookshelf Library" {
+		t.Fatalf("pasted website title = %q", model.config.SiteTitle)
+	}
+}
+
 func TestBookFormUsesSpaceForTogglesAndDoesNotWrap(t *testing.T) {
 	model := newBookFormModel(nil)
 	model.setFocus(len(model.inputs))
