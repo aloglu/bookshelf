@@ -76,6 +76,7 @@ func LoadConfig(paths Paths) (Config, error) {
 	if err := json.Unmarshal(raw, &config); err != nil {
 		return Config{}, fmt.Errorf("parse %s: %w", paths.ConfigJSON, err)
 	}
+	config = NormalizeConfig(config)
 	if err := ValidateConfig(config); err != nil {
 		return Config{}, err
 	}
@@ -83,6 +84,7 @@ func LoadConfig(paths Paths) (Config, error) {
 }
 
 func SaveConfig(paths Paths, config Config) error {
+	config = NormalizeConfig(config)
 	if err := ValidateConfig(config); err != nil {
 		return err
 	}
@@ -91,6 +93,13 @@ func SaveConfig(paths Paths, config Config) error {
 		return err
 	}
 	return atomicWrite(paths.ConfigJSON, append(raw, '\n'), 0o644)
+}
+
+func NormalizeConfig(config Config) Config {
+	config.SiteTitle = NormalizeTypography(config.SiteTitle)
+	config.SiteSubtitle = NormalizeTypography(config.SiteSubtitle)
+	config.FooterText = NormalizeFooterMarkdown(config.FooterText)
+	return config
 }
 
 func ValidateConfig(config Config) error {

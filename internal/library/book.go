@@ -164,13 +164,13 @@ func ParseYear(value string) *int {
 
 func Normalize(input Book) Book {
 	input.ID = strings.TrimSpace(input.ID)
-	input.Title = strings.TrimSpace(input.Title)
-	input.Author = strings.TrimSpace(input.Author)
+	input.Title = NormalizeTypography(strings.TrimSpace(input.Title))
+	input.Author = NormalizeTypography(strings.TrimSpace(input.Author))
 	input.ISBN = strings.TrimSpace(input.ISBN)
 	input.Slug = strings.TrimSpace(input.Slug)
-	input.Translator = strings.TrimSpace(input.Translator)
-	input.Publisher = strings.TrimSpace(input.Publisher)
-	input.Binding = strings.TrimSpace(input.Binding)
+	input.Translator = NormalizeTypography(strings.TrimSpace(input.Translator))
+	input.Publisher = NormalizeTypography(strings.TrimSpace(input.Publisher))
+	input.Binding = NormalizeTypography(strings.TrimSpace(input.Binding))
 	input.Cover = strings.TrimSpace(input.Cover)
 	input.SpineColor = strings.TrimSpace(input.SpineColor)
 	input.SpineTextColor = strings.TrimSpace(input.SpineTextColor)

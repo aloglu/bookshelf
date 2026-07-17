@@ -58,6 +58,13 @@ func TestCoverProgressPreservesOutcomeOrder(t *testing.T) {
 	}
 }
 
+func TestCoverProgressCancelDecisionIsBorderless(t *testing.T) {
+	request := coverCancelDecisionRequest(3)
+	if !request.Borderless {
+		t.Fatal("cover progress cancel decision has a border")
+	}
+}
+
 func TestDecisionUsesSafeDefault(t *testing.T) {
 	model := newDecisionModel(DecisionRequest{
 		Title: "Delete everything?",

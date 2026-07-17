@@ -174,16 +174,7 @@ func (m *coverProgressModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.cancel != nil {
 				m.cancel()
 			}
-			request := DecisionRequest{
-				Title:       "Stop Fetching Covers?",
-				Description: fmt.Sprintf("%d cover(s) fetched during this session.", m.session.Summary().Downloaded),
-				Options: []DecisionOption{
-					{ID: "keep", Label: "Keep + Stop"},
-					{ID: "discard", Label: "Discard + Stop", Tone: DecisionDanger},
-					{ID: "continue", Label: "Continue"},
-				},
-				Default: 2,
-			}
+			request := coverCancelDecisionRequest(m.session.Summary().Downloaded)
 			dialog := newDecisionModel(request)
 			dialog.width = m.width
 			m.dialog = &dialog
@@ -216,6 +207,20 @@ func (m *coverProgressModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	return m, nil
+}
+
+func coverCancelDecisionRequest(downloaded int) DecisionRequest {
+	return DecisionRequest{
+		Title:       "Stop Fetching Covers?",
+		Description: fmt.Sprintf("%d cover(s) fetched during this session.", downloaded),
+		Borderless:  true,
+		Options: []DecisionOption{
+			{ID: "keep", Label: "Keep + Stop"},
+			{ID: "discard", Label: "Discard + Stop", Tone: DecisionDanger},
+			{ID: "continue", Label: "Continue"},
+		},
+		Default: 2,
+	}
 }
 
 func (m *coverProgressModel) View() tea.View {

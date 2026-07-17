@@ -53,6 +53,10 @@ func Build(ctx context.Context, paths Paths, options BuildOptions) (BuildStats, 
 	if err != nil {
 		return stats, err
 	}
+	config, err := LoadConfig(paths)
+	if err != nil {
+		return stats, err
+	}
 	if problems := Validate(books); len(problems) > 0 {
 		return stats, validationError(problems)
 	}
@@ -117,6 +121,9 @@ func Build(ctx context.Context, paths Paths, options BuildOptions) (BuildStats, 
 	}
 
 	if err := Save(paths, books); err != nil {
+		return stats, err
+	}
+	if err := SaveConfig(paths, config); err != nil {
 		return stats, err
 	}
 	if err := SaveGenerated(paths, books); err != nil {
