@@ -48,33 +48,40 @@ Uninstall:
 bookshelf uninstall
 ```
 
-Back up `~/.local/share/bookshelf/library` first if you want to keep the
-library after uninstalling.
+The command asks for confirmation, removes the executable and generated
+website, and preserves the source library, manual covers, and settings. To
+permanently delete all Bookshelf data as well, use:
+
+```bash
+bookshelf uninstall --purge
+```
+
+Non-interactive uninstall requires `--yes`. `--delete-data` is an explicit
+alias for `--purge`.
 
 ## Interactive manager
 
-Run:
+Running `bookshelf` without a subcommand displays command help. Open the
+interactive manager with:
 
 ```bash
-bookshelf
+bookshelf list
 ```
 
-The manager presents a searchable and paginated library. Common keys include:
+The browser presents a searchable, paginated, and read-only library. Common
+keys include:
 
 ```text
 /        Search
-Space    Select or unselect a book
-a        Add a book
-e/Enter  Edit the current book
-d        Remove the current or selected books
-c        Apply manual covers
-b        Build the published library
-v        Validate
-q        Quit
+Esc      Back, cancel, or quit
 ```
 
-Add and edit actions open guided forms. Removal supports selecting multiple
-books and reviewing the complete selection before confirmation.
+`bookshelf edit` opens a single-book picker and guided form. `bookshelf remove`
+supports selecting multiple books across pages and reviewing the complete
+selection before confirmation.
+`q` remains a
+compatibility shortcut outside text fields, but Escape is the consistent
+navigation key throughout the interface.
 
 Set `BOOKSHELF_ACCESSIBLE=1` to use screen-reader-friendly standard prompts
 instead of full-screen forms.
@@ -88,16 +95,59 @@ for scripts and automation:
 bookshelf list --plain
 bookshelf list --json
 bookshelf add --title "Dune" --author "Frank Herbert" --isbn "9780441172719"
-bookshelf update --id-or-isbn "9780441172719" --binding "Hardcover"
+bookshelf import books.csv --skip-duplicates
+bookshelf add --from books.json --dry-run
+bookshelf edit --id-or-isbn "9780441172719" --binding "Hardcover"
 bookshelf remove "9780441172719" "9780441172696" --yes
 bookshelf build --fetch-covers
+bookshelf preview
 bookshelf covers --id-or-isbn "9780441172719"
 bookshelf covers --all
 bookshelf validate
+bookshelf settings --default-view coverflow --default-sort author
 bookshelf upgrade
 ```
 
-`bookshelf edit` is an alias for `bookshelf update`.
+Batch import accepts JSON or CSV. JSON can be a top-level array or an object
+with a `books` array. CSV requires a `title` column and also recognizes `id`,
+`author`, `isbn`, `slug`, `translator`, `publisher`, `binding`, and `published`.
+Use `--format json|csv` when reading standard input with `bookshelf import -`.
+Imports are saved together and trigger one final build; `--no-build`,
+`--fetch-covers`, `--skip-duplicates`, and `--dry-run` adjust that behavior.
+
+Run `bookshelf help COMMAND`, `bookshelf COMMAND help`, or
+`bookshelf COMMAND --help` to see command-specific options.
+
+Use `--slug` when adding or updating a book to choose its website URL:
+
+```bash
+bookshelf add --title "A Book" --isbn "978-0-00-000000-0" --slug "my-book"
+```
+
+Every book receives a generated, URL-safe title slug using broad Unicode
+transliteration. Open the interactive website settings or configure individual
+values directly:
+
+```bash
+bookshelf settings
+bookshelf settings --permalink-style title-slug
+bookshelf settings --statistics hide
+bookshelf settings --default-view coverflow
+bookshelf settings --default-sort author
+bookshelf settings --sort-direction descending
+bookshelf settings --site-title "My Library" --site-subtitle "Books worth sharing"
+bookshelf settings --random hide
+bookshelf settings --isbn-links wikipedia
+bookshelf settings --footer-text "Curated by [Alex](https://example.com)"
+```
+
+A custom per-book slug always takes priority over that setting. Formatted ISBN,
+compact ISBN, generated title slug, custom slug, and the permanent internal ID
+remain valid aliases regardless of which style generates copied links. When a
+preferred ISBN style is unavailable, the generated title slug is used.
+The default view applies on desktop; mobile always uses the stacks view.
+Custom footer text supports safe inline Markdown links, emphasis, bold text,
+inline code, and line breaks. Raw HTML is displayed as text.
 
 Non-interactive removal requires `--yes`. Use `--remove-covers` to remove the
 associated published cover files too.
@@ -123,6 +173,7 @@ so same-sized but stale generated libraries are detected.
 ~/.local/share/bookshelf/
   library/
     books.json
+    config.json        # created when website settings are saved
     manual-covers/
   public/
     index.html
@@ -135,8 +186,13 @@ so same-sized but stale generated libraries are detected.
     img/
 ```
 
-The installer and `bookshelf upgrade` preserve `library/` and published covers,
-then regenerate `books.js` from the source library.
+A fresh installation starts with an empty library and generated index, even
+when installed from a checkout containing development books or covers.
+Upgrades and reinstalls preserve the installed `library/` and published covers,
+then synchronize only the derived `books.js` index with the updated app; cover
+processing remains an explicit user operation. `bookshelf upgrade` checks the
+latest GitHub release first and does nothing when that version is already
+installed; use `--check` to check only or `--force` to reinstall it.
 
 ## Covers
 
@@ -153,19 +209,42 @@ For a manual cover, place a JPEG, PNG, WebP, or BMP file in
 ~/.local/share/bookshelf/library/manual-covers/9780441172719.webp
 ```
 
-Apply it:
+Apply matching manual files by choosing “manual” interactively or directly:
 
 ```bash
-bookshelf covers --id-or-isbn "9780441172719"
+bookshelf covers --id-or-isbn "9780441172719" --source manual
 ```
 
 Bookshelf converts manual images to JPEG and calculates spine colors internally.
 
-Fetch missing ISBN covers from Open Library:
+Fetch covers interactively from Goodreads, Open Library, Google Books, or an
+automatic fallback:
 
 ```bash
-bookshelf build --fetch-covers
+bookshelf covers
+bookshelf covers --all
+bookshelf covers --all --source goodreads
+bookshelf covers BOOK_ID --url "https://example.com/cover.jpg"
 ```
+
+Existing covers are skipped unless `--replace` is supplied. Interactive
+fetching uses a progress screen. Escape pauses the operation and offers to keep
+the completed downloads, discard the entire session, or continue. Downloads
+remain staged until they are committed, so discarding leaves existing data
+unchanged. The progress bar distinguishes downloaded, skipped, missing, and
+failed results.
+
+Custom image URLs are offered only when one book is selected. After a
+single-cover download, Bookshelf can open the result in the operating system's
+default image viewer and displays the saved path. Batch results that were
+skipped, missing, or failed are written to:
+
+```text
+~/.local/share/bookshelf/library/cover-report.json
+```
+
+`bookshelf build --fetch-covers` remains available as a compatibility shortcut
+for fetching missing ISBN covers from Open Library.
 
 ## Publishing
 
@@ -175,11 +254,15 @@ Build the static site:
 bookshelf build
 ```
 
-Preview it locally by opening:
+Preview it locally:
 
-```text
-~/.local/share/bookshelf/public/index.html
+```bash
+bookshelf preview
 ```
+
+The preview command starts a local server, opens the website in the default
+browser, and runs until you press Ctrl+C. Use `--port PORT` to select another
+port or `--no-open` to keep the browser closed.
 
 Publish the contents of `public/`. Do not upload `library/`, which contains the
 editable local source.

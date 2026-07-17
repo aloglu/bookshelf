@@ -1,10 +1,18 @@
 (function () {
   const allBooks = Array.isArray(window.booksData) ? window.booksData : [];
-  // Default sort by Author on init
+  const permalinkStyle = window.bookshelfConfig?.permalinkStyle || "formatted-isbn";
+  const configuredSort = window.bookshelfConfig?.defaultSort;
+  const defaultSort = ["title", "author", "year"].includes(configuredSort)
+    ? configuredSort
+    : "title";
+  const configuredSortOrder = window.bookshelfConfig?.defaultSortOrder;
+  const defaultSortOrder = ["ascending", "descending"].includes(configuredSortOrder)
+    ? configuredSortOrder
+    : "ascending";
   let viewableBooks = [...allBooks]; // Base list for current view (filtered or not)
   window.viewableBookCount = viewableBooks.length;
   let currentFilter = ""; // Search query
-  let currentSort = "title"; // Default sort
+  let currentSort = defaultSort;
   const bookshelf = document.getElementById("bookshelf");
 
   // Custom Dropdown Elements
@@ -22,7 +30,79 @@
   const isbnPopup = detailCard ? detailCard.querySelector("#isbn-popup") : null;
   const isbnLinks = isbnPopup ? Array.from(isbnPopup.querySelectorAll(".isbn-link")) : null;
 
-
+  const siteTitle = String(window.bookshelfConfig?.siteTitle || "Bookshelf").trim() || "Bookshelf";
+  const siteSubtitle = String(
+    window.bookshelfConfig?.siteSubtitle ?? "Click on a book spine to see its details"
+  ).trim();
+  const appendInlineMarkdown = (parent, markdown) => {
+    const pattern = /(\[[^\]]+\]\([^)]+\)|\*\*[^*]+\*\*|`[^`]+`|\*[^*]+\*|\n)/g;
+    let offset = 0;
+    for (const match of markdown.matchAll(pattern)) {
+      if (match.index > offset) {
+        parent.appendChild(document.createTextNode(markdown.slice(offset, match.index)));
+      }
+      const token = match[0];
+      if (token === "\n") {
+        parent.appendChild(document.createElement("br"));
+      } else if (token.startsWith("[")) {
+        const parts = token.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+        const href = parts ? parts[2].trim() : "";
+        const safeHref = /^(https?:|mailto:|\/|#|\.\.?\/)/i.test(href);
+        if (parts && safeHref) {
+          const link = document.createElement("a");
+          link.href = href;
+          if (/^https?:/i.test(href)) {
+            link.target = "_blank";
+            link.rel = "noopener noreferrer";
+          }
+          appendInlineMarkdown(link, parts[1]);
+          parent.appendChild(link);
+        } else {
+          parent.appendChild(document.createTextNode(token));
+        }
+      } else if (token.startsWith("**")) {
+        const strong = document.createElement("strong");
+        strong.textContent = token.slice(2, -2);
+        parent.appendChild(strong);
+      } else if (token.startsWith("`")) {
+        const code = document.createElement("code");
+        code.textContent = token.slice(1, -1);
+        parent.appendChild(code);
+      } else {
+        const emphasis = document.createElement("em");
+        emphasis.textContent = token.slice(1, -1);
+        parent.appendChild(emphasis);
+      }
+      offset = match.index + token.length;
+    }
+    if (offset < markdown.length) {
+      parent.appendChild(document.createTextNode(markdown.slice(offset)));
+    }
+  };
+  const heading = document.querySelector(".hero-heading h1");
+  const instruction = document.getElementById("instruction-text");
+  const footer = document.querySelector(".site-footer");
+  if (heading) heading.textContent = siteTitle;
+  document.title = siteTitle;
+  if (instruction) {
+    instruction.textContent = siteSubtitle;
+    instruction.hidden = !siteSubtitle;
+  }
+  if (footer) {
+    footer.hidden = window.bookshelfConfig?.showFooter === false;
+    const footerText = String(window.bookshelfConfig?.footerText || "").trim();
+    if (footerText) {
+      footer.replaceChildren();
+      appendInlineMarkdown(footer, footerText);
+    }
+  }
+  if (isbnLinks) {
+    const sources = window.bookshelfConfig?.isbnLinkSources || "both";
+    isbnLinks.forEach((link) => {
+      const source = link.dataset.source;
+      link.hidden = sources !== "both" && source !== sources;
+    });
+  }
 
   // Search Elements
   const searchControl = document.getElementById("search-control");
@@ -148,6 +228,20 @@
     return String(value)
       .replace(/[^0-9xX]/g, "")
       .toUpperCase();
+  };
+
+  const permalinkToken = (book) => {
+    if (!book) return "";
+    if (book.permalink) return String(book.permalink).trim();
+    if (book.slug) return String(book.slug).trim();
+    if (permalinkStyle === "title-slug" && book.titleSlug) {
+      return String(book.titleSlug).trim();
+    }
+    if (book.isbn) {
+      if (permalinkStyle === "compact-isbn") return sanitizeIsbn(book.isbn);
+      return String(book.isbn).trim();
+    }
+    return String(book.titleSlug || book.id || "").trim();
   };
 
   const closeIsbnPopup = () => {
@@ -513,22 +607,23 @@
   };
 
   const applySort = () => {
+    const direction = defaultSortOrder === "descending" ? -1 : 1;
     // Sort viewableBooks in place based on currentSort
     if (currentSort === "author") {
       viewableBooks.sort((a, b) => {
         const authorA = (a.author || "").toLowerCase();
         const authorB = (b.author || "").toLowerCase();
-        return authorA.localeCompare(authorB);
+        return direction * authorA.localeCompare(authorB);
       });
     } else if (currentSort === "title") {
       viewableBooks.sort((a, b) => {
         const titleA = (a.title || "").toLowerCase();
         const titleB = (b.title || "").toLowerCase();
-        return titleA.localeCompare(titleB);
+        return direction * titleA.localeCompare(titleB);
       });
     } else if (currentSort === "year") {
       viewableBooks.sort((a, b) => {
-        return (b.published || 0) - (a.published || 0);
+        return direction * ((a.published || 0) - (b.published || 0));
       });
     }
   };
@@ -668,6 +763,10 @@
   const initRandom = () => {
     const randomBtn = document.querySelector(".random-toggle");
     if (!randomBtn) return;
+    if (window.bookshelfConfig?.showRandom === false) {
+      randomBtn.hidden = true;
+      return;
+    }
 
     randomBtn.addEventListener("click", () => {
       if (viewableBooks.length === 0) return;
@@ -817,10 +916,12 @@
 
     // Update URL without reloading
     if (id) {
+      const activeBook = allBooks.find((book) => book.id === id);
+      const token = permalinkToken(activeBook) || id;
       if (history.pushState) {
-        history.pushState(null, null, `#${id}`);
+        history.pushState(null, null, `#${encodeURIComponent(token)}`);
       } else {
-        window.location.hash = id;
+        window.location.hash = token;
       }
     } else {
       // Clear Hash
@@ -1296,10 +1397,30 @@
     // Decoding might be needed for some IDs
     const rawHash = decodeURIComponent(hash);
 
-    // 1. Try Exact ID Match first
-    let targetIndex = viewableBooks.findIndex(b => b.id === rawHash);
+    // Every permalink representation remains a valid alias regardless of
+    // which representation is configured as the default.
+    let targetIndex = viewableBooks.findIndex(
+      (book) => book.slug && String(book.slug).toLowerCase() === rawHash.toLowerCase(),
+    );
 
-    // 2. Fallback: Fuzzy Title/Author Match
+    const hashIsbn = sanitizeIsbn(rawHash);
+    if (targetIndex === -1 && hashIsbn) {
+      targetIndex = viewableBooks.findIndex(
+        (book) => book.isbn && sanitizeIsbn(book.isbn) === hashIsbn,
+      );
+    }
+
+    if (targetIndex === -1) {
+      targetIndex = viewableBooks.findIndex(
+        (book) => book.titleSlug && String(book.titleSlug).toLowerCase() === rawHash.toLowerCase(),
+      );
+    }
+
+    if (targetIndex === -1) {
+      targetIndex = viewableBooks.findIndex((book) => book.id === rawHash);
+    }
+
+    // Last-resort compatibility for older title-based links.
     // If no ID found, treat hash as a search query (e.g. "great-gatsby" -> "great gatsby")
     // We check if title CONTAINS the dash-less query
     if (targetIndex === -1 && rawHash.length > 2) {
@@ -1398,7 +1519,11 @@
 
 /* --- View Switching Logic --- */
 (function () {
-  let currentView = 'shelf';
+  const configuredView = window.bookshelfConfig?.defaultView;
+  const defaultView = ['shelf', 'stack', 'coverflow'].includes(configuredView)
+    ? configuredView
+    : 'shelf';
+  let currentView = defaultView;
   let coverflowInitialized = false;
   let coverflowIndex = 0;
   let cfBg = null;
@@ -1496,7 +1621,7 @@
       if (storedView && ['shelf', 'stack', 'coverflow'].includes(storedView)) {
         switchView(storedView, true);
       } else {
-        switchView('shelf', true);
+        switchView(defaultView, true);
       }
     }
 
@@ -1632,8 +1757,11 @@
 
     // Toggle Instruction Text
     const instruction = document.getElementById('instruction-text');
+    const hasSubtitle = Boolean(String(
+      window.bookshelfConfig?.siteSubtitle ?? "Click on a book spine to see its details"
+    ).trim());
     if (instruction) {
-      instruction.style.display = (view === 'shelf') ? 'block' : 'none';
+      instruction.style.display = (view === 'shelf' && hasSubtitle) ? 'block' : 'none';
     }
 
     // Update Dropdown Selection State
@@ -2161,6 +2289,11 @@
   const decadeChart = document.querySelector('#decade-chart');
 
   if (!statsToggle || !statsOverlay) return;
+  if (window.bookshelfConfig?.showStatistics === false) {
+    statsToggle.hidden = true;
+    statsOverlay.hidden = true;
+    return;
+  }
 
   const calculateStats = () => {
     const books = window.booksData || [];

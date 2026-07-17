@@ -1,1 +1,4420 @@
-[]
+[
+    {
+        "id": "9786056727153",
+        "title": "Abbas Kiyarüstemi ile Sinema Dersleri",
+        "author": "Abbas Kiarostami, Paul Cronin",
+        "isbn": "978-6056727153",
+        "translator": "Pelin Arda",
+        "publisher": "Redingot Kitap",
+        "binding": "Paperback",
+        "published": 2015
+    },
+    {
+        "id": "9780143105923",
+        "title": "The Theory of Moral Sentiments",
+        "author": "Adam Smith",
+        "isbn": "978-0143105923",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2010,
+        "cover": "data/covers/9780143105923.jpg",
+        "spineColor": "#747055",
+        "spineTextColor": "#fdfdfd"
+    },
+    {
+        "id": "9780857080776",
+        "title": "The Wealth of Nations",
+        "author": "Adam Smith",
+        "isbn": "978-0857080776",
+        "publisher": "Capstone",
+        "binding": "Hardcover",
+        "published": 2010,
+        "cover": "data/covers/9780857080776.jpg",
+        "spineColor": "#E9E8D4",
+        "spineTextColor": "#1c1c22"
+    },
+    {
+        "id": "9789750817984",
+        "title": "Büyük Defter - Kanıt - Üçüncü Yalan",
+        "author": "Ágota Kristóf",
+        "isbn": "978-9750817984",
+        "translator": "Ayşe İnce Kurşunlu",
+        "publisher": "Yapı Kredi Yayınları",
+        "binding": "Paperback",
+        "published": 2010
+    },
+    {
+        "id": "9786256839519",
+        "title": "Huzur (Eleştirel Basım)",
+        "author": "Ahmet Hamdi Tanpınar",
+        "isbn": "978-6256839519",
+        "publisher": "Dergâh Yayınları",
+        "binding": "Hardcover",
+        "published": 2023
+    },
+    {
+        "id": "9789750525438",
+        "title": "Zarif ve Dinen Makbül: Muhafazakar Üst-Orta Sınıf Habitusu",
+        "author": "Aksu Akçaoğlu",
+        "isbn": "978-9750525438",
+        "publisher": "İletişim Yayınları",
+        "binding": "Paperback",
+        "published": 2018
+    },
+    {
+        "id": "9780714865911",
+        "title": "Art as Therapy",
+        "author": "Alain de Botton, John Armstrong",
+        "isbn": "978-0714865911",
+        "publisher": "Phaidon",
+        "binding": "Hardcover",
+        "published": 2013
+    },
+    {
+        "id": "9786055029777",
+        "title": "Kodes",
+        "author": "Alain Guyard",
+        "isbn": "978-6055029777",
+        "translator": "Nazlı Ceyhan Sümter",
+        "publisher": "Kolektif Kitap",
+        "binding": "Paperback",
+        "published": 2011
+    },
+    {
+        "id": "9786053756064",
+        "title": "Watchmen",
+        "author": "Alan Moore, Dave Gibbons",
+        "isbn": "978-6053756064",
+        "translator": "Can Kantarcı",
+        "publisher": "İthaki Yayınları",
+        "binding": "Paperback",
+        "published": 2016
+    },
+    {
+        "id": "9786051066769",
+        "title": "Son Moda Saçmalar: Postmodern Aydınların Bilimi Kötüye Kullanmaları",
+        "author": "Alan Sokal",
+        "isbn": "978-6051066769",
+        "translator": "Jean Bricmont, Barış Gönülşen",
+        "publisher": "Alfa Yayınları",
+        "binding": "Paperback",
+        "published": 1997
+    },
+    {
+        "id": "9780141023991",
+        "title": "The Myth of Sisyphus",
+        "author": "Albert Camus",
+        "isbn": "978-0141023991",
+        "translator": "Justin O'Brien",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2005
+    },
+    {
+        "id": "9789750748677",
+        "title": "Yabancı",
+        "author": "Albert Camus",
+        "isbn": "978-9750748677",
+        "translator": "Ayça Sezen",
+        "publisher": "Can Yayınları",
+        "binding": "Paperback",
+        "published": 1981
+    },
+    {
+        "id": "9780006336426",
+        "title": "The Gulag Archipelago",
+        "author": "Aleksandr Solzhenitsyn",
+        "isbn": "978-0006336426",
+        "translator": "Thomas P. Whitney",
+        "publisher": "Fontana",
+        "binding": "Paperback",
+        "published": 1973
+    },
+    {
+        "id": "9780816532568",
+        "title": "Mars: The Pristine Beauty of the Red Planet",
+        "author": "Alfred McEwen, Candice Hansen-Koharcheck, Ari Espinoza",
+        "isbn": "978-0816532568",
+        "publisher": "University of Arizona Press",
+        "binding": "Hardcover",
+        "published": 2017
+    },
+    {
+        "id": "9781597112581",
+        "title": "This Is Mars",
+        "author": "Alfred McEwen, Francis Rocard, Xavier Barral, Nicolas Mangold, Sébastien Girard",
+        "isbn": "978-1597112581",
+        "publisher": "Aperture",
+        "binding": "Hardcover",
+        "published": 2013
+    },
+    {
+        "id": "9789750736223",
+        "title": "Küçük Prens",
+        "author": "Antoine de Saint-Exupéry",
+        "isbn": "978-9750736223",
+        "translator": "Cemal Süreya, Tomris Uyar",
+        "publisher": "Can Yayınları",
+        "binding": "Clothbound",
+        "published": 2018
+    },
+    {
+        "id": "9799756277286",
+        "title": "Global Modernite ve Sosyalizm: Üçüncü Dünya Hayaleti, Globalite ve Çin Halk Cumhuriyeti",
+        "author": "Arif Dirlik",
+        "isbn": "979-9756277286",
+        "translator": "Veysel Batmaz",
+        "publisher": "Salyangoz Yayınları",
+        "binding": "Paperback",
+        "published": 2006
+    },
+    {
+        "id": "9780025652002",
+        "title": "Darkness at Noon",
+        "author": "Arthur Koestler",
+        "isbn": "978-0025652002",
+        "publisher": "Scrıbner",
+        "binding": "Hardcover",
+        "published": 1940
+    },
+    {
+        "id": "9780141396897",
+        "title": "Confessions",
+        "author": "Augustine of Hippo",
+        "isbn": "978-0141396897",
+        "publisher": "Penguin Books",
+        "binding": "Clothbound",
+        "published": 2015
+    },
+    {
+        "id": "9780393310351",
+        "title": "Thinking Strategically: The Competitive Edge in Business, Politics, and Everyday Life",
+        "author": "Avinash K. Dixit, Barry J. Nalebuff",
+        "isbn": "978-0393310351",
+        "publisher": "W. W. Norton \u0026 Company",
+        "binding": "Paperback",
+        "published": 1993
+    },
+    {
+        "id": "9789750751561",
+        "title": "Suzan Defter",
+        "author": "Ayfer Tunç",
+        "isbn": "978-9750751561",
+        "publisher": "Can Yayınları",
+        "binding": "Clothbound",
+        "published": 2011
+    },
+    {
+        "id": "9789750516771",
+        "title": "Türkiye'de Yeni Kapitalizm: Siyaset, Din ve İş Dünyası",
+        "author": "Ayşe Buğra",
+        "isbn": "978-9750516771",
+        "publisher": "İletişim Yayınları",
+        "binding": "Paperback",
+        "published": 2014
+    },
+    {
+        "id": "9789750730030",
+        "title": "Lûgat365: Bazı Kelimeler Çok Güzel",
+        "author": "Banu Ertuğrul, Onur Ertuğrul",
+        "isbn": "978-9750730030",
+        "publisher": "Can Yayınları",
+        "binding": "Clothbound",
+        "published": 2015
+    },
+    {
+        "id": "9789750762727",
+        "title": "Lûgat365: Bazı Tabirler Çok Güzel",
+        "author": "Banu Ertuğrul, Onur Ertuğrul",
+        "isbn": "978-9750762727",
+        "publisher": "Can Yayınları",
+        "binding": "Clothbound",
+        "published": 2023
+    },
+    {
+        "id": "9786052318126",
+        "title": "Behice Boran Kitabı: Seçme Metinler ve Üzerine Yazılar",
+        "author": "Behice Boran, Emir Ali Türkmen",
+        "isbn": "978-6052318126",
+        "publisher": "Dipnot Yayınları",
+        "binding": "Hardcover",
+        "published": 2018
+    },
+    {
+        "id": "9786050834543",
+        "title": "Poetik ve Politik \u0026 Bir Kültürel Çalışmalar Ansiklopedisi",
+        "author": "Besim F. Dellaloğlu",
+        "isbn": "978-6050834543",
+        "publisher": "Timaş Yayınları",
+        "binding": "Paperback",
+        "published": 2020
+    },
+    {
+        "id": "9786050839111",
+        "title": "Sosyolojik Nazar - Duvar Yazıları",
+        "author": "Besim F. Dellaloğlu",
+        "isbn": "978-6050839111",
+        "publisher": "Timaş Yayınları",
+        "binding": "Paperback",
+        "published": 2021
+    },
+    {
+        "id": "9781439172506",
+        "title": "Obama's Wars",
+        "author": "Bob Woodward",
+        "isbn": "978-1439172506",
+        "publisher": "Simon \u0026 Schuster",
+        "binding": "Paperback",
+        "published": 2011
+    },
+    {
+        "id": "9786053161288",
+        "title": "Nuri Bilge Ceylan Sineması: Türkiyeli Bir Sinemacının Küresel Hayal Gücü",
+        "author": "Bülent Diken, Graeme Gilloch, Craig Hammond, Ahmen Nüvit Bingöl",
+        "isbn": "978-6053161288",
+        "publisher": "Metis Yayınları",
+        "binding": "Paperback",
+        "published": 2008
+    },
+    {
+        "id": "9789750531125",
+        "title": "Biz Her Şeyiz: Diyanet'in İşleri",
+        "author": "Burcu Karakaş",
+        "isbn": "978-9750531125",
+        "publisher": "İletişim Yayınları",
+        "binding": "Paperback",
+        "published": 2021
+    },
+    {
+        "id": "9789750533365",
+        "title": "Ne Olmuş Güldüysek - Evrim Alataş Kitabı",
+        "author": "Burcu Karakaş",
+        "isbn": "978-9750533365",
+        "publisher": "İletişim Yayınları",
+        "binding": "Paperback",
+        "published": 2022
+    },
+    {
+        "id": "9789751038210",
+        "title": "İktidar Seçkinleri",
+        "author": "C. Wright Mills",
+        "isbn": "978-9751038210",
+        "translator": "Ünsal Oskay",
+        "publisher": "İnkilap Kitapevi",
+        "binding": "Paperback",
+        "published": 2017
+    },
+    {
+        "id": "9789750737466",
+        "title": "Bıçkın ve Ağlak: Yeni Türkiye'nin Hikayesi",
+        "author": "Can Kozanoğlu, Mirgün Cabas",
+        "isbn": "978-9750737466",
+        "publisher": "Can Yayınları",
+        "binding": "Paperback",
+        "published": 2018
+    },
+    {
+        "id": "9780393351866",
+        "title": "Midnight at the Pera Palace: The Birth of Modern Istanbul",
+        "author": "Charles King",
+        "isbn": "978-0393351866",
+        "publisher": "W. W. Norton \u0026 Company",
+        "binding": "Paperback",
+        "published": 2014
+    },
+    {
+        "id": "9780141192499",
+        "title": "Oliver Twist",
+        "author": "Charles Dickens",
+        "isbn": "978-0141192499",
+        "publisher": "Penguin Books",
+        "binding": "Clothbound",
+        "published": 2010
+    },
+    {
+        "id": "9780141196909",
+        "title": "A Tale of Two Cities",
+        "author": "Charles Dickens",
+        "isbn": "978-0141196909",
+        "publisher": "Penguin Books",
+        "binding": "Clothbound",
+        "published": 2011
+    },
+    {
+        "id": "9780141040363",
+        "title": "Great Expectations",
+        "author": "Charles Dickens",
+        "isbn": "978-0141040363",
+        "publisher": "Penguin Books",
+        "binding": "Clothbound",
+        "published": 2009
+    },
+    {
+        "id": "9786057988607",
+        "title": "Bavulumdaki Kırık Fincan",
+        "author": "Chris Naylor Ballesteros",
+        "isbn": "978-6057988607",
+        "translator": "Melike Hendek",
+        "publisher": "Domingo Yayınevi",
+        "binding": "Paperback",
+        "published": 2023
+    },
+    {
+        "id": "1300288076",
+        "title": "Pierre Bourdieu",
+        "author": "Cogito Dergi",
+        "isbn": "1300-2880-76",
+        "publisher": "Yapı Kredi Yayınları",
+        "binding": "Paperback",
+        "published": 2014
+    },
+    {
+        "id": "9780739465318",
+        "title": "No Country for Old Men",
+        "author": "Cormac McCarthy",
+        "isbn": "978-0739465318",
+        "publisher": "Doubleday",
+        "binding": "Paperback",
+        "published": 2005
+    },
+    {
+        "id": "9789752983649",
+        "title": "Sanat Kuramı",
+        "author": "Cynthia A. Freeland",
+        "isbn": "978-9752983649",
+        "translator": "Fisun Demir",
+        "publisher": "Dost Kitabevi Yayınları",
+        "binding": "Paperback",
+        "published": 2003
+    },
+    {
+        "id": "9780061995033",
+        "title": "The Upside of Irrationality: The Unexpected Benefits of Defying Logic at Work and at Home",
+        "author": "Dan Ariely",
+        "isbn": "978-0061995033",
+        "publisher": "Harper",
+        "binding": "Hardcover",
+        "published": 2010
+    },
+    {
+        "id": "9786054729739",
+        "title": "Atlas - Kıtalar, Denizler ve Kültürler Arası Yolculuk Rehberi",
+        "author": "Daniel Mizielińscy, Aleksandra Mizielińska",
+        "isbn": "978-6054729739",
+        "translator": "Emre Ülgen Dal, Hevdan Sönmez",
+        "publisher": "Domingo Yayınevi",
+        "binding": "Hardcover",
+        "published": 2019
+    },
+    {
+        "id": "9781846684302",
+        "title": "Why Nations Fail: The Origins of Power, Prosperity, and Poverty",
+        "author": "Daron Acemoğlu, James A. Robinson",
+        "isbn": "978-1846684302",
+        "publisher": "Profile Books",
+        "binding": "Paperback",
+        "published": 2012
+    },
+    {
+        "id": "9786050205374",
+        "title": "Max Weber",
+        "author": "Deniz Kundakçı",
+        "isbn": "978-6050205374",
+        "publisher": "Say Yayınları",
+        "binding": "Paperback",
+        "published": 2016
+    },
+    {
+        "id": "9789750848797",
+        "title": "100. Yılında Cumhuriyet’in Popüler Kültür Haritası 1 (1923-1950)",
+        "author": "Derya Bengi, Erdir Zat",
+        "isbn": "978-9750848797",
+        "publisher": "Yapı Kredi Yayınları",
+        "binding": "Hardcover",
+        "published": 2020,
+        "cover": "data/covers/9789750848797.jpg",
+        "spineColor": "#2A7986",
+        "spineTextColor": "#fdfdfd"
+    },
+    {
+        "id": "9789750851766",
+        "title": "100. Yılında Cumhuriyet’in Popüler Kültür Haritası 2 (1950-1980)",
+        "author": "Derya Bengi, Erdir Zat",
+        "isbn": "978-9750851766",
+        "publisher": "Yapı Kredi Yayınları",
+        "binding": "Hardcover",
+        "published": 2021,
+        "cover": "data/covers/9789750851766.jpg",
+        "spineColor": "#444D3D",
+        "spineTextColor": "#fdfdfd"
+    },
+    {
+        "id": "9789750854910",
+        "title": "100. Yılında Cumhuriyet’in Popüler Kültür Haritası 3 (1980-2023)",
+        "author": "Derya Bengi, Erdir Zat",
+        "isbn": "978-9750854910",
+        "publisher": "Yapı Kredi Yayınları",
+        "binding": "Hardcover",
+        "published": 2022
+    },
+    {
+        "id": "9786058379114",
+        "title": "Özgürlüğün İdeolojisi: Liberalizm",
+        "author": "Doğan Gürpınar",
+        "isbn": "978-6058379114",
+        "publisher": "LiberPlus Yayınları",
+        "binding": "Paperback",
+        "published": 2016
+    },
+    {
+        "id": "9780141043722",
+        "title": "Team of Rivals: The Political Genius of Abraham Lincoln",
+        "author": "Doris Kearns Goodwin",
+        "isbn": "978-0141043722",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2005
+    },
+    {
+        "id": "9780714847030",
+        "title": "The Story of Art: Pocket Edition",
+        "author": "E. H. Gombrich",
+        "isbn": "978-0714847030",
+        "publisher": "Phaidon",
+        "binding": "Paperback",
+        "published": 2006
+    },
+    {
+        "id": "9789756877432",
+        "title": "Hayek: Çağımızın İktisat ve Siyaset Felsefesine Katkısı",
+        "author": "Eamonn Butler",
+        "isbn": "978-9756877432",
+        "translator": "Yusuf Ziya Çelikkaya",
+        "publisher": "Liberte Yayınları",
+        "binding": "Paperback",
+        "published": 1983
+    },
+    {
+        "id": "9786057635402",
+        "title": "Bunu Herkes Bilir: Tarihteki Yanlış Sorulara Doğru Cevaplar",
+        "author": "Emrah Safa Gürkan",
+        "isbn": "978-6057635402",
+        "publisher": "Kronik Kitap",
+        "binding": "Paperback",
+        "published": 2020
+    },
+    {
+        "id": "9786258431131",
+        "title": "Ezbere Yaşayanlar: Vazgeçemediğimiz Alışkanlıklarımızın Kökenleri",
+        "author": "Emrah Safa Gürkan",
+        "isbn": "978-6258431131",
+        "publisher": "Kronik Kitap",
+        "binding": "Paperback",
+        "published": 2022
+    },
+    {
+        "id": "9786256377325",
+        "title": "Cumhuriyet'in 100 Günü: İnkılabın Ayak Sesleri",
+        "author": "Emrah Safa Gürkan",
+        "isbn": "978-6256377325",
+        "publisher": "Mundi",
+        "binding": "Paperback",
+        "published": 2023
+    },
+    {
+        "id": "9786256377295",
+        "title": "Cumhuriyet'in 100 İsmi: Büyük Devrimin Portreleri",
+        "author": "Emrah Safa Gürkan",
+        "isbn": "978-6256377295",
+        "publisher": "Mundi",
+        "binding": "Paperback",
+        "published": 2023
+    },
+    {
+        "id": "9786050951516",
+        "title": "Muhteşem Gatsby",
+        "author": "F. Scott Fitzgerald",
+        "isbn": "978-6050951516",
+        "translator": "Sıla Okur",
+        "publisher": "Doğan Kitap",
+        "binding": "Hardcover",
+        "published": 2018
+    },
+    {
+        "id": "9786053754794",
+        "title": "Dune",
+        "author": "Frank Herbert",
+        "isbn": "978-6053754794",
+        "translator": "Dost Körpe",
+        "publisher": "İthaki Yayınları",
+        "binding": "Paperback",
+        "published": 2015
+    },
+    {
+        "id": "9786058332454",
+        "title": "Ekonomik Safsatalar",
+        "author": "Frédéric Bastiat",
+        "isbn": "978-6058332454",
+        "translator": "Ahmet Altundal",
+        "publisher": "LiberPlus Yayınları",
+        "binding": "Paperback",
+        "published": 2016
+    },
+    {
+        "id": "9780226320939",
+        "title": "Individualism and Economic Order",
+        "author": "Friedrich A. Hayek",
+        "isbn": "978-0226320939",
+        "publisher": "University of Chicago Press",
+        "binding": "Paperback",
+        "published": 1996
+    },
+    {
+        "id": "9786053606956",
+        "title": "Hukuk, Yasama ve Özgürlük",
+        "author": "Friedrich A. Hayek",
+        "isbn": "978-6053606956",
+        "publisher": "İş Bankası Kültür Yayınları",
+        "binding": "Paperback",
+        "published": 2012
+    },
+    {
+        "id": "9780143107637",
+        "title": "Crime and Punishment",
+        "author": "Fyodor Dostoevsky",
+        "isbn": "978-0143107637",
+        "translator": "Oliver Ready",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2015
+    },
+    {
+        "id": "9789750740947",
+        "title": "Kırmızı Pazartesi",
+        "author": "Gabriel García Márquez",
+        "isbn": "978-9750740947",
+        "translator": "İnci Kut",
+        "publisher": "Can Yayınları",
+        "binding": "Clothbound",
+        "published": 2019
+    },
+    {
+        "id": "9781782397878",
+        "title": "Winter Is Coming: Why Vladimir Putin and the Enemies of the Free World Must Be Stopped",
+        "author": "Garry Kasparov",
+        "isbn": "978-1782397878",
+        "publisher": "Atlantic Books",
+        "binding": "Paperback",
+        "published": 2015
+    },
+    {
+        "id": "9781846688393",
+        "title": "From Dictatorship to Democracy",
+        "author": "Gene Sharp",
+        "isbn": "978-1846688393",
+        "publisher": "Serpent's Tail",
+        "binding": "Paperback",
+        "published": 2012
+    },
+    {
+        "id": "9789750751585",
+        "title": "Hayvan Çiftliği: Bir Peri Masalı",
+        "author": "George Orwell",
+        "isbn": "978-9750751585",
+        "translator": "Celâl Üster",
+        "publisher": "Can Yayınları",
+        "binding": "Clothbound",
+        "published": 2021
+    },
+    {
+        "id": "9780141393049",
+        "title": "Nineteen Eighty-Four",
+        "author": "George Orwell",
+        "isbn": "978-0141393049",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2013
+    },
+    {
+        "id": "9781940953090",
+        "title": "The Physics of Sorrow",
+        "author": "Georgi Gospodinov",
+        "isbn": "978-1940953090",
+        "translator": "Angela Rodel",
+        "publisher": "Open Letter",
+        "binding": "Paperback",
+        "published": 2011
+    },
+    {
+        "id": "9786050948752",
+        "title": "Madam Bovary",
+        "author": "Gustave Flaubert",
+        "isbn": "978-6050948752",
+        "translator": "Bahadırhan Bozkurt",
+        "publisher": "Doğan Kitap",
+        "binding": "Hardcover",
+        "published": 2018
+    },
+    {
+        "id": "9789750740954",
+        "title": "Siddhartha",
+        "author": "Hermann Hesse",
+        "isbn": "978-9750740954",
+        "translator": "Kâmuran Şipal",
+        "publisher": "Can Yayınları",
+        "binding": "Hardcover",
+        "published": 2019
+    },
+    {
+        "id": "9786053321057",
+        "title": "Odysseia",
+        "author": "Homer",
+        "isbn": "978-6053321057",
+        "translator": "Azra Erhat, A. Kadir",
+        "publisher": "İş Bankası Kültür Yayınları",
+        "binding": "Paperback",
+        "published": 2014
+    },
+    {
+        "id": "9786053321040",
+        "title": "İlyada",
+        "author": "Homer",
+        "isbn": "978-6053321040",
+        "translator": "Azra Erhat, A. Kadir",
+        "publisher": "İş Bankası Kültür Yayınları",
+        "binding": "Paperback",
+        "published": 2014
+    },
+    {
+        "id": "9786058990005",
+        "title": "İki Yakın Halk İki Uzak Komşu",
+        "author": "Hrant Dink",
+        "isbn": "978-6058990005",
+        "publisher": "Hrant Dink Vakfı Yayınları",
+        "binding": "Paperback",
+        "published": 2010
+    },
+    {
+        "id": "9789754704723",
+        "title": "Puslu Kıtalar Atlası",
+        "author": "İhsan Oktay Anar",
+        "isbn": "978-9754704723",
+        "publisher": "İletişim Yayınları",
+        "binding": "Paperback",
+        "published": 2010
+    },
+    {
+        "id": "9789754140408",
+        "title": "Büyülü Fener",
+        "author": "Ingmar Bergman",
+        "isbn": "978-9754140408",
+        "translator": "Gökçin Taşkın",
+        "publisher": "Alfa Yayınları",
+        "binding": "Paperback",
+        "published": 1987
+    },
+    {
+        "id": "9789750814846",
+        "title": "Isaiah Berlin'le Konuşmalar",
+        "author": "Isaiah Berlin, Ramin Jahanbegloo",
+        "isbn": "978-9750814846",
+        "translator": "Zeynel Kılınç",
+        "publisher": "Yapı Kredi Yayınları",
+        "binding": "Paperback",
+        "published": 2009
+    },
+    {
+        "id": "9780747591054",
+        "title": "Harry Potter and the Deathly Hallows",
+        "author": "J.K. Rowling",
+        "isbn": "978-0747591054",
+        "publisher": "Bloomsbury Publishing",
+        "binding": "Hardcover",
+        "published": 2007
+    },
+    {
+        "id": "9786050948646",
+        "title": "Beyaz Diş",
+        "author": "Jack London",
+        "isbn": "978-6050948646",
+        "translator": "Nil Tuna",
+        "publisher": "Doğan Kitap",
+        "binding": "Hardcover",
+        "published": 2018
+    },
+    {
+        "id": "9789750841378",
+        "title": "Diktatörlerin Çocukları",
+        "author": "Jean-Christophe Brisard",
+        "isbn": "978-9750841378",
+        "translator": "Olcay Kunal",
+        "publisher": "Yapı Kredi Yayınları",
+        "binding": "Paperback",
+        "published": 2019
+    },
+    {
+        "id": "9789753426497",
+        "title": "Godard Godard'ı Anlatıyor",
+        "author": "Jean-Luc Godard",
+        "isbn": "978-9753426497",
+        "translator": "Aykut Derman",
+        "publisher": "Metis Yayınları",
+        "binding": "Paperback",
+        "published": 2018
+    },
+    {
+        "id": "9786052988879",
+        "title": "Sinema Üzerine Konuşmalar",
+        "author": "Jean-Luc Godard, Marcel Ophüls",
+        "isbn": "978-6052988879",
+        "translator": "Işıl Kocabay, Nihan Özyıldırım",
+        "publisher": "Kırmızı Kedi Yayınevi",
+        "binding": "Paperback",
+        "published": 2021
+    },
+    {
+        "id": "9786054729418",
+        "title": "Middlesex",
+        "author": "Jeffrey Eugenides",
+        "isbn": "978-6054729418",
+        "translator": "Solmaz Kâmuran",
+        "publisher": "Domingo Yayınevi",
+        "binding": "Paperback",
+        "published": 2015
+    },
+    {
+        "id": "9781501144134",
+        "title": "The Assassination Complex: Inside the Government's Secret Drone Warfare Program",
+        "author": "Jeremy Scahill",
+        "isbn": "978-1501144134",
+        "publisher": "Simon \u0026 Schuster",
+        "binding": "Hardcover",
+        "published": 2016
+    },
+    {
+        "id": "9780029222348",
+        "title": "Adam Smith in His Time and Ours: Designing the Decent Society",
+        "author": "Jerry Z. Muller",
+        "isbn": "978-0029222348",
+        "publisher": "Free Press of Macmillian",
+        "binding": "Hardcover",
+        "published": 1992
+    },
+    {
+        "id": "9789750840302",
+        "title": "Kuklanın Ruhu: İnsan Özgürlüğüne Kısa Bir Bakış",
+        "author": "John Gray",
+        "isbn": "978-9750840302",
+        "translator": "Dürrin Tunç",
+        "publisher": "Yapı Kredi Yayınları",
+        "binding": "Paperback",
+        "published": 2015
+    },
+    {
+        "id": "9789753420839",
+        "title": "Görme Biçimleri",
+        "author": "John Berger",
+        "isbn": "978-9753420839",
+        "translator": "Yurdanur Salman",
+        "publisher": "Metis Yayınları",
+        "binding": "Paperback",
+        "published": 2023
+    },
+    {
+        "id": "9780140205459",
+        "title": "The Affluent Society",
+        "author": "John Kenneth Gailbraith",
+        "isbn": "978-0140205459",
+        "publisher": "Pelican",
+        "binding": "Paperback",
+        "published": 1979
+    },
+    {
+        "id": "9781840227321",
+        "title": "An Essay Concerning Human Understanding/Second Treatise of Goverment",
+        "author": "John Locke",
+        "isbn": "978-1840227321",
+        "publisher": "Wordsworth Editions",
+        "binding": "Paperback",
+        "published": 2009
+    },
+    {
+        "id": "9781784296087",
+        "title": "50 Capitalism Ideas You Really Need to Know",
+        "author": "Jonathan Portes",
+        "isbn": "978-1784296087",
+        "publisher": "Greenfinch",
+        "binding": "Hardcover",
+        "published": 2017,
+        "cover": "data/covers/9781784296087.jpg",
+        "spineColor": "#DFC9B1",
+        "spineTextColor": "#1c1c22"
+    },
+    {
+        "id": "9780141398181",
+        "title": "A Modest Proposal",
+        "author": "Jonathan Swift",
+        "isbn": "978-0141398181",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2015
+    },
+    {
+        "id": "9780143106586",
+        "title": "Heart of Darkness",
+        "author": "Joseph Conrad",
+        "isbn": "978-0143106586",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2012
+    },
+    {
+        "id": "9780718197384",
+        "title": "The Price Of Inequality",
+        "author": "Joseph E. Stiglitz",
+        "isbn": "978-0718197384",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2012
+    },
+    {
+        "id": "9789755397214",
+        "title": "Bir Son Duygusu",
+        "author": "Julian Barnes",
+        "isbn": "978-9755397214",
+        "translator": "Serdar Rifat Kırkoğlu",
+        "publisher": "Ayrıntı Yayınları",
+        "binding": "Paperback",
+        "published": 2011
+    },
+    {
+        "id": "9780141397986",
+        "title": "The Communist Manifesto",
+        "author": "Karl Marx, Friedrich Engels",
+        "isbn": "978-0141397986",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2015
+    },
+    {
+        "id": "9789750760617",
+        "title": "Açlık",
+        "author": "Knut Hamsun",
+        "isbn": "978-9750760617",
+        "translator": "Deniz Canefe, Haydar Şahin",
+        "publisher": "Can Yayınları",
+        "binding": "Paperback",
+        "published": 2023
+    },
+    {
+        "id": "9789750525247",
+        "title": "Türkiye'nin Büyük Dönüşümü",
+        "author": "Kollektif",
+        "isbn": "978-9750525247",
+        "publisher": "İletişim Yayınları",
+        "binding": "Paperback",
+        "published": 2018
+    },
+    {
+        "id": "9789750740855",
+        "title": "Hisli Şeyler",
+        "author": "Kollektif",
+        "isbn": "978-9750740855",
+        "publisher": "Mundi",
+        "binding": "Hardcover",
+        "published": 2023
+    },
+    {
+        "id": "9786051030913",
+        "title": "Kieślowski Kieślowski'yi Anlatıyor",
+        "author": "Krzysztof Kieślowski",
+        "isbn": "978-6051030913",
+        "translator": "C. Aslı Kutay",
+        "publisher": "Agora Kitaplığı",
+        "binding": "Paperback",
+        "published": 2011
+    },
+    {
+        "id": "9786053605157",
+        "title": "Gündelik Hayatımızın Tarihi",
+        "author": "Kudret Emiroğlu",
+        "isbn": "978-6053605157",
+        "publisher": "İş Bankası Kültür Yayınları",
+        "binding": "Hardcover",
+        "published": 2012
+    },
+    {
+        "id": "9780143106630",
+        "title": "The Wizard of Oz and Other Wonderful Books of Oz",
+        "author": "L. Frank Baum",
+        "isbn": "978-0143106630",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 1920
+    },
+    {
+        "id": "9789750757457",
+        "title": "Zamansız",
+        "author": "Latife Tekin",
+        "isbn": "978-9750757457",
+        "publisher": "Can Yayınları",
+        "binding": "Paperback",
+        "published": 2022
+    },
+    {
+        "id": "9786055289317",
+        "title": "Tanrı Daima Tebdil-i Kıyafet Gezer",
+        "author": "Laurent Gounelle",
+        "isbn": "978-6055289317",
+        "translator": "Işık Ergüden",
+        "publisher": "Pegasus Yayınları",
+        "binding": "Paperback",
+        "published": 2010
+    },
+    {
+        "id": "9780060197766",
+        "title": "From Third World to First: The Singapore Story: 1965-2000",
+        "author": "Lee Kuan Yew",
+        "isbn": "978-0060197766",
+        "publisher": "Harper",
+        "binding": "Hardcover",
+        "published": 2000
+    },
+    {
+        "id": "9781607109334",
+        "title": "Alice's Adventures in Wonderland: And Other Stories",
+        "author": "Lewis Carroll",
+        "isbn": "978-1607109334",
+        "publisher": "Canterbury Classics",
+        "binding": "Leatherbound",
+        "published": 2013
+    },
+    {
+        "id": "9789751419125",
+        "title": "Ekonominin Temelleri",
+        "author": "Mahfi Eğilmez",
+        "isbn": "978-9751419125",
+        "publisher": "Remzi Kitabevi",
+        "binding": "Paperback",
+        "published": 2019
+    },
+    {
+        "id": "9780141395869",
+        "title": "Meditations",
+        "author": "Marcus Aurelius",
+        "isbn": "978-0141395869",
+        "translator": "Martin Hammond",
+        "publisher": "Penguin Books",
+        "binding": "Clothbound"
+    },
+    {
+        "id": "9786052780480",
+        "title": "Petra",
+        "author": "Marianna Coppo",
+        "isbn": "978-6052780480",
+        "translator": "Esin Pervane",
+        "publisher": "Nesin Yayınevi",
+        "binding": "Paperback",
+        "published": 2016
+    },
+    {
+        "id": "9780300115857",
+        "title": "The Artist's Reality: Philosophies of Art",
+        "author": "Mark Rothko",
+        "isbn": "978-0300115857",
+        "publisher": "Yale University Press",
+        "binding": "Paperback",
+        "published": 2004
+    },
+    {
+        "id": "9781584230700",
+        "title": "The Medium is the Massage",
+        "author": "Marshall McLuhan",
+        "isbn": "978-1584230700",
+        "publisher": "Gingko Press",
+        "binding": "Paperback",
+        "published": 1967
+    },
+    {
+        "id": "9780143105039",
+        "title": "Frankenstein",
+        "author": "Mary Wollstonecraft Shelley",
+        "isbn": "978-0143105039",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 1818
+    },
+    {
+        "id": "9781419729461",
+        "title": "Mad Men Carousel: The Complete Critical Companion",
+        "author": "Matt Zoller Seitz",
+        "isbn": "978-1419729461",
+        "publisher": "Abrams Press",
+        "binding": "Paperback",
+        "published": 2015
+    },
+    {
+        "id": "9781419734946",
+        "title": "The Sopranos Sessions",
+        "author": "Matt Zoller Seitz, Alan Sepinwall",
+        "isbn": "978-1419734946",
+        "publisher": "Abrams Press",
+        "binding": "Hardcover",
+        "published": 2019
+    },
+    {
+        "id": "9780393353150",
+        "title": "The Big Short: Inside the Doomsday Machine",
+        "author": "Michael Lewis",
+        "isbn": "978-0393353150",
+        "publisher": "W. W. Norton \u0026 Company",
+        "binding": "Paperback",
+        "published": 2010
+    },
+    {
+        "id": "9789754586985",
+        "title": "Denemeler",
+        "author": "Michel de Montaigne",
+        "isbn": "978-9754586985",
+        "translator": "Sabahattin Eyüboğlu",
+        "publisher": "İş Bankası Kültür Yayınları",
+        "binding": "Paperback",
+        "published": 1580
+    },
+    {
+        "id": "9781529074413",
+        "title": "Breasts and Eggs",
+        "author": "Mieko Kawakami",
+        "isbn": "978-1529074413",
+        "publisher": "Picador",
+        "binding": "Paperback",
+        "published": 2019
+    },
+    {
+        "id": "9780226511924",
+        "title": "They Thought They Were Free: The Germans 1933-45",
+        "author": "Milton Sanford Mayer",
+        "isbn": "978-0226511924",
+        "publisher": "Phoenix Books",
+        "binding": "Paperback",
+        "published": 1955
+    },
+    {
+        "id": "9789750735103",
+        "title": "2001: Eski Türkiye'nin Son Yılı",
+        "author": "Mirgün Cabas",
+        "isbn": "978-9750735103",
+        "publisher": "Can Yayınları",
+        "binding": "Paperback",
+        "published": 2017,
+        "cover": "data/covers/9789750735103.jpg",
+        "spineColor": "#B89A46",
+        "spineTextColor": "#1c1c22"
+    },
+    {
+        "id": "9786057947130",
+        "title": "Türkiye'de Paranoid Ethos",
+        "author": "Murat Önderman",
+        "isbn": "978-6057947130",
+        "publisher": "Vakıfbank Kültür Yayınları",
+        "binding": "Paperback",
+        "published": 2007
+    },
+    {
+        "id": "9786057947550",
+        "title": "Utanç: Sosyo Kültürel Bir Fenomen",
+        "author": "Murat Önderman",
+        "isbn": "978-6057947550",
+        "publisher": "Vakıfbank Kültür Yayınları",
+        "binding": "Paperback",
+        "published": 2020
+    },
+    {
+        "id": "9756511222",
+        "title": "Sinema Estetiği ve Godard",
+        "author": "Mutlu Parkan",
+        "isbn": "9756511222",
+        "publisher": "İleri Kitabevi",
+        "binding": "Paperback",
+        "published": 1993
+    },
+    {
+        "id": "9789750514562",
+        "title": "İktisat Nedir: İktisat Üzerine Söyleşiler",
+        "author": "N. Emrah Aydınonat",
+        "isbn": "978-9750514562",
+        "publisher": "İletişim Yayınları",
+        "binding": "Paperback",
+        "published": 2014
+    },
+    {
+        "id": "9780312421434",
+        "title": "No Logo",
+        "author": "Naomi Klein",
+        "isbn": "978-0312421434",
+        "publisher": "Picador",
+        "binding": "Paperback",
+        "published": 2000
+    },
+    {
+        "id": "9789753422925",
+        "title": "Türkçe Sorunları Kılavuzu",
+        "author": "Necmiye Alpay",
+        "isbn": "978-9753422925",
+        "publisher": "Metis Yayınları",
+        "binding": "Paperback",
+        "published": 2000
+    },
+    {
+        "id": "9789750530517",
+        "title": "Herkes İstediği Gibi Yaşasın",
+        "author": "Nevşin Mengü, Büşra Cebeci",
+        "isbn": "978-9750530517",
+        "publisher": "İletişim Yayınları",
+        "binding": "Paperback",
+        "published": 2021
+    },
+    {
+        "id": "9780393077483",
+        "title": "Keynes Hayek: The Clash that Defined Modern Economics",
+        "author": "Nicholas Wapshott",
+        "isbn": "978-0393077483",
+        "publisher": "W. W. Norton \u0026 Company",
+        "binding": "Hardcover",
+        "published": 2011
+    },
+    {
+        "id": "9786051711171",
+        "title": "Felsefenin Kısa Tarihi",
+        "author": "Nigel Warburton",
+        "isbn": "978-6051711171",
+        "translator": "Güçlü Ateşoğlu",
+        "publisher": "Alfa Yayınları",
+        "binding": "Paperback",
+        "published": 2011
+    },
+    {
+        "id": "9789750741401",
+        "title": "Zorba",
+        "author": "Nikos Kazantzakis",
+        "isbn": "978-9750741401",
+        "translator": "Ahmet Angın",
+        "publisher": "Can Yayınları",
+        "binding": "Hardcover",
+        "published": 1946
+    },
+    {
+        "id": "9780571114344",
+        "title": "The Last Temptation",
+        "author": "Nikos Kazantzakis",
+        "isbn": "978-0571114344",
+        "publisher": "Faber \u0026 Faber",
+        "binding": "Paperback",
+        "published": 1955
+    },
+    {
+        "id": "9789750804342",
+        "title": "Türkiye'de Çağdaşlaşma",
+        "author": "Niyazi Berkes",
+        "isbn": "978-9750804342",
+        "translator": "Ahmet Kuyaş",
+        "publisher": "Yapı Kredi Yayınları",
+        "binding": "Paperback",
+        "published": 1964
+    },
+    {
+        "id": "9789754705973",
+        "title": "Unutulan Yıllar",
+        "author": "Niyazi Berkes",
+        "isbn": "978-9754705973",
+        "translator": "Ruşen Sezer",
+        "publisher": "İletişim Yayınları",
+        "binding": "Paperback",
+        "published": 1997
+    },
+    {
+        "id": "9780241969601",
+        "title": "On Anarchism",
+        "author": "Noam Chomsky",
+        "isbn": "978-0241969601",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2005
+    },
+    {
+        "id": "978024198081",
+        "title": "On Palestine",
+        "author": "Noam Chomsky, Ilan Pappé",
+        "isbn": "978-024198081",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2015
+    },
+    {
+        "id": "9789753423434",
+        "title": "Vitrinde Yaşamak: 1980'lerin Kültürel İklimi",
+        "author": "Nurdan Gürbilek",
+        "isbn": "978-9753423434",
+        "publisher": "Metis Yayınları",
+        "binding": "Paperback",
+        "published": 1992
+    },
+    {
+        "id": "9789753422307",
+        "title": "Ev Ödevi",
+        "author": "Nurdan Gürbilek",
+        "isbn": "978-9753422307",
+        "publisher": "Metis Yayınları",
+        "binding": "Paperback",
+        "published": 1999
+    },
+    {
+        "id": "9789753423427",
+        "title": "Kötü Çocuk Türk",
+        "author": "Nurdan Gürbilek",
+        "isbn": "978-9753423427",
+        "publisher": "Metis Yayınları",
+        "binding": "Paperback",
+        "published": 2001
+    },
+    {
+        "id": "9789753429955",
+        "title": "Sessizin Payı",
+        "author": "Nurdan Gürbilek",
+        "isbn": "978-9753429955",
+        "publisher": "Metis Yayınları",
+        "binding": "Paperback",
+        "published": 2015
+    },
+    {
+        "id": "9786053161912",
+        "title": "İkinci Hayat",
+        "author": "Nurdan Gürbilek",
+        "isbn": "978-6053161912",
+        "publisher": "Metis Yayınları",
+        "binding": "Paperback",
+        "published": 2020
+    },
+    {
+        "id": "9786053162919",
+        "title": "Örme Biçimleri",
+        "author": "Nurdan Gürbilek",
+        "isbn": "978-6053162919",
+        "publisher": "Metis Yayınları",
+        "binding": "Paperback",
+        "published": 2023
+    },
+    {
+        "id": "9789758686667",
+        "title": "Söyleşiler",
+        "author": "Nuri Bilge Ceylan",
+        "isbn": "978-9758686667",
+        "publisher": "Norgunk Yayıncılık",
+        "binding": "Paperback",
+        "published": 2012
+    },
+    {
+        "id": "9786050965940",
+        "title": "Bir Zamanlar Anadolu'da",
+        "author": "Nuri Bilge Ceylan",
+        "isbn": "978-6050965940",
+        "publisher": "Doğan Kitap",
+        "binding": "Paperback",
+        "published": 2019
+    },
+    {
+        "id": "9786256570191",
+        "title": "Kış Uykusu",
+        "author": "Nuri Bilge Ceylan",
+        "isbn": "978-6256570191",
+        "publisher": "Doğan Kitap",
+        "binding": "Paperback",
+        "published": 2024
+    },
+    {
+        "id": "9789750831935",
+        "title": "Kara Kitap: 25 Yaşında",
+        "author": "Orhan Pamuk",
+        "isbn": "978-9750831935",
+        "publisher": "Yapı Kredi Yayınları",
+        "binding": "Hardcover",
+        "published": 1990
+    },
+    {
+        "id": "9789750825927",
+        "title": "Benim Adım Kırmızı",
+        "author": "Orhan Pamuk",
+        "isbn": "978-9750825927",
+        "publisher": "Yapı Kredi Yayınları",
+        "binding": "Paperback",
+        "published": 1998
+    },
+    {
+        "id": "9789750825910",
+        "title": "Kar",
+        "author": "Orhan Pamuk",
+        "isbn": "978-9750825910",
+        "publisher": "Yapı Kredi Yayınları",
+        "binding": "Paperback",
+        "published": 2002
+    },
+    {
+        "id": "9789750834585",
+        "title": "Resimli İstanbul - Hatıralar ve Şehir",
+        "author": "Orhan Pamuk",
+        "isbn": "978-9750834585",
+        "publisher": "Yapı Kredi Yayınları",
+        "binding": "Hardcover",
+        "published": 2003
+    },
+    {
+        "id": "9789750830884",
+        "title": "Kafamda Bir Tuhaflık",
+        "author": "Orhan Pamuk",
+        "isbn": "978-9750830884",
+        "publisher": "Yapı Kredi Yayınları",
+        "binding": "Paperback",
+        "published": 2014
+    },
+    {
+        "id": "9789750835605",
+        "title": "Kırmızı Saçlı Kadın",
+        "author": "Orhan Pamuk",
+        "isbn": "978-9750835605",
+        "publisher": "Yapı Kredi Yayınları",
+        "binding": "Paperback",
+        "published": 2016
+    },
+    {
+        "id": "9789750826924",
+        "title": "Fikirler Tarihi Ateşten Freud'a",
+        "author": "Peter Watson",
+        "isbn": "978-9750826924",
+        "translator": "Ayşe Tırnakçı, Barış Pala, Kaya Genç, Kemal Atakay",
+        "publisher": "Yapı Kredi Yayınları",
+        "binding": "Hardcover",
+        "published": 2005
+    },
+    {
+        "id": "9789754370232",
+        "title": "Fatih Harbiye",
+        "author": "Peyami Safa",
+        "isbn": "978-9754370232",
+        "publisher": "Ötüken Yayınları",
+        "binding": "Paperback",
+        "published": 1931
+    },
+    {
+        "id": "9789750531309",
+        "title": "Genel Sosyoloji: Collège de France Dersleri (1981-1983)",
+        "author": "Pierre Bourdieu",
+        "isbn": "978-9750531309",
+        "translator": "Zuhal Emirosmanoğlu",
+        "publisher": "İletişim Yayınları",
+        "binding": "Paperback",
+        "published": 2015
+    },
+    {
+        "id": "9789750519680",
+        "title": "Jet Rejisör Çetin İnanç",
+        "author": "Pınar Öğünç",
+        "isbn": "978-9750519680",
+        "publisher": "İletişim Yayınları",
+        "binding": "Paperback",
+        "published": 2016
+    },
+    {
+        "id": "9789754581768",
+        "title": "Devlet",
+        "author": "Plato",
+        "isbn": "978-9754581768",
+        "publisher": "İş Bankası Kültür Yayınları",
+        "binding": "Paperback"
+    },
+    {
+        "id": "9781848549562",
+        "title": "What If? Serious Scientific Answers to Absurd Hypothetical Questions",
+        "author": "Randall Munroe",
+        "isbn": "978-1848549562",
+        "publisher": "John Murray",
+        "binding": "Paperback",
+        "published": 2014
+    },
+    {
+        "id": "9780544668256",
+        "title": "Thing Explainer: Complicated Stuff in Simple Words",
+        "author": "Randall Munroe",
+        "isbn": "978-0544668256",
+        "publisher": "Dey Street Books",
+        "binding": "Hardcover",
+        "published": 2015
+    },
+    {
+        "id": "9780007491568",
+        "title": "Fahrenheit 451",
+        "author": "Ray Bradbury",
+        "isbn": "978-0007491568",
+        "publisher": "Harper Voyager",
+        "binding": "Hardcover",
+        "published": 1953
+    },
+    {
+        "id": "9780143106715",
+        "title": "The Greek Myths",
+        "author": "Robert Graves",
+        "isbn": "978-0143106715",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 1955
+    },
+    {
+        "id": "9781591846840",
+        "title": "How Adam Smith Can Change Your Life: An Unexpected Guide to Human Nature and Happiness",
+        "author": "Russ Roberts",
+        "isbn": "978-1591846840",
+        "publisher": "Portfolio",
+        "binding": "Hardcover",
+        "published": 2014
+    },
+    {
+        "id": "9780190250010",
+        "title": "Mustafa Kemal Atatürk: Heir to an Empire",
+        "author": "Ryan Gingeras",
+        "isbn": "978-0190250010",
+        "publisher": "Oxford University Press",
+        "binding": "Paperback",
+        "published": 2015
+    },
+    {
+        "id": "9786051981130",
+        "title": "Türlerin Kökeni",
+        "author": "Sabina Radeva",
+        "isbn": "978-6051981130",
+        "translator": "Şiirsel Taş",
+        "publisher": "Domingo Yayınevi",
+        "binding": "Hardcover",
+        "published": 2019
+    },
+    {
+        "id": "9789754940756",
+        "title": "Semaver / Sarnıç",
+        "author": "Sait Faik Abasıyanık",
+        "isbn": "978-9754940756",
+        "publisher": "Bilgi Yayınevi",
+        "binding": "Paperback",
+        "published": 1936
+    },
+    {
+        "id": "9786059559584",
+        "title": "Yusuf'un Rüyasi",
+        "author": "Semih Kaplanoğlu",
+        "isbn": "978-6059559584",
+        "publisher": "H Yayinlari",
+        "binding": "Paperback",
+        "published": 2017
+    },
+    {
+        "id": "9789750519826",
+        "title": "Mahalledeki AKP: Parti İşleyişi, Taban Mobilizasyonu ve Siyasal Yabancılaşma",
+        "author": "Sevinç Doğan",
+        "isbn": "978-9750519826",
+        "publisher": "İletişim Yayınları",
+        "binding": "Paperback",
+        "published": 2017
+    },
+    {
+        "id": "9789751403810",
+        "title": "Suyu Arayan Adam",
+        "author": "Şevket Süreyya Aydemir",
+        "isbn": "978-9751403810",
+        "publisher": "Remzi Kitabevi",
+        "binding": "Paperback",
+        "published": 1959
+    },
+    {
+        "id": "9780691135663",
+        "title": "Democracy Incorporated: Managed Democracy and the Specter of Inverted Totalitarianism",
+        "author": "Sheldon S. Wolin",
+        "isbn": "978-0691135663",
+        "publisher": "Princeton University Press",
+        "binding": "Paperback",
+        "published": 2006
+    },
+    {
+        "id": "9780553175219",
+        "title": "A Brief History Of Time: From the Big Bang To Black Holes",
+        "author": "Stephen Hawking",
+        "isbn": "978-0553175219",
+        "publisher": "Bantam",
+        "binding": "Paperback",
+        "published": 1988,
+        "cover": "data/covers/9780553175219.jpg",
+        "spineColor": "#7F706E",
+        "spineTextColor": "#fdfdfd"
+    },
+    {
+        "id": "9786051067582",
+        "title": "Zamanın Kısa Tarihi",
+        "author": "Stephen Hawking",
+        "isbn": "978-6051067582",
+        "translator": "Barış Gönülşen",
+        "publisher": "Alfa Yayınları",
+        "binding": "Paperback",
+        "published": 1988
+    },
+    {
+        "id": "9786056370892",
+        "title": "Beynimdeki Yangın",
+        "author": "Susannah Cahalan",
+        "isbn": "978-6056370892",
+        "translator": "Anıl Ceren Altunkanat",
+        "publisher": "Yabancı",
+        "binding": "Paperback",
+        "published": 2012
+    },
+    {
+        "id": "9789750521188",
+        "title": "Cereyanlar",
+        "author": "Tanıl Bora",
+        "isbn": "978-9750521188",
+        "publisher": "İletişim Yayınları",
+        "binding": "Hardcover",
+        "published": 2017
+    },
+    {
+        "id": "9789750523434",
+        "title": "Zamanın Kelimeleri: Yeni Türkiye’nin Siyasî Dili",
+        "author": "Tanıl Bora",
+        "isbn": "978-9750523434",
+        "publisher": "İletişim Yayınları",
+        "binding": "Paperback",
+        "published": 2018
+    },
+    {
+        "id": "9789750535857",
+        "title": "Yüz",
+        "author": "Tanıl Bora, Kıvanç Koçak",
+        "isbn": "978-9750535857",
+        "publisher": "İletişim Yayınları",
+        "binding": "Paperback",
+        "published": 2024
+    },
+    {
+        "id": "9786053322788",
+        "title": "Yirmi Birinci Yüzyılda Kapital",
+        "author": "Thomas Piketty",
+        "isbn": "978-6053322788",
+        "translator": "Hande Koçak",
+        "publisher": "İş Bankası Kültür Yayınları",
+        "binding": "Hardcover",
+        "published": 2013
+    },
+    {
+        "id": "9780241234891",
+        "title": "Chronicles: On Our Troubled Times",
+        "author": "Thomas Piketty",
+        "isbn": "978-0241234891",
+        "publisher": "Viking",
+        "binding": "Hardcover",
+        "published": 2016
+    },
+    {
+        "id": "9789750534218",
+        "title": "Taşra Üniversiteleri: AK Parti'nin Arka Kampüsü",
+        "author": "Tuğba Tekerek",
+        "isbn": "978-9750534218",
+        "publisher": "İletişim Yayınları",
+        "binding": "Paperback",
+        "published": 2023
+    },
+    {
+        "id": "9786056934810",
+        "title": "Düşmemiş Bir Uçağın Kara Kutusu",
+        "author": "Tülay German",
+        "isbn": "978-6056934810",
+        "publisher": "Afrika Yayınları",
+        "binding": "Paperback",
+        "published": 2001
+    },
+    {
+        "id": "9789750735394",
+        "title": "Çeviri Atölyesi",
+        "author": "Ülker İnce, Dilek Dizdar",
+        "isbn": "978-9750735394",
+        "publisher": "Can Yayınları",
+        "binding": "Paperback",
+        "published": 2017
+    },
+    {
+        "id": "9786054173105",
+        "title": "Benim de Söyleyeceklerim Var!",
+        "author": "Umut Sarıkaya",
+        "isbn": "978-6054173105",
+        "publisher": "Mürekkep",
+        "binding": "Paperback",
+        "published": 2005
+    },
+    {
+        "id": "9786054173167",
+        "title": "Benim de Söyleyeceklerim Var! İki",
+        "author": "Umut Sarıkaya",
+        "isbn": "978-6054173167",
+        "publisher": "Mürekkep",
+        "binding": "Paperback",
+        "published": 2009
+    },
+    {
+        "id": "9786054173679",
+        "title": "Benim de Söyleyeceklerim Var! Üç",
+        "author": "Umut Sarıkaya",
+        "isbn": "978-6054173679",
+        "publisher": "Mürekkep",
+        "binding": "Paperback",
+        "published": 2012
+    },
+    {
+        "id": "9786054173259",
+        "title": "İşimdeyim Gücümdeyim",
+        "author": "Umut Sarıkaya",
+        "isbn": "978-6054173259",
+        "publisher": "Mürekkep",
+        "binding": "Paperback",
+        "published": 2010
+    },
+    {
+        "id": "9786054173778",
+        "title": "İşimdeyim Gücümdeyim 2",
+        "author": "Umut Sarıkaya",
+        "isbn": "978-6054173778",
+        "publisher": "Mürekkep",
+        "binding": "Paperback",
+        "published": 2013
+    },
+    {
+        "id": "9772146023007",
+        "title": "Altyazı'nın Gayri Resmi ve Resimli Türkiye Sinema Sözlüğü",
+        "author": "Various",
+        "isbn": "977-2146023007",
+        "binding": "Paperback",
+        "published": 2015
+    },
+    {
+        "id": "9780977985012",
+        "title": "Everymans McLuhan",
+        "author": "W. Terrence Gordon",
+        "isbn": "978-0977985012",
+        "publisher": "Mark Batty Publisher",
+        "binding": "Paperback",
+        "published": 2007
+    },
+    {
+        "id": "9781781688748",
+        "title": "The WikiLeaks Files: The World According to US Empire",
+        "author": "Wikileaks",
+        "isbn": "978-1781688748",
+        "publisher": "Verso",
+        "binding": "Hardcover",
+        "published": 2015
+    },
+    {
+        "id": "9789750832505",
+        "title": "Pardon Neye Bakmıştınız?",
+        "author": "Will Gompertz",
+        "isbn": "978-9750832505",
+        "translator": "Süreyyya Evren",
+        "publisher": "Yapı Kredi Yayınları",
+        "binding": "Paperback",
+        "published": 2012
+    },
+    {
+        "id": "9781435154476",
+        "title": "The Complete Works of William Shakespeare",
+        "author": "William Shakespeare",
+        "isbn": "978-1435154476",
+        "publisher": "Barnes \u0026 Noble",
+        "binding": "Leatherbound",
+        "published": 1623
+    },
+    {
+        "id": "9780141397627",
+        "title": "My Dearest Father",
+        "author": "Wolfgang Amadeus Mozart",
+        "isbn": "978-0141397627",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 1791
+    },
+    {
+        "id": "9781847924032",
+        "title": "And the Weak Suffer What They Must?: Europe, Austerity and the Threat to Global Stability",
+        "author": "Yanis Varoufakis",
+        "isbn": "978-1847924032",
+        "publisher": "Bodley Head",
+        "binding": "Hardcover",
+        "published": 2016
+    },
+    {
+        "id": "9789750807049",
+        "title": "Yılanı Öldürseler",
+        "author": "Yaşar Kemal",
+        "isbn": "978-9750807049",
+        "publisher": "Yapı Kredi Yayınları",
+        "binding": "Paperback",
+        "published": 1976
+    },
+    {
+        "id": "9789750758607",
+        "title": "Go Ustası",
+        "author": "Yasunari Kawabata",
+        "isbn": "978-9750758607",
+        "translator": "Habibe Sağlar",
+        "publisher": "Can Yayınları",
+        "binding": "Paperback",
+        "published": 2022
+    },
+    {
+        "id": "9789750741425",
+        "title": "Aylak Adam",
+        "author": "Yusuf Atılgan",
+        "isbn": "978-9750741425",
+        "publisher": "Can Yayınları",
+        "binding": "Hardcover",
+        "published": 1959
+    },
+    {
+        "id": "9786055029357",
+        "title": "Sapiens: Hayvanlardan Tanrılara - İnsan Türünün Kısa Bir Tarihi",
+        "author": "Yuval Noah Harari",
+        "isbn": "978-6055029357",
+        "translator": "Ertuğrul Genç",
+        "publisher": "Kolektif Kitap",
+        "binding": "Paperback",
+        "published": 2011
+    },
+    {
+        "id": "9780434020485",
+        "title": "To Kill A Mockingbird",
+        "author": "Harper Lee",
+        "isbn": "978-0434020485",
+        "publisher": "Heinemann",
+        "binding": "Clothbound",
+        "published": 2010
+    },
+    {
+        "id": "9781784878009",
+        "title": "The Wind-Up Bird Chronicle",
+        "author": "Haruki Murakami",
+        "isbn": "978-1784878009",
+        "translator": "Jay Rubin",
+        "publisher": "Vintage Classics",
+        "binding": "Hardcover",
+        "published": 2022
+    },
+    {
+        "id": "9781784877989",
+        "title": "Kafka on the Shore",
+        "author": "Haruki Murakami",
+        "isbn": "978-1784877989",
+        "publisher": "Vintage Classics",
+        "binding": "Hardcover",
+        "published": 2022
+    },
+    {
+        "id": "9780141196886",
+        "title": "Dracula",
+        "author": "Bram Stoker",
+        "isbn": "978-0141196886",
+        "publisher": "Penguin Books",
+        "binding": "Clothbound",
+        "published": 2011
+    },
+    {
+        "id": "9789750530432",
+        "title": "Taş ve Gölge",
+        "author": "Burhan Sönmez",
+        "isbn": "978-9750530432",
+        "publisher": "İletişim Yayınları",
+        "binding": "Paperback",
+        "published": 2021
+    },
+    {
+        "id": "9780143107729",
+        "title": "Middlemarch",
+        "author": "George Eliot",
+        "isbn": "978-0143107729",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2015
+    },
+    {
+        "id": "9780143106166",
+        "title": "Dracula",
+        "author": "Bram Stoker",
+        "isbn": "978-0143106166",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2011
+    },
+    {
+        "id": "9780143105435",
+        "title": "Wuthering Heights",
+        "author": "Emily Brontë",
+        "isbn": "978-0143105435",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2009
+    },
+    {
+        "id": "9780143106159",
+        "title": "Jane Eyre",
+        "author": "Charlotte Brontë",
+        "isbn": "978-0143106159",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2011
+    },
+    {
+        "id": "9780143106333",
+        "title": "Charlie and the Chocolate Factory",
+        "author": "Roald Dahl",
+        "isbn": "978-0143106333",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2011
+    },
+    {
+        "id": "9780143105947",
+        "title": "The Adventures of Huckleberry Finn",
+        "author": "Mark Twain",
+        "isbn": "978-0143105947",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2010
+    },
+    {
+        "id": "9786256839465",
+        "title": "Abdullah Efendi'nin Rüyaları",
+        "author": "Ahmet Hamdi Tanpınar",
+        "isbn": "978-6256839465",
+        "publisher": "Dergâh Yayınları",
+        "binding": "Paperback",
+        "published": 2023
+    },
+    {
+        "id": "9780143105428",
+        "title": "Pride and Prejudice",
+        "author": "Jane Austen",
+        "isbn": "978-0143105428",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2009
+    },
+    {
+        "id": "9780143107453",
+        "title": "Dubliners",
+        "author": "James Joyce",
+        "isbn": "978-0143107453",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2014
+    },
+    {
+        "id": "9780143129400",
+        "title": "Lord of the Flies",
+        "author": "William Golding",
+        "isbn": "978-0143129400",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2016
+    },
+    {
+        "id": "9780143107712",
+        "title": "Emma",
+        "author": "Jane Austen",
+        "isbn": "978-0143107712",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2015
+    },
+    {
+        "id": "9780143110149",
+        "title": "The 13 Clocks",
+        "author": "James Thurber",
+        "isbn": "978-0143110149",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2016
+    },
+    {
+        "id": "9780143107286",
+        "title": "Faces of Love",
+        "author": "Hafez",
+        "isbn": "978-0143107286",
+        "translator": "Dick Davis",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2014
+    },
+    {
+        "id": "9780241968581",
+        "title": "One Hundred Years of Solitude",
+        "author": "Gabriel García Márquez",
+        "isbn": "978-0241968581",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2020
+    },
+    {
+        "id": "9780241984758",
+        "title": "The Catcher in the Rye",
+        "author": "J. D. Salinger",
+        "isbn": "978-0241984758",
+        "publisher": "Penguin Books",
+        "binding": "Hardcover",
+        "published": 2018
+    },
+    {
+        "id": "9781784878672",
+        "title": "Beloved",
+        "author": "Toni Morrison",
+        "isbn": "978-1784878672",
+        "publisher": "Penguin Books",
+        "binding": "Hardcover",
+        "published": 2023
+    },
+    {
+        "id": "9781784874858",
+        "title": "Slaughterhouse 5",
+        "author": "Kurt Vonnegut",
+        "isbn": "978-1784874858",
+        "publisher": "Penguin Books",
+        "binding": "Hardcover",
+        "published": 2019
+    },
+    {
+        "id": "9786259993027",
+        "title": "Sınırsız Ülke",
+        "author": "Patricia Engel",
+        "isbn": "978-6259993027",
+        "translator": "Elif Nihan Akbaş",
+        "publisher": "Holden Kitap",
+        "binding": "Paperback",
+        "published": 2024
+    },
+    {
+        "id": "9786052205259",
+        "title": "Ağaçlar",
+        "author": "Hermann Hesse",
+        "isbn": "978-6052205259",
+        "translator": "Zehra Aksu Yılmazer",
+        "publisher": "Kolektif Kitap",
+        "binding": "Paperback",
+        "published": 2018
+    },
+    {
+        "id": "9780143136309",
+        "title": "Monkey King: Journey to the West",
+        "author": "Wu Cheng'en",
+        "isbn": "978-0143136309",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2022
+    },
+    {
+        "id": "9780143106487",
+        "title": "The Call of Cthulhu and Other Weird Stories",
+        "author": "H. P. Lovecraft",
+        "isbn": "978-0143106487",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2012
+    },
+    {
+        "id": "9780141442297",
+        "title": "The Canterbury Tales: A retelling by Peter Ackroyd",
+        "author": "Geoffrey Chaucer, Peter Ackroyd",
+        "isbn": "978-0141442297",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2010
+    },
+    {
+        "id": "9786053162452",
+        "title": "Zaman Sığınağı",
+        "author": "Georgi Gospodinov",
+        "isbn": "978-6053162452",
+        "publisher": "Metis Yayınları",
+        "binding": "Paperback",
+        "published": 2022
+    },
+    {
+        "id": "9789753634830",
+        "title": "Parasız Yatılı",
+        "author": "Füruzan",
+        "isbn": "978-9753634830",
+        "publisher": "Yapı Kredi Yayınları",
+        "binding": "Paperback",
+        "published": 1996
+    },
+    {
+        "id": "9780143137047",
+        "title": "The Color Purple",
+        "author": "Alice Walker",
+        "isbn": "978-0143137047",
+        "publisher": "Penguin Books",
+        "binding": "Hardcover",
+        "published": 2022
+    },
+    {
+        "id": "9789750511080",
+        "title": "Coşkuyla Ölmek",
+        "author": "Şule Gürbüz",
+        "isbn": "978-9750511080",
+        "publisher": "İletişim Yayınları",
+        "binding": "Paperback",
+        "published": 2012
+    },
+    {
+        "id": "9789750509292",
+        "title": "Zamanın Farkında",
+        "author": "Şule Gürbüz",
+        "isbn": "978-9750509292",
+        "publisher": "İletişim Yayınları",
+        "binding": "Paperback",
+        "published": 2011
+    },
+    {
+        "id": "9786056587887",
+        "title": "Yaşamak",
+        "author": "Yu Hua",
+        "isbn": "978-6056587887",
+        "translator": "Bahar Kılıç",
+        "publisher": "Jaguar Kitap",
+        "binding": "Paperback",
+        "published": 2016
+    },
+    {
+        "id": "9789750761591",
+        "title": "Ayrılık Valsi",
+        "author": "Milan Kundera",
+        "isbn": "978-9750761591",
+        "translator": "Şirin Etik",
+        "publisher": "Can Yayınları",
+        "binding": "Paperback",
+        "published": 2023
+    },
+    {
+        "id": "9789750760600",
+        "title": "Pan",
+        "author": "Knut Hamsun",
+        "isbn": "978-9750760600",
+        "translator": "Deniz Canefe, Haydar Şahin",
+        "publisher": "Can Yayınları",
+        "binding": "Paperback",
+        "published": 2023
+    },
+    {
+        "id": "9789750755958",
+        "title": "Yalın Tutku",
+        "author": "Annie Ernaux",
+        "isbn": "978-9750755958",
+        "translator": "Yaşar Avunç",
+        "publisher": "Can Yayınları",
+        "binding": "Paperback",
+        "published": 2022
+    },
+    {
+        "id": "9780143136354",
+        "title": "Mrs Dalloway",
+        "author": "Virginia Woolf",
+        "isbn": "978-0143136354",
+        "publisher": "Penguin Books",
+        "binding": "Hardcover",
+        "published": 2022
+    },
+    {
+        "id": "9780143106289",
+        "title": "Persuasion",
+        "author": "Jane Austen",
+        "isbn": "978-0143106289",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2011
+    },
+    {
+        "id": "9780241436493",
+        "title": "Nineteen Eighty-Four: The Graphic Novel",
+        "author": "George Orwell",
+        "isbn": "978-0241436493",
+        "publisher": "Penguin Books",
+        "binding": "Hardcover",
+        "published": 2021
+    },
+    {
+        "id": "9780141014081",
+        "title": "The Complete MAUS",
+        "author": "Art Spiegelman",
+        "isbn": "978-0141014081",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2003
+    },
+    {
+        "id": "9780143134831",
+        "title": "We Have Always Lived in the Castle",
+        "author": "Shirley Jackson",
+        "isbn": "978-0143134831",
+        "publisher": "Penguin Books",
+        "binding": "Hardcover",
+        "published": 2020
+    },
+    {
+        "id": "9781645173519",
+        "title": "The Great Gatsby and Other Works",
+        "author": "F. Scott Fitzgerald",
+        "isbn": "978-1645173519",
+        "publisher": "Canterbury Classics",
+        "binding": "Leatherbound",
+        "published": 2021
+    },
+    {
+        "id": "9780143105978",
+        "title": "Keith Haring Journals",
+        "author": "Keith Haring",
+        "isbn": "978-0143105978",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2010
+    },
+    {
+        "id": "9780141393063",
+        "title": "Politics and the English Language",
+        "author": "George Orwell",
+        "isbn": "978-0141393063",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2013
+    },
+    {
+        "id": "9780141185262",
+        "title": "Pale Fire",
+        "author": "Vladimir Nobokov",
+        "isbn": "978-0141185262",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2000
+    },
+    {
+        "id": "9780141185224",
+        "title": "The Heart is a Lonely Hunter",
+        "author": "Carson McCullers",
+        "isbn": "978-0141185224",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2000
+    },
+    {
+        "id": "9780241308493",
+        "title": "Dark Tales",
+        "author": "Shirley Jackson",
+        "isbn": "978-0241308493",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2017
+    },
+    {
+        "id": "9780241198209",
+        "title": "Let Me Tell You",
+        "author": "Shirley Jackson",
+        "isbn": "978-0241198209",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2016
+    },
+    {
+        "id": "9780143125853",
+        "title": "Candide: Or Optimism",
+        "author": "Voltaire",
+        "isbn": "978-0143125853",
+        "publisher": "Penguin Books",
+        "binding": "Hardcover",
+        "published": 2014
+    },
+    {
+        "id": "9789750517525",
+        "title": "Puslu Kıtalar Atlası",
+        "author": "İhsan Oktay Anar, İlban Ertem",
+        "isbn": "978-9750517525",
+        "publisher": "İletişim Yayınları",
+        "binding": "Hardcover",
+        "published": 2015
+    },
+    {
+        "id": "9780141189345",
+        "title": "Cat's Cradle",
+        "author": "Kurt Vonnegut",
+        "isbn": "978-0141189345",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2008
+    },
+    {
+        "id": "9780241323410",
+        "title": "Tinker Tailor Soldier Spy",
+        "author": "John le Carré",
+        "isbn": "978-0241323410",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2018
+    },
+    {
+        "id": "9780141032948",
+        "title": "Giovanni's Room",
+        "author": "James Baldwin",
+        "isbn": "978-0141032948",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2007
+    },
+    {
+        "id": "9780141186313",
+        "title": "The Winter of Our Discontent",
+        "author": "John Steinbeck",
+        "isbn": "978-0141186313",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2001
+    },
+    {
+        "id": "9789750736506",
+        "title": "Utanç",
+        "author": "John Maxwell Coetzee",
+        "isbn": "978-9750736506",
+        "translator": "İlknur Özdemir",
+        "publisher": "Can Yayınları",
+        "binding": "Paperback",
+        "published": 2001
+    },
+    {
+        "id": "9781784877996",
+        "title": "Norwegian Wood",
+        "author": "Haruki Murakami",
+        "isbn": "978-1784877996",
+        "publisher": "Vintage Classics",
+        "binding": "Hardcover",
+        "published": 2022
+    },
+    {
+        "id": "9780241411216",
+        "title": "Treasure Island",
+        "author": "Robert Louis Stevenson",
+        "isbn": "978-0241411216",
+        "publisher": "Puffin Books",
+        "binding": "Clothbound",
+        "published": 2019
+    },
+    {
+        "id": "9780241425107",
+        "title": "Tales of the Greek Heroes",
+        "author": "Roger Lancelyn Green",
+        "isbn": "978-0241425107",
+        "publisher": "Puffin Books",
+        "binding": "Clothbound",
+        "published": 2022
+    },
+    {
+        "id": "9780241554401",
+        "title": "The Outsider",
+        "author": "Albert Camus",
+        "isbn": "978-0241554401",
+        "translator": "Sandra Smith",
+        "publisher": "Penguin Books",
+        "binding": "Clothbound",
+        "published": 2022
+    },
+    {
+        "id": "9781784877477",
+        "title": "My Year of Rest and Relaxation",
+        "author": "Ottessa Moshfegh",
+        "isbn": "978-1784877477",
+        "publisher": "Vintage Classics",
+        "binding": "Paperback",
+        "published": 2021
+    },
+    {
+        "id": "9781784874339",
+        "title": "Something Happened",
+        "author": "Joseph Heller",
+        "isbn": "978-1784874339",
+        "publisher": "Vintage Classics",
+        "binding": "Paperback",
+        "published": 2019
+    },
+    {
+        "id": "9780141187426",
+        "title": "Orientalism: Western Conceptions of the Orient",
+        "author": "Edward Said",
+        "isbn": "978-0141187426",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2003
+    },
+    {
+        "id": "9780143104919",
+        "title": "Ceremony",
+        "author": "Leslie Marmon Silko",
+        "isbn": "978-0143104919",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2011
+    },
+    {
+        "id": "9781471155932",
+        "title": "Ali: A Life",
+        "author": "Jonathan Eig",
+        "isbn": "978-1471155932",
+        "publisher": "Simon \u0026 Schuster",
+        "binding": "Hardcover",
+        "published": 2017
+    },
+    {
+        "id": "9780241334003",
+        "title": "Notes of a Native Son",
+        "author": "James Baldwin",
+        "isbn": "978-0241334003",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2017
+    },
+    {
+        "id": "9780708898406",
+        "title": "The Underground Railroad",
+        "author": "Colson Whitehead",
+        "isbn": "978-0708898406",
+        "publisher": "Fleet",
+        "binding": "Paperback",
+        "published": 2017
+    },
+    {
+        "id": "9789754703139",
+        "title": "Kambur",
+        "author": "Şule Gürbüz",
+        "isbn": "978-9754703139",
+        "publisher": "İletişim Yayınları",
+        "binding": "Paperback",
+        "published": 1992
+    },
+    {
+        "id": "9780141013756",
+        "title": "The Penguin Dictionary of Sociology",
+        "author": "Bryan Turner, Nicholas Abercrombie, Stephen Hill",
+        "isbn": "978-0141013756",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2006
+    },
+    {
+        "id": "9780140514643",
+        "title": "The Penguin Dictionary of English Grammar",
+        "author": "Larry Trask",
+        "isbn": "978-0140514643",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2000
+    },
+    {
+        "id": "9780241961964",
+        "title": "The David Foster Wallace Reader",
+        "author": "David Foster Wallace",
+        "isbn": "978-0241961964",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2018
+    },
+    {
+        "id": "9780141186672",
+        "title": "The Man in the High Castle",
+        "author": "Philip K. Dick",
+        "isbn": "978-0141186672",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2001
+    },
+    {
+        "id": "9780241970577",
+        "title": "The Day of the Triffids",
+        "author": "John Wyndham",
+        "isbn": "978-0241970577",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2014
+    },
+    {
+        "id": "9780141188348",
+        "title": "The Driver's Seat",
+        "author": "Muriel Spark",
+        "isbn": "978-0141188348",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2006
+    },
+    {
+        "id": "9789750762987",
+        "title": "Christie Malry'nin Dünyayla Hesabı",
+        "author": "B.S. Johnson",
+        "isbn": "978-9750762987",
+        "publisher": "Can Yayınları",
+        "binding": "Paperback",
+        "published": 2024
+    },
+    {
+        "id": "9780141191430",
+        "title": "The Lottery and Other Stories",
+        "author": "Shirley Jackson",
+        "isbn": "978-0141191430",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2009
+    },
+    {
+        "id": "9781784877736",
+        "title": "Brave New World: A Graphic Novel",
+        "author": "Aldous Huxley, Fred Fordham",
+        "isbn": "978-1784877736",
+        "publisher": "Vintage Classics",
+        "binding": "Hardcover",
+        "published": 2022
+    },
+    {
+        "id": "9780241333150",
+        "title": "Life for Sale",
+        "author": "Yukio Mishima",
+        "isbn": "978-0241333150",
+        "translator": "Stephen Dodd",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2021
+    },
+    {
+        "id": "9781784877781",
+        "title": "Kiss of the Spider Woman",
+        "author": "Manuel Puig",
+        "isbn": "978-1784877781",
+        "publisher": "Vintage Classics",
+        "binding": "Paperback",
+        "published": 2022
+    },
+    {
+        "id": "9780141189871",
+        "title": "Interzone",
+        "author": "William S. Burroughs",
+        "isbn": "978-0141189871",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2009
+    },
+    {
+        "id": "9780141184425",
+        "title": "Invisible Man",
+        "author": "Ralph Ellison",
+        "isbn": "978-0141184425",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2001
+    },
+    {
+        "id": "9780224101936",
+        "title": "The Handmaid's Tale: The Graphic Novel",
+        "author": "Margaret Atwood, Renée Nault",
+        "isbn": "978-0224101936",
+        "publisher": "Penguin Books",
+        "binding": "Hardcover",
+        "published": 2019
+    },
+    {
+        "id": "9781250056948",
+        "title": "A Wrinkle in Time",
+        "author": "Madeleine L'Engle",
+        "isbn": "978-1250056948",
+        "publisher": "Square Fish",
+        "binding": "Paperback",
+        "published": 2015
+    },
+    {
+        "id": "9780241321935",
+        "title": "Absolute Friends",
+        "author": "John le Carré",
+        "isbn": "978-0241321935",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2018
+    },
+    {
+        "id": "9780241345443",
+        "title": "Why We Can't Wait",
+        "author": "Martin Luther King Jr.",
+        "isbn": "978-0241345443",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2018
+    },
+    {
+        "id": "9780141985183",
+        "title": "A Gift of Love: Sermons from Strength to Love",
+        "author": "Martin Luther King Jr.",
+        "isbn": "978-0141985183",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2017
+    },
+    {
+        "id": "9780241391853",
+        "title": "Animal Farm: The Graphic Novel",
+        "author": "George Orwell, Odyr",
+        "isbn": "978-0241391853",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2020
+    },
+    {
+        "id": "9780141194288",
+        "title": "That Uncertain Feeling",
+        "author": "Kingsley Amis",
+        "isbn": "978-0141194288",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2013
+    },
+    {
+        "id": "9780141184487",
+        "title": "Manhattan Transfer",
+        "author": "John Dos Passos",
+        "isbn": "978-0141184487",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2000
+    },
+    {
+        "id": "9780141393247",
+        "title": "The Thin Red Line",
+        "author": "James Jones",
+        "isbn": "978-0141393247",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2014
+    },
+    {
+        "id": "9780143107132",
+        "title": "Sherlock Holmes: The Novels",
+        "author": "Arthur Conan Doyle",
+        "isbn": "978-0143107132",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2016
+    },
+    {
+        "id": "9780141182858",
+        "title": "Wide Sargasso Sea",
+        "author": "Jean Rhys",
+        "isbn": "978-0141182858",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2000
+    },
+    {
+        "id": "9780141185385",
+        "title": "Story of the Eye",
+        "author": "Georges Bataille",
+        "isbn": "978-0141185385",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2001
+    },
+    {
+        "id": "9781509802043",
+        "title": "Twin Peaks: The Final Dossier",
+        "author": "Mark Frost",
+        "isbn": "978-1509802043",
+        "publisher": "Macmillan",
+        "binding": "Hardcover",
+        "published": 2017
+    },
+    {
+        "id": "9781849838627",
+        "title": "The Secret Diary of Laura Palmer",
+        "author": "Jennifer Lynch",
+        "isbn": "978-1849838627",
+        "publisher": "Simon \u0026 Schuster",
+        "binding": "Paperback",
+        "published": 2011
+    },
+    {
+        "id": "9780141186917",
+        "title": "Storm of Steel",
+        "author": "Ernst Junger",
+        "isbn": "978-0141186917",
+        "translator": "Michael Hofmann",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2004
+    },
+    {
+        "id": "9780141197531",
+        "title": "A Clockwork Orange: Restored Edition",
+        "author": "Anthony Burgess",
+        "isbn": "978-0141197531",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2013
+    },
+    {
+        "id": "9780141182704",
+        "title": "Animal Farm",
+        "author": "George Orwell",
+        "isbn": "978-0141182704",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2018
+    },
+    {
+        "id": "9780143105329",
+        "title": "Revolutionary Suicide",
+        "author": "Huey P. Newton",
+        "isbn": "978-0143105329",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2009
+    },
+    {
+        "id": "9781857150698",
+        "title": "The Sound And The Fury",
+        "author": "William Faulkner",
+        "isbn": "978-1857150698",
+        "publisher": "Everyman's Library",
+        "binding": "Hardcover",
+        "published": 1992
+    },
+    {
+        "id": "9789750760983",
+        "title": "Kairos",
+        "author": "Jenny Erpenbeck",
+        "isbn": "978-9750760983",
+        "translator": "Regaip Minareci",
+        "publisher": "Can Yayınları",
+        "binding": "Paperback",
+        "published": 2023
+    },
+    {
+        "id": "9789750735639",
+        "title": "Anayurt Oteli",
+        "author": "Yusuf Atılgan",
+        "isbn": "978-9750735639",
+        "publisher": "Can Yayınları",
+        "binding": "Paperback",
+        "published": 2017
+    },
+    {
+        "id": "9786257442121",
+        "title": "Mai ve Siyah",
+        "author": "Halit Ziya Uşaklıgil",
+        "isbn": "978-6257442121",
+        "publisher": "İthaki Yayınları",
+        "binding": "Paperback",
+        "published": 2021
+    },
+    {
+        "id": "9789750741418",
+        "title": "Dönüşüm",
+        "author": "Franz Kafka",
+        "isbn": "978-9750741418",
+        "translator": "Ahmet Cemal",
+        "publisher": "Can Yayınları",
+        "binding": "Hardcover",
+        "published": 2019
+    },
+    {
+        "id": "9786259446707",
+        "title": "Yalan Dolan",
+        "author": "Veronica Raimo",
+        "isbn": "978-6259446707",
+        "translator": "Eren Cendey",
+        "publisher": "Medusa Yayınları",
+        "binding": "Paperback",
+        "published": 2024
+    },
+    {
+        "id": "9789753426725",
+        "title": "Cinsiyet Belası: Feminizm ve Kimliğin Altüst Edilmesi",
+        "author": "Judith Butler",
+        "isbn": "978-9753426725",
+        "translator": "Başak Ertür",
+        "publisher": "Metis Yayınları",
+        "binding": "Paperback",
+        "published": 2017
+    },
+    {
+        "id": "9780007558063",
+        "title": "A Room of One's Owen and Three Guineas",
+        "author": "Virginia Woolf",
+        "isbn": "978-0007558063",
+        "publisher": "HarperCollins",
+        "binding": "Paperback",
+        "published": 2014
+    },
+    {
+        "id": "9780241301111",
+        "title": "Pedagogy of the Oppressed",
+        "author": "Paulo Freire",
+        "isbn": "978-0241301111",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2017
+    },
+    {
+        "id": "9789750723261",
+        "title": "Vurun Kahpeye",
+        "author": "Halide Edib Adıvar",
+        "isbn": "978-9750723261",
+        "publisher": "Can Yayınları",
+        "binding": "Paperback",
+        "published": 2014
+    },
+    {
+        "id": "9789753424219",
+        "title": "Kadınsız İnkılap: Nezihe Muhiddin, Kadınlar Halk Fırkası, Kadın Birliği",
+        "author": "Yaprak Zihnioğlu",
+        "isbn": "978-9753424219",
+        "publisher": "Metis Yayınları",
+        "binding": "Paperback",
+        "published": 2003
+    },
+    {
+        "id": "9786051850573",
+        "title": "Bir Türk Kadınının Avrupa İzlenimleri",
+        "author": "Zeynep Hanım",
+        "isbn": "978-6051850573",
+        "translator": "Nuray Fincancıoğlu",
+        "publisher": "Everest Yayınları",
+        "binding": "Paperback",
+        "published": 2016
+    },
+    {
+        "id": "9789750813245",
+        "title": "Dost Mektupları",
+        "author": "James Baldwin, Engin Cezzar",
+        "isbn": "978-9750813245",
+        "translator": "Seçkin Selvi",
+        "publisher": "Yapı Kredi Yayınları",
+        "binding": "Paperback",
+        "published": 2007
+    },
+    {
+        "id": "9781784874872",
+        "title": "The Handmaid's Tale",
+        "author": "Margaret Atwood",
+        "isbn": "978-1784874872",
+        "publisher": "Vintage Classics",
+        "binding": "Paperback",
+        "published": 2018
+    },
+    {
+        "id": "9781529115543",
+        "title": "Tomorrow, and Tomorrow, and Tomorrow",
+        "author": "Gabrielle Zevin",
+        "isbn": "978-1529115543",
+        "publisher": "Vintage",
+        "binding": "Paperback",
+        "published": 2023
+    },
+    {
+        "id": "9780375406508",
+        "title": "Here",
+        "author": "Richard Mcguire",
+        "isbn": "978-0375406508",
+        "publisher": "Pantheon",
+        "binding": "Hardcover",
+        "published": 2015
+    },
+    {
+        "id": "9786059670012",
+        "title": "Ghost World",
+        "author": "Daniel Clowes",
+        "isbn": "978-6059670012",
+        "publisher": "Karakarga",
+        "binding": "Paperback",
+        "published": 2016
+    },
+    {
+        "id": "9781982103545",
+        "title": "The End of Everything: (Astrophysically Speaking)",
+        "author": "Katie Mack",
+        "isbn": "978-1982103545",
+        "publisher": "Scribner",
+        "binding": "Hardcover",
+        "published": 2020
+    },
+    {
+        "id": "9781529316117",
+        "title": "In: The Graphic Novel",
+        "author": "Will McPhail",
+        "isbn": "978-1529316117",
+        "publisher": "Sceptre",
+        "binding": "Hardcover",
+        "published": 2021
+    },
+    {
+        "id": "9780575094185",
+        "title": "Do Androids Dream Of Electric Sheep?",
+        "author": "Philip K. Dick",
+        "isbn": "978-0575094185",
+        "publisher": "Gateway",
+        "binding": "Paperback",
+        "published": 2010
+    },
+    {
+        "id": "9780679761808",
+        "title": "The Fran Lebowitz Reader",
+        "author": "Fran Lebowitz",
+        "isbn": "978-0679761808",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2018
+    },
+    {
+        "id": "9780140275360",
+        "title": "The Iliad",
+        "author": "Homer",
+        "isbn": "978-0140275360",
+        "translator": "Robert Fagles",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 1999
+    },
+    {
+        "id": "9780140268867",
+        "title": "The Odyssey",
+        "author": "Homer",
+        "isbn": "978-0140268867",
+        "translator": "Robert Fagles",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 1997
+    },
+    {
+        "id": "9780143105138",
+        "title": "The Aeneid",
+        "author": "Virgil",
+        "isbn": "978-0143105138",
+        "translator": "Robert Fagles",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2010
+    },
+    {
+        "id": "9780224062107",
+        "title": "Jimmy Corrigan: The Smartest Kid on Earth",
+        "author": "Chris Ware",
+        "isbn": "978-0224062107",
+        "publisher": "Jonathan Cape",
+        "binding": "Hardcover",
+        "published": 2001
+    },
+    {
+        "id": "9780007414987",
+        "title": "Play It as It Lays",
+        "author": "Joan Didion",
+        "isbn": "978-0007414987",
+        "publisher": "Fourth Estate",
+        "binding": "Paperback",
+        "published": 2011
+    },
+    {
+        "id": "9789750524332",
+        "title": "Bir Alman’ın Hikayesi: Hatırladıklarım (1914-1933)",
+        "author": "Sebastian Haffner",
+        "isbn": "978-9750524332",
+        "translator": "Hulki Demirel",
+        "publisher": "İletişim Yayınları",
+        "binding": "Paperback",
+        "published": 2018
+    },
+    {
+        "id": "9781857989380",
+        "title": "Flowers For Algernon",
+        "author": "Daniel Keyes",
+        "isbn": "978-1857989380",
+        "publisher": "Gateway",
+        "binding": "Paperback",
+        "published": 2000
+    },
+    {
+        "id": "9780349005997",
+        "title": "I Know Why The Caged Bird Sings",
+        "author": "Maya Angelou",
+        "isbn": "978-0349005997",
+        "publisher": "Virago Press",
+        "binding": "Hardcover",
+        "published": 2015
+    },
+    {
+        "id": "9781419727481",
+        "title": "Life Doesn't Frighten Me",
+        "author": "Maya Angelou, Jean-Michel Basquiat",
+        "isbn": "978-1419727481",
+        "publisher": "Abrams Books",
+        "binding": "Hardcover",
+        "published": 2018
+    },
+    {
+        "id": "9780099771814",
+        "title": "American Pastoral",
+        "author": "Philip Roth",
+        "isbn": "978-0099771814",
+        "publisher": "Vintage",
+        "binding": "Paperback",
+        "published": 1998
+    },
+    {
+        "id": "9780141185071",
+        "title": "East of Eden",
+        "author": "John Steinbeck",
+        "isbn": "978-0141185071",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2000
+    },
+    {
+        "id": "9781529077155",
+        "title": "American Psycho",
+        "author": "Bret Easton Ellis",
+        "isbn": "978-1529077155",
+        "publisher": "Picador",
+        "binding": "Paperback",
+        "published": 2022
+    },
+    {
+        "id": "9780099540946",
+        "title": "The Master and Margarita",
+        "author": "Mikhail Bulgakov",
+        "isbn": "978-0099540946",
+        "publisher": "Vintage",
+        "binding": "Paperback",
+        "published": 2010
+    },
+    {
+        "id": "9786254290534",
+        "title": "İçimizdeki Şeytan",
+        "author": "Sabahattin Ali",
+        "isbn": "978-6254290534",
+        "publisher": "İş Bankası Kültür Yayınları",
+        "binding": "Hardcover",
+        "published": 2022
+    },
+    {
+        "id": "9786052318997",
+        "title": "Efsun",
+        "author": "Selahattin Demirtaş",
+        "isbn": "978-6052318997",
+        "publisher": "Dipnot Yayınları",
+        "binding": "Paperback",
+        "published": 2021
+    },
+    {
+        "id": "9786052318478",
+        "title": "Leylan",
+        "author": "Selahattin Demirtaş",
+        "isbn": "978-6052318478",
+        "publisher": "Dipnot Yayınları",
+        "binding": "Paperback",
+        "published": 2020
+    },
+    {
+        "id": "9786052318003",
+        "title": "Seher",
+        "author": "Selahattin Demirtaş",
+        "isbn": "978-6052318003",
+        "publisher": "Dipnot Yayınları",
+        "binding": "Paperback",
+        "published": 2017
+    },
+    {
+        "id": "9789750526596",
+        "title": "Devran",
+        "author": "Selahattin Demirtaş",
+        "isbn": "978-9750526596",
+        "publisher": "İletişim Yayınları",
+        "binding": "Paperback",
+        "published": 2019
+    },
+    {
+        "id": "9781529046137",
+        "title": "The Hitchhiker's Guide to the Galaxy Illustrated Edition",
+        "author": "Douglas Adams, Chris Riddell",
+        "isbn": "978-1529046137",
+        "publisher": "Macmillan",
+        "binding": "Paperback",
+        "published": 2021
+    },
+    {
+        "id": "9780143107613",
+        "title": "The Bloody Chamber and Other Stories",
+        "author": "Angela Carter",
+        "isbn": "978-0143107613",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2015
+    },
+    {
+        "id": "9786259839509",
+        "title": "Arkada Yaylılar Çalıyor",
+        "author": "Melikşah Altuntaş",
+        "isbn": "978-6259839509",
+        "publisher": "Holden Kitap",
+        "binding": "Hardcover",
+        "published": 2024
+    },
+    {
+        "id": "9780143106555",
+        "title": "Three Novels of New York",
+        "author": "Edith Wharton",
+        "isbn": "978-0143106555",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2012
+    },
+    {
+        "id": "9780143106623",
+        "title": "Titanic: First Accounts",
+        "author": "Tim Maltin",
+        "isbn": "978-0143106623",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2012
+    },
+    {
+        "id": "9780141191447",
+        "title": "The Haunting of Hill House",
+        "author": "Shirley Jackson",
+        "isbn": "978-0141191447",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2009
+    },
+    {
+        "id": "9786057877833",
+        "title": "Dört Duvar Kadına Ne Yapar?",
+        "author": "İpek Merçil, Seçil Doğuç Ergin",
+        "isbn": "978-6057877833",
+        "publisher": "Siyasal",
+        "binding": "Paperback",
+        "published": 2020
+    },
+    {
+        "id": "9781401287849",
+        "title": "Stardust",
+        "author": "Neil Gaiman, Charles Vess",
+        "isbn": "978-1401287849",
+        "publisher": "Vertigo",
+        "binding": "Paperback",
+        "published": 2019
+    },
+    {
+        "id": "9786051719658",
+        "title": "Kral Lear",
+        "author": "William Shakespeare",
+        "isbn": "978-6051719658",
+        "translator": "Emine Ayhan",
+        "publisher": "Alfa Yayınları",
+        "binding": "Hardcover",
+        "published": 2019
+    },
+    {
+        "id": "9780224079907",
+        "title": "Pyongyang: A Journey in North Korea",
+        "author": "Guy Delisle",
+        "isbn": "978-0224079907",
+        "publisher": "Jonathan Cape",
+        "binding": "Paperback",
+        "published": 2006
+    },
+    {
+        "id": "9780241311905",
+        "title": "The Penguin Book of Japanese Short Stories",
+        "author": "Jay Rubin",
+        "isbn": "978-0241311905",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2019
+    },
+    {
+        "id": "9780708898475",
+        "title": "The Intuitionist",
+        "author": "Colson Whitehead",
+        "isbn": "978-0708898475",
+        "publisher": "Fleet",
+        "binding": "Paperback",
+        "published": 2017
+    },
+    {
+        "id": "9781529115451",
+        "title": "Who Do You Think You Are?",
+        "author": "Alice Munro",
+        "isbn": "978-1529115451",
+        "publisher": "Vintage",
+        "binding": "Paperback",
+        "published": 2021
+    },
+    {
+        "id": "9780679641049",
+        "title": "Blood Meridian: Or, the Evening Redness in the West",
+        "author": "Cormac McCarthy",
+        "isbn": "978-0679641049",
+        "publisher": "Modern Library",
+        "binding": "Hardcover",
+        "published": 2001
+    },
+    {
+        "id": "9786057197948",
+        "title": "Dad",
+        "author": "Selahattin Demirtaş",
+        "isbn": "978-6057197948",
+        "publisher": "Dipnot Yayınları",
+        "binding": "Paperback",
+        "published": 2023
+    },
+    {
+        "id": "9780241372579",
+        "title": "The Castle",
+        "author": "Franz Kafka",
+        "isbn": "978-0241372579",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2019
+    },
+    {
+        "id": "9780141199993",
+        "title": "Tristram Shandy",
+        "author": "Laurence Sterne",
+        "isbn": "978-0141199993",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2012
+    },
+    {
+        "id": "9780312423605",
+        "title": "City of Glass: A Graphic Mystery",
+        "author": "Paul Auster, Paul Karasik, David Mazzucchelli",
+        "isbn": "978-0312423605",
+        "publisher": "Picador",
+        "binding": "Paperback",
+        "published": 2004
+    },
+    {
+        "id": "9780241435144",
+        "title": "The Foucault Reader",
+        "author": "Michel Foucault, Paul Robinow",
+        "isbn": "978-0241435144",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2020
+    },
+    {
+        "id": "9780143039839",
+        "title": "The New York Trilogy",
+        "author": "Paul Auster",
+        "isbn": "978-0143039839",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2006
+    },
+    {
+        "id": "9780143039013",
+        "title": "Philosophy in the Boudoir: Or, The Immoral Mentors",
+        "author": "Marquis de Sade",
+        "isbn": "978-0143039013",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2006
+    },
+    {
+        "id": "9781631491665",
+        "title": "The Dead Are Arising: The Life of Malcolm X",
+        "author": "Les Payne, Tamara Payne",
+        "isbn": "978-1631491665",
+        "publisher": "Liveright",
+        "binding": "Hardcover",
+        "published": 2020
+    },
+    {
+        "id": "9780375714726",
+        "title": "Black Hole",
+        "author": "Charles Burns",
+        "isbn": "978-0375714726",
+        "publisher": "Pantheon",
+        "binding": "Paperback",
+        "published": 2008
+    },
+    {
+        "id": "9781787473805",
+        "title": "Hidden Valley Road",
+        "author": "Robert Kolker",
+        "isbn": "978-1787473805",
+        "publisher": "Quercus Publishing",
+        "binding": "Hardcover",
+        "published": 2020
+    },
+    {
+        "id": "9780141012377",
+        "title": "Regarding the Pain of Others",
+        "author": "Susan Sontag",
+        "isbn": "978-0141012377",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2004
+    },
+    {
+        "id": "9780241566725",
+        "title": "A Day in the Life of Abed Salama: A Palestine Story",
+        "author": "Nathan Thrall",
+        "isbn": "978-0241566725",
+        "publisher": "Allen Lane",
+        "binding": "Hardcover",
+        "published": 2023
+    },
+    {
+        "id": "9781603093972",
+        "title": "From Hell",
+        "author": "Alan Moore, Eddie Campbell",
+        "isbn": "978-1603093972",
+        "publisher": "Top Shelf Productions",
+        "binding": "Hardcover",
+        "published": 2016
+    },
+    {
+        "id": "9780307377326",
+        "title": "Asterios Polyp",
+        "author": "David Mazzucchelli",
+        "isbn": "978-0307377326",
+        "publisher": "Pantheon",
+        "binding": "Hardcover",
+        "published": 2009
+    },
+    {
+        "id": "9781911214441",
+        "title": "Hostage",
+        "author": "Guy Delisle",
+        "isbn": "978-1911214441",
+        "publisher": "Jonathan Cape",
+        "binding": "Hardcover",
+        "published": 2017
+    },
+    {
+        "id": "9780224078139",
+        "title": "Rusty Brown",
+        "author": "Chris Ware",
+        "isbn": "978-0224078139",
+        "publisher": "Jonathan Cape",
+        "binding": "Hardcover",
+        "published": 2019
+    },
+    {
+        "id": "9781401229696",
+        "title": "Daytripper",
+        "author": "Gabriel Ba, Fabio Moon",
+        "isbn": "978-1401229696",
+        "publisher": "Vertigo",
+        "binding": "Paperback",
+        "published": 2011
+    },
+    {
+        "id": "9780099422747",
+        "title": "Hateship, Friendship, Courtship, Loveship, Marriage",
+        "author": "Alice Munro",
+        "isbn": "978-0099422747",
+        "publisher": "Vintage",
+        "binding": "Paperback",
+        "published": 2002
+    },
+    {
+        "id": "9781770460713",
+        "title": "Jerusalem: Chronicles from the Holy City",
+        "author": "Guy Delisle",
+        "isbn": "978-1770460713",
+        "publisher": "Drawn \u0026 Quarterly",
+        "binding": "Hardcover",
+        "published": 2012
+    },
+    {
+        "id": "9781770460256",
+        "title": "Burma Chronicles",
+        "author": "Guy Delisle",
+        "isbn": "978-1770460256",
+        "publisher": "Drawn \u0026 Quarterly",
+        "binding": "Paperback",
+        "published": 2010
+    },
+    {
+        "id": "9780224060882",
+        "title": "Ghost World",
+        "author": "Daniel Clowes",
+        "isbn": "978-0224060882",
+        "publisher": "Jonathan Cape",
+        "binding": "Paperback",
+        "published": 2007
+    },
+    {
+        "id": "9780618871711",
+        "title": "Fun Home: A Family Tragicomic",
+        "author": "Alison Bechdel",
+        "isbn": "978-0618871711",
+        "publisher": "Mariner Books",
+        "binding": "Paperback",
+        "published": 2007
+    },
+    {
+        "id": "9786057462954",
+        "title": "Erkeklerden Nefret Ediyorum",
+        "author": "Pauline Harmange",
+        "isbn": "978-6057462954",
+        "translator": "Neslihan Elagöz",
+        "publisher": "Mundi",
+        "binding": "Paperback",
+        "published": 2021
+    },
+    {
+        "id": "9780099759911",
+        "title": "The Bluest Eye",
+        "author": "Toni Morrison",
+        "isbn": "978-0099759911",
+        "publisher": "Vintage",
+        "binding": "Paperback",
+        "published": 1999
+    },
+    {
+        "id": "9780224064408",
+        "title": "Persepolis: The Story of a Childhood",
+        "author": "Marjane Satrapi",
+        "isbn": "978-0224064408",
+        "publisher": "Jonathan Cape",
+        "binding": "Hardcover",
+        "published": 2003
+    },
+    {
+        "id": "9781770464063",
+        "title": "Berlin",
+        "author": "Jason Lutes",
+        "isbn": "978-1770464063",
+        "publisher": "Drawn \u0026 Quarterly",
+        "binding": "Paperback",
+        "published": 2020
+    },
+    {
+        "id": "9780571336029",
+        "title": "Blankets",
+        "author": "Craig Thompson",
+        "isbn": "978-0571336029",
+        "publisher": "Drawn \u0026 Quarterly",
+        "binding": "Hardcover",
+        "published": 2015
+    },
+    {
+        "id": "9781787330139",
+        "title": "Ducks",
+        "author": "Kate Beaton",
+        "isbn": "978-1787330139",
+        "publisher": "Jonathan Cape",
+        "binding": "Hardcover",
+        "published": 2022
+    },
+    {
+        "id": "9786259446714",
+        "title": "Kötü Kızlar",
+        "author": "Camila Sosa Villada",
+        "isbn": "978-6259446714",
+        "translator": "Banu Karakaş",
+        "publisher": "Medusa Yayınları",
+        "binding": "Paperback",
+        "published": 2024
+    },
+    {
+        "id": "9781784877750",
+        "title": "Brave New World",
+        "author": "Aldous Huxley",
+        "isbn": "978-1784877750",
+        "publisher": "Vintage Classics",
+        "binding": "Hardcover",
+        "published": 2022
+    },
+    {
+        "id": "9780224074407",
+        "title": "Persepolis 2: The Story of a Return",
+        "author": "Marjane Satrapi",
+        "isbn": "978-0224074407",
+        "publisher": "Jonathan Cape",
+        "binding": "Hardcover",
+        "published": 2004
+    },
+    {
+        "id": "9780224097222",
+        "title": "Square Eyes",
+        "author": "Anna Mill, Luke Jones",
+        "isbn": "978-0224097222",
+        "publisher": "Jonathan Cape",
+        "binding": "Hardcover",
+        "published": 2018
+    },
+    {
+        "id": "9780224069823",
+        "title": "Palestine",
+        "author": "Joe Sacco",
+        "isbn": "978-0224069823",
+        "publisher": "Jonathan Cape",
+        "binding": "Paperback",
+        "published": 2003
+    },
+    {
+        "id": "9780708899472",
+        "title": "Harlem Shuffle",
+        "author": "Colson Whitehead",
+        "isbn": "978-0708899472",
+        "publisher": "Fleet",
+        "binding": "Paperback",
+        "published": 2022
+    },
+    {
+        "id": "9780708899427",
+        "title": "The Nickel Boys",
+        "author": "Colson Whitehead",
+        "isbn": "978-0708899427",
+        "publisher": "Fleet",
+        "binding": "Paperback",
+        "published": 2020
+    },
+    {
+        "id": "9780241389799",
+        "title": "Humanise: A Maker’s Guide to Building Our World",
+        "author": "Thomas Heatherwick",
+        "isbn": "978-0241389799",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2023
+    },
+    {
+        "id": "9781857988536",
+        "title": "Ubik",
+        "author": "Philip K. Dick",
+        "isbn": "978-1857988536",
+        "publisher": "Gateway",
+        "binding": "Paperback",
+        "published": 2000
+    },
+    {
+        "id": "9780143106272",
+        "title": "Great Expectations",
+        "author": "Charles Dickens",
+        "isbn": "978-0143106272",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2011
+    },
+    {
+        "id": "9781787333413",
+        "title": "Monsters",
+        "author": "Barry Windsor-Smith",
+        "isbn": "978-1787333413",
+        "publisher": "Jonathan Cape",
+        "binding": "Hardcover",
+        "published": 2021
+    },
+    {
+        "id": "9781401299323",
+        "title": "Sandman: The Deluxe Edition Volume 1",
+        "author": "Neil Gaiman",
+        "isbn": "978-1401299323",
+        "publisher": "DC Comics",
+        "binding": "Hardcover",
+        "published": 2020
+    },
+    {
+        "id": "9780224073820",
+        "title": "The Fixer: A Story from Sarajevo",
+        "author": "Joe Sacco",
+        "isbn": "978-0224073820",
+        "publisher": "Jonathan Cape",
+        "binding": "Paperback",
+        "published": 2004
+    },
+    {
+        "id": "9780734415868",
+        "title": "The Arrival",
+        "author": "Shaun Tan",
+        "isbn": "978-0734415868",
+        "publisher": "Lothian Children's Books",
+        "binding": "Paperback",
+        "published": 2014
+    },
+    {
+        "id": "9781770461185",
+        "title": "The Playboy",
+        "author": "Chester Brown",
+        "isbn": "978-1770461185",
+        "publisher": "Drawn \u0026 Quarterly",
+        "binding": "Paperback",
+        "published": 2013
+    },
+    {
+        "id": "9781896597140",
+        "title": "I Never Liked You: A Comic-strip Narrative",
+        "author": "Chester Brown",
+        "isbn": "978-1896597140",
+        "publisher": "Drawn \u0026 Quarterly",
+        "binding": "Paperback",
+        "published": 2008
+    },
+    {
+        "id": "9780140094190",
+        "title": "When the Wind Blows",
+        "author": "Raymond Briggs",
+        "isbn": "978-0140094190",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 1986
+    },
+    {
+        "id": "9780224079204",
+        "title": "Epileptic",
+        "author": "David B",
+        "isbn": "978-0224079204",
+        "publisher": "Jonathan Cape",
+        "binding": "Paperback",
+        "published": 2006
+    },
+    {
+        "id": "9781910593714",
+        "title": "The ABC of Typography",
+        "author": "David Rault",
+        "isbn": "978-1910593714",
+        "publisher": "SelfMadeHero",
+        "binding": "Hardcover",
+        "published": 2019
+    },
+    {
+        "id": "9780241683118",
+        "title": "Watership Down: The Graphic Novel",
+        "author": "Richard Adams, Joe Sutphin, James Sturm",
+        "isbn": "978-0241683118",
+        "publisher": "Puffin Books",
+        "binding": "Hardcover",
+        "published": 2023
+    },
+    {
+        "id": "9781626723160",
+        "title": "Is This Guy For Real?: The Unbelievable Andy Kaufman",
+        "author": "Box Brown",
+        "isbn": "978-1626723160",
+        "publisher": "First Second",
+        "binding": "Paperback",
+        "published": 2018
+    },
+    {
+        "id": "9781784878665",
+        "title": "If on a Winter's Night a Traveller",
+        "author": "Italo Calvino",
+        "isbn": "978-1784878665",
+        "translator": "William Weaver",
+        "publisher": "Penguin Books",
+        "binding": "Hardcover",
+        "published": 2023
+    },
+    {
+        "id": "9781770464667",
+        "title": "Tunnels",
+        "author": "Rutu Modan",
+        "isbn": "978-1770464667",
+        "translator": "Ishai Mishory",
+        "publisher": "Drawn \u0026 Quarterly",
+        "binding": "Hardcover",
+        "published": 2021
+    },
+    {
+        "id": "9780747597209",
+        "title": "Logicomix: An Epic Search for Truth",
+        "author": "Apostolos Doxiadis, Christos H. Papadimitriou",
+        "isbn": "978-0747597209",
+        "publisher": "Bloomsbury Publishing",
+        "binding": "Paperback",
+        "published": 2009
+    },
+    {
+        "id": "9780060976255",
+        "title": "Understanding Comics: The Invisible Art",
+        "author": "Scott McCloud",
+        "isbn": "978-0060976255",
+        "publisher": "William Morrow",
+        "binding": "Paperback",
+        "published": 1994
+    },
+    {
+        "id": "9780691205199",
+        "title": "Turkish Kaleidoscope: Fractured Lives in a Time of Violence",
+        "author": "Jenny White, Ergün Gündüz",
+        "isbn": "978-0691205199",
+        "publisher": "Princeton University Press",
+        "binding": "Paperback",
+        "published": 2021
+    },
+    {
+        "id": "9781784878696",
+        "title": "Catch-22",
+        "author": "Joseph Heller",
+        "isbn": "978-1784878696",
+        "publisher": "Penguin Books",
+        "binding": "Hardcover",
+        "published": 2023
+    },
+    {
+        "id": "9789750536625",
+        "title": "100 Kesitle Cumhuriyet Türkiyesi'nin 100 Yılı",
+        "author": "Alp Yenen, Erik Jan Zürcher",
+        "isbn": "978-9750536625",
+        "publisher": "İletişim Yayınları",
+        "binding": "Paperback",
+        "published": 2024,
+        "cover": "data/covers/9789750536625.jpg",
+        "spineColor": "#734C49",
+        "spineTextColor": "#fdfdfd"
+    },
+    {
+        "id": "9780571325153",
+        "title": "Killing and Dying",
+        "author": "Adrian Tomine",
+        "isbn": "978-0571325153",
+        "publisher": "Faber \u0026 Faber",
+        "binding": "Paperback",
+        "published": 2018
+    },
+    {
+        "id": "9780140182750",
+        "title": "The Fire Next Time",
+        "author": "James Baldwin",
+        "isbn": "978-0140182750",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 1990
+    },
+    {
+        "id": "9780063251922",
+        "title": "Demon Copperhead",
+        "author": "Barbara Kingsolver",
+        "isbn": "978-0063251922",
+        "publisher": "HarperCollins",
+        "binding": "Hardcover",
+        "published": 2022
+    },
+    {
+        "id": "9781770463165",
+        "title": "Sabrina",
+        "author": "Nick Drnaso",
+        "isbn": "978-1770463165",
+        "publisher": "Drawn \u0026 Quarterly",
+        "binding": "Hardcover",
+        "published": 2018
+    },
+    {
+        "id": "9781894937894",
+        "title": "Louis Riel - a Comic-Strip Biography",
+        "author": "Chester Brown",
+        "isbn": "978-1894937894",
+        "publisher": "Drawn \u0026 Quarterly",
+        "binding": "Paperback",
+        "published": 2006
+    },
+    {
+        "id": "9781974707096",
+        "title": "No Longer Human",
+        "author": "Junji Ito",
+        "isbn": "978-1974707096",
+        "publisher": "Viz Media",
+        "binding": "Hardcover",
+        "published": 2020
+    },
+    {
+        "id": "9781974728633",
+        "title": "Black Paradox",
+        "author": "Junji Ito",
+        "isbn": "978-1974728633",
+        "publisher": "Viz Media",
+        "binding": "Hardcover",
+        "published": 2022
+    },
+    {
+        "id": "9786052116111",
+        "title": "Büyük Kedi Katliamı",
+        "author": "Robert Darnton",
+        "isbn": "978-6052116111",
+        "publisher": "Koç Üniversitesi Yayınları",
+        "binding": "Paperback",
+        "published": 2015
+    },
+    {
+        "id": "9781784878658",
+        "title": "Midnight's Children",
+        "author": "Salman Rushdie",
+        "isbn": "978-1784878658",
+        "publisher": "Penguin Books",
+        "binding": "Hardcover",
+        "published": 2023
+    },
+    {
+        "id": "9781596435520",
+        "title": "Anya's Ghost",
+        "author": "Vera Brosgol",
+        "isbn": "978-1596435520",
+        "publisher": "First Second",
+        "binding": "Paperback",
+        "published": 2012
+    },
+    {
+        "id": "9781770462250",
+        "title": "Beverly",
+        "author": "Nick Drnaso",
+        "isbn": "978-1770462250",
+        "publisher": "Drawn \u0026 Quarterly",
+        "binding": "Paperback",
+        "published": 2016
+    },
+    {
+        "id": "9781250207562",
+        "title": "Are You Listening?",
+        "author": "Tillie Walden",
+        "isbn": "978-1250207562",
+        "publisher": "First Second",
+        "binding": "Paperback",
+        "published": 2019
+    },
+    {
+        "id": "9781770464599",
+        "title": "Factory Summers",
+        "author": "Guy Delisle",
+        "isbn": "978-1770464599",
+        "publisher": "Drawn \u0026 Quarterly",
+        "binding": "Hardcover",
+        "published": 2021
+    },
+    {
+        "id": "9781935654773",
+        "title": "The Book of Human Insects",
+        "author": "Osamu Tezuka",
+        "isbn": "978-1935654773",
+        "publisher": "Vertical",
+        "binding": "Paperback",
+        "published": 2013
+    },
+    {
+        "id": "9781770463691",
+        "title": "Making Comics",
+        "author": "Lynda Barry",
+        "isbn": "978-1770463691",
+        "publisher": "Drawn \u0026 Quarterly",
+        "binding": "Paperback",
+        "published": 2019
+    },
+    {
+        "id": "9789750763205",
+        "title": "Erkeksiz Kadınlar",
+        "author": "Shahrnush Parsipur",
+        "isbn": "978-9750763205",
+        "publisher": "Can Yayınları",
+        "binding": "Paperback",
+        "published": 2024
+    },
+    {
+        "id": "9780807000717",
+        "title": "The Trumpet of Conscience",
+        "author": "Martin Luther King Jr.",
+        "isbn": "978-0807000717",
+        "publisher": "Beacon Press",
+        "binding": "Hardcover",
+        "published": 2010
+    },
+    {
+        "id": "9781770460348",
+        "title": "Scenes from an Impending Marriage",
+        "author": "Adrian Tomine",
+        "isbn": "978-1770460348",
+        "publisher": "Drawn \u0026 Quarterly",
+        "binding": "Hardcover",
+        "published": 2011
+    },
+    {
+        "id": "9781250856906",
+        "title": "The Sculptor",
+        "author": "Scott McCloud",
+        "isbn": "978-1250856906",
+        "publisher": "First Second",
+        "binding": "Hardcover",
+        "published": 2022
+    },
+    {
+        "id": "9780571355457",
+        "title": "A Guest in the House",
+        "author": "Emily Carroll",
+        "isbn": "978-0571355457",
+        "publisher": "Faber \u0026 Faber",
+        "binding": "Hardcover",
+        "published": 2023
+    },
+    {
+        "id": "9781524748067",
+        "title": "Seek You: A Journey Through American Loneliness",
+        "author": "Kristen Radtke",
+        "isbn": "978-1524748067",
+        "publisher": "Pantheon Books",
+        "binding": "Hardcover",
+        "published": 2021
+    },
+    {
+        "id": "9781606999592",
+        "title": "My Favorite Thing Is Monsters",
+        "author": "Emil Ferris",
+        "isbn": "978-1606999592",
+        "publisher": "Fantagraphics",
+        "binding": "Paperback",
+        "published": 2017
+    },
+    {
+        "id": "9780375714528",
+        "title": "David Boring",
+        "author": "Daniel Clowes",
+        "isbn": "978-0375714528",
+        "publisher": "Pantheon Books",
+        "binding": "Paperback",
+        "published": 2002
+    },
+    {
+        "id": "9780375715174",
+        "title": "Last Look",
+        "author": "Charles Burns",
+        "isbn": "978-0375715174",
+        "publisher": "Pantheon Books",
+        "binding": "Paperback",
+        "published": 2016
+    },
+    {
+        "id": "9781787334861",
+        "title": "Monica",
+        "author": "Daniel Clowes",
+        "isbn": "978-1787334861",
+        "publisher": "Jonathan Cape",
+        "binding": "Hardcover",
+        "published": 2023
+    },
+    {
+        "id": "9781914224041",
+        "title": "Days of Sand",
+        "author": "Aimée de Jongh",
+        "isbn": "978-1914224041",
+        "publisher": "SelfMadeHero",
+        "binding": "Hardcover",
+        "published": 2022
+    },
+    {
+        "id": "9781857151336",
+        "title": "Lolita",
+        "author": "Vladimir Nobokov",
+        "isbn": "978-1857151336",
+        "publisher": "Everyman's Library",
+        "binding": "Hardcover",
+        "published": 1992
+    },
+    {
+        "id": "9786258393446",
+        "title": "Geç Kalmış Kitap: 1940’lı Yıllarda Anadolu Köylerinde Araştırmalar ve Yaşadığım Çevreden İzlenimler",
+        "author": "Mediha Berkes Esenel",
+        "isbn": "978-6258393446",
+        "publisher": "Pinhan Yayıncılık",
+        "binding": "Paperback",
+        "published": 2023
+    },
+    {
+        "id": "9781419732140",
+        "title": "Breaking Bad 101: The Complete Critical Companion",
+        "author": "Alan Sepinwall",
+        "isbn": "978-1419732140",
+        "publisher": "Abrams Press",
+        "binding": "Paperback",
+        "published": 2018
+    },
+    {
+        "id": "9780241983904",
+        "title": "Bad Island",
+        "author": "Stanley Donwood",
+        "isbn": "978-0241983904",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2021
+    },
+    {
+        "id": "9780143106470",
+        "title": "Black Beauty",
+        "author": "Anna Sewell",
+        "isbn": "978-0143106470",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2011
+    },
+    {
+        "id": "9786256742116",
+        "title": "Arafta Düet",
+        "author": "Selahattin Demirtaş, Yiğit Bener",
+        "isbn": "978-6256742116",
+        "publisher": "Dipnot Yayınları",
+        "binding": "Paperback",
+        "published": 2024
+    },
+    {
+        "id": "9780670016907",
+        "title": "The Grapes of Wrath: 75th Anniversary Edition",
+        "author": "John Steinbeck",
+        "isbn": "978-0670016907",
+        "publisher": "Viking",
+        "binding": "Hardcover",
+        "published": 2014
+    },
+    {
+        "id": "9780143105770",
+        "title": "The Short Novels of John Steinbeck",
+        "author": "John Steinbeck",
+        "isbn": "978-0143105770",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2011
+    },
+    {
+        "id": "9781787333154",
+        "title": "Blank Pages and Other Stories",
+        "author": "Bernard MacLaverty",
+        "isbn": "978-1787333154",
+        "publisher": "Jonathan Cape",
+        "binding": "Hardcover",
+        "published": 2021
+    },
+    {
+        "id": "9780857527653",
+        "title": "Deacon King Kong",
+        "author": "James McBride",
+        "isbn": "978-0857527653",
+        "publisher": "Doubleday",
+        "binding": "Hardcover",
+        "published": 2020
+    },
+    {
+        "id": "9781857988826",
+        "title": "The Dispossessed",
+        "author": "Ursula K. Le Guin",
+        "isbn": "978-1857988826",
+        "publisher": "Gateway",
+        "binding": "Paperback",
+        "published": 1999
+    },
+    {
+        "id": "9780241984536",
+        "title": "Libra",
+        "author": "Don DeLillo",
+        "isbn": "978-0241984536",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2018
+    },
+    {
+        "id": "9780544916081",
+        "title": "The Man in the High Castle",
+        "author": "Philip K. Dick",
+        "isbn": "978-0544916081",
+        "publisher": "Mariner Books",
+        "binding": "Hardcover",
+        "published": 2016
+    },
+    {
+        "id": "9781787332010",
+        "title": "Footnotes in Gaza",
+        "author": "Joe Sacco",
+        "isbn": "978-1787332010",
+        "publisher": "Jonathan Cape",
+        "binding": "Paperback",
+        "published": 2019
+    },
+    {
+        "id": "9780345529374",
+        "title": "Seconds",
+        "author": "Bryan Lee O'Malley",
+        "isbn": "978-0345529374",
+        "publisher": "Ballantine Books",
+        "binding": "Hardcover",
+        "published": 2014
+    },
+    {
+        "id": "9780143107774",
+        "title": "The Penguin Arthur Miller: Collected Plays",
+        "author": "Arthur Miller",
+        "isbn": "978-0143107774",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2015
+    },
+    {
+        "id": "9780143107194",
+        "title": "The Divine Comedy",
+        "author": "Dante Alighieri",
+        "isbn": "978-0143107194",
+        "translator": "Robin Kirkpatrick",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2013
+    },
+    {
+        "id": "9780143105954",
+        "title": "Moby-Dick: Or, The Whale",
+        "author": "Herman Melville",
+        "isbn": "978-0143105954",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2010
+    },
+    {
+        "id": "9781910702581",
+        "title": "Paying the Land",
+        "author": "Joe Sacco",
+        "isbn": "978-1910702581",
+        "publisher": "Jonathan Cape",
+        "binding": "Hardcover",
+        "published": 2020
+    },
+    {
+        "id": "9780241458747",
+        "title": "We",
+        "author": "Yevgeny Zamyatin",
+        "isbn": "978-0241458747",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2020
+    },
+    {
+        "id": "9780316068222",
+        "title": "This Is Water: Some Thoughts, Delivered on a Significant Occasion, about Living a Compassionate Life",
+        "author": "David Foster Wallace",
+        "isbn": "978-0316068222",
+        "publisher": "Little, Brown and Company",
+        "binding": "Hardcover",
+        "published": 2009
+    },
+    {
+        "id": "9781784708238",
+        "title": "The Handmaid's Tale",
+        "author": "Margaret Atwood",
+        "isbn": "978-1784708238",
+        "publisher": "Vintage",
+        "binding": "Hardcover",
+        "published": 2017
+    },
+    {
+        "id": "9789754700060",
+        "title": "Yaban",
+        "author": "Yakup Kadri Karaosmanoğlu",
+        "isbn": "978-9754700060",
+        "publisher": "İletişim Yayınları",
+        "binding": "Paperback",
+        "published": 1983
+    },
+    {
+        "id": "9781603090384",
+        "title": "The Collected Essex County",
+        "author": "Jeff Lemire",
+        "isbn": "978-1603090384",
+        "publisher": "Top Shelf Productions",
+        "binding": "Paperback",
+        "published": 2009
+    },
+    {
+        "id": "9780143039532",
+        "title": "The Portable Dorothy Parker",
+        "author": "Dorothy Parker",
+        "isbn": "978-0143039532",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2006
+    },
+    {
+        "id": "9789751046291",
+        "title": "Memleket Hikayeleri",
+        "author": "Refik Halid Karay",
+        "isbn": "978-9751046291",
+        "publisher": "İnkılap Kitabevi",
+        "binding": "Paperback",
+        "published": 2024
+    },
+    {
+        "id": "9781534323865",
+        "title": "It's Lonely at the Centre of the Earth",
+        "author": "Zoe Thorogood",
+        "isbn": "978-1534323865",
+        "publisher": "Image Comics",
+        "binding": "Paperback",
+        "published": 2022
+    },
+    {
+        "id": "9780143039945",
+        "title": "Gravity's Rainbow",
+        "author": "Thomas Pynchon",
+        "isbn": "978-0143039945",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2006
+    },
+    {
+        "id": "9780241973318",
+        "title": "Autumn",
+        "author": "Ali Smith",
+        "isbn": "978-0241973318",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2017
+    },
+    {
+        "id": "9780241973332",
+        "title": "Winter",
+        "author": "Ali Smith",
+        "isbn": "978-0241973332",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2018
+    },
+    {
+        "id": "9780241973356",
+        "title": "Spring",
+        "author": "Ali Smith",
+        "isbn": "978-0241973356",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2020
+    },
+    {
+        "id": "9780241973370",
+        "title": "Summer",
+        "author": "Ali Smith",
+        "isbn": "978-0241973370",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2021
+    },
+    {
+        "id": "9781509898299",
+        "title": "All The Lovers In The Night",
+        "author": "Mieko Kawakami",
+        "isbn": "978-1509898299",
+        "publisher": "Picador",
+        "binding": "Paperback",
+        "published": 2023
+    },
+    {
+        "id": "9781442465954",
+        "title": "Through the Woods",
+        "author": "Emily Carroll",
+        "isbn": "978-1442465954",
+        "publisher": "Simon \u0026 Schuster",
+        "binding": "Hardcover",
+        "published": 2014
+    },
+    {
+        "id": "9781910702451",
+        "title": "Patience",
+        "author": "Daniel Clowes",
+        "isbn": "978-1910702451",
+        "publisher": "Jonathan Cape",
+        "binding": "Hardcover",
+        "published": 2016
+    },
+    {
+        "id": "9786259446721",
+        "title": "Kaç ya da Kal",
+        "author": "Emilie Pine",
+        "isbn": "978-6259446721",
+        "translator": "Begüm Kovulmaz",
+        "publisher": "Medusa Yayınları",
+        "binding": "Paperback",
+        "published": 2024
+    },
+    {
+        "id": "9789750764462",
+        "title": "İntermezzo",
+        "author": "Sally Rooney",
+        "isbn": "978-9750764462",
+        "translator": "Begüm Kovulmaz",
+        "publisher": "Can Yayınları",
+        "binding": "Paperback",
+        "published": 2024
+    },
+    {
+        "id": "9786256647275",
+        "title": "Bir Türk Kızının Amerika Yolculuğu",
+        "author": "Faik Sabri Dran, Lütfiye Duran",
+        "isbn": "978-6256647275",
+        "publisher": "Vakıfbank Kültür Yayınları",
+        "binding": "Paperback",
+        "published": 2024
+    },
+    {
+        "id": "9786052653456",
+        "title": "Ud Çalan Kadınlar: Sana Michelin’li Sofralardan Baktım Aziz İstanbul",
+        "author": "Reha Tanör",
+        "isbn": "978-6052653456",
+        "publisher": "İthaki Yayınları",
+        "binding": "Paperback",
+        "published": 2024
+    },
+    {
+        "id": "9789750537448",
+        "title": "Yıkımdan Umut Çıkarmak: Deprem, Hatay, Dayanışma",
+        "author": "Serkan Turgut",
+        "isbn": "978-9750537448",
+        "publisher": "İletişim Yayınları",
+        "binding": "Paperback",
+        "published": 2024
+    },
+    {
+        "id": "9780143105886",
+        "title": "The Qur'an",
+        "isbn": "978-0143105886",
+        "translator": "Tarif Khalidi",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2009
+    },
+    {
+        "id": "9780143106654",
+        "title": "Little Women",
+        "author": "Louisa May Alcott",
+        "isbn": "978-0143106654",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2012
+    },
+    {
+        "id": "9780143106647",
+        "title": "The Wind in the Willows",
+        "author": "Kenneth Grahame",
+        "isbn": "978-0143106647",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2012
+    },
+    {
+        "id": "9781910395646",
+        "title": "The Impending Blindness of Billie Scott",
+        "author": "Zoe Thorogood",
+        "isbn": "978-1910395646",
+        "publisher": "Avery Hill Publishing",
+        "binding": "Paperback",
+        "published": 2021
+    },
+    {
+        "id": "9789753297967",
+        "title": "Rekin Teksoy’un Ansiklopedik Sinema Terimleri Sözlüğü",
+        "author": "Rekin Teksoy",
+        "isbn": "978-9753297967",
+        "publisher": "Oğlak Yayıncılık",
+        "binding": "Hardcover",
+        "published": 2013
+    },
+    {
+        "id": "9786256839939",
+        "title": "Beş Şehir (Eleştirel Basım)",
+        "author": "Ahmet Hamdi Tanpınar",
+        "isbn": "978-6256839939",
+        "publisher": "Dergah Yayınları",
+        "binding": "Hardcover",
+        "published": 2025
+    },
+    {
+        "id": "9780224080897",
+        "title": "Safe Area Gorazde: The War in Eastern Bosnia 1992-95",
+        "author": "Joe Sacco",
+        "isbn": "978-0224080897",
+        "publisher": "Jonathan Cape",
+        "binding": "Paperback",
+        "published": 2007
+    },
+    {
+        "id": "9780143039600",
+        "title": "The Dharma Bums",
+        "author": "Jack Kerouac",
+        "isbn": "978-0143039600",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2006
+    },
+    {
+        "id": "9780140439199",
+        "title": "The Art of War: The Essential Translation of the Classic Book of Life",
+        "author": "Sun-Tzu",
+        "isbn": "978-0140439199",
+        "translator": "John Minford",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2003
+    },
+    {
+        "id": "9780143105244",
+        "title": "Metamorphosis and Other Stories",
+        "author": "Franz Kafka",
+        "isbn": "978-0143105244",
+        "translator": "Michael Hoffman",
+        "publisher": "Penguin Books",
+        "binding": "Paperback",
+        "published": 2008
+    },
+    {
+        "id": "977130028807071",
+        "title": "Michel Foucault",
+        "author": "Cogito Dergi",
+        "isbn": "977-1300-2880-70-71",
+        "publisher": "Yapı Kredi Yayınları",
+        "binding": "Paperback",
+        "published": 2012
+    },
+    {
+        "id": "9771300288033",
+        "title": "Wittgenstein: Sessizliğin Grameri",
+        "author": "Cogito Dergi",
+        "isbn": "977-1300-2880-33",
+        "publisher": "Yapı Kredi Yayınları",
+        "binding": "Paperback",
+        "published": 2002
+    },
+    {
+        "id": "9771300288067",
+        "title": "Sivil İtaatsizlik",
+        "author": "Cogito Dergi",
+        "isbn": "977-1300-2880-67",
+        "publisher": "Yapı Kredi Yayınları",
+        "binding": "Paperback",
+        "published": 2011
+    },
+    {
+        "id": "97713002880111112",
+        "title": "Sokrates",
+        "author": "Cogito Dergi",
+        "isbn": "977-1300-2880-111-112",
+        "publisher": "Yapı Kredi Yayınları",
+        "binding": "Paperback",
+        "published": 2023
+    },
+    {
+        "id": "9789753638647",
+        "title": "Büyük Argo Sözlüğü (Tanıklarıyla)",
+        "isbn": "978-9753638647",
+        "publisher": "Yapı Kredi Yayınları",
+        "binding": "Paperback",
+        "published": 2025
+    }
+]

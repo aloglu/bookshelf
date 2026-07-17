@@ -1,0 +1,13 @@
+{
+    "permalinkStyle": "title-slug",
+    "showStatistics": true,
+    "defaultView": "shelf",
+    "defaultSort": "year",
+    "defaultSortOrder": "ascending",
+    "siteTitle": "Bookshelf",
+    "siteSubtitle": "",
+    "showRandom": true,
+    "isbnLinkSources": "both",
+    "showFooter": true,
+    "footerText": "[Testing](https://testing.com)"
+}

@@ -11,6 +11,7 @@ SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 TMP_DIR=""
 BACKUP_DIR=""
 INSTALL_IN_PROGRESS=0
+HAD_EXISTING_LIBRARY=0
 
 cleanup() {
   if [ "$INSTALL_IN_PROGRESS" -eq 1 ] && [ -n "$BACKUP_DIR" ] && [ -d "$BACKUP_DIR" ]; then
@@ -28,27 +29,25 @@ cleanup() {
 trap cleanup EXIT HUP INT TERM
 
 uninstall() {
-  if [ -f "$BIN_PATH" ]; then
-    rm -f "$BIN_PATH"
-    echo "Removed $BIN_PATH"
+  if [ ! -x "$BIN_PATH" ]; then
+    echo "Bookshelf command was not found at $BIN_PATH." >&2
+    echo "No files were removed. Review $INSTALL_DIR manually if it contains a previous installation." >&2
+    exit 1
   fi
-  if [ -d "$INSTALL_DIR" ]; then
-    rm -rf "$INSTALL_DIR"
-    echo "Removed $INSTALL_DIR"
-  fi
+  exec "$BIN_PATH" uninstall "$@"
 }
 
 case "${1:-}" in
   uninstall|--uninstall)
-    uninstall
-    exit 0
+    shift
+    uninstall "$@"
     ;;
   --upgrade)
     ;;
   "")
     ;;
   *)
-    echo "Usage: install.sh [--upgrade|--uninstall]" >&2
+    echo "Usage: install.sh [--upgrade|--uninstall [--purge|--delete-data] [--yes]]" >&2
     exit 2
     ;;
 esac
@@ -114,6 +113,11 @@ verify_checksum() {
 }
 
 prepare_local_checkout() {
+  if [ ! -f "$SCRIPT_DIR/public/index.html" ]; then
+    echo "Local source checkout is incomplete: public/index.html was not found." >&2
+    echo "Restore the public directory or use the curl installer to install a published release." >&2
+    exit 1
+  fi
   if ! command -v go >/dev/null 2>&1; then
     echo "Go is required only when installing from a source checkout." >&2
     echo "Normal users should run the curl installer, which downloads a precompiled binary." >&2
@@ -123,12 +127,18 @@ prepare_local_checkout() {
   mkdir -p "$TMP_DIR/package"
   (
     cd "$SCRIPT_DIR"
-    CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.version=dev" \
+    CGO_ENABLED=0 go build -buildvcs=false -trimpath -ldflags "-s -w -X main.version=dev" \
       -o "$TMP_DIR/package/bookshelf" ./cmd/bookshelf
   )
   cp -a "$SCRIPT_DIR/public" "$TMP_DIR/package/public"
+  rm -rf "$TMP_DIR/package/public/data/covers"
+  mkdir -p "$TMP_DIR/package/public/data/covers"
+  printf '%s\n' \
+    'window.bookshelfConfig = {"permalinkStyle":"formatted-isbn"};' \
+    'window.booksData = [];' \
+    > "$TMP_DIR/package/public/data/books.js"
   mkdir -p "$TMP_DIR/package/library/manual-covers"
-  cp "$SCRIPT_DIR/library/books.json" "$TMP_DIR/package/library/books.json"
+  printf '[]\n' > "$TMP_DIR/package/library/books.json"
 }
 
 prepare_release() {
@@ -175,12 +185,26 @@ restore_user_data() {
   fi
 }
 
+remove_completions() {
+  data_home="${XDG_DATA_HOME:-$HOME/.local/share}"
+  config_home="${XDG_CONFIG_HOME:-$HOME/.config}"
+
+  rm -f \
+    "$data_home/bash-completion/completions/bookshelf" \
+    "$data_home/zsh/site-functions/_bookshelf" \
+    "$config_home/fish/completions/bookshelf.fish"
+}
+
 TMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/bookshelf-install.XXXXXX")
+
+if [ -f "$INSTALL_DIR/library/books.json" ]; then
+  HAD_EXISTING_LIBRARY=1
+fi
 
 LOCAL_SOURCE=0
 case "$0" in
   *install.sh)
-    if [ -f "$SCRIPT_DIR/cmd/bookshelf/main.go" ] && [ -d "$SCRIPT_DIR/public" ]; then
+    if [ -f "$SCRIPT_DIR/go.mod" ] && [ -f "$SCRIPT_DIR/cmd/bookshelf/main.go" ]; then
       LOCAL_SOURCE=1
     fi
     ;;
@@ -211,8 +235,12 @@ cp -a "$TMP_DIR/package/public" "$INSTALL_DIR/public"
 cp -a "$TMP_DIR/package/library" "$INSTALL_DIR/library"
 restore_user_data
 install -m 0755 "$TMP_DIR/package/bookshelf" "$BIN_PATH"
+remove_completions
 
-BOOKSHELF_INSTALL_DIR="$INSTALL_DIR" BOOKSHELF_BIN_PATH="$BIN_PATH" "$BIN_PATH" build
+if [ "$HAD_EXISTING_LIBRARY" -eq 1 ]; then
+  echo "Synchronizing existing library with the updated app..."
+  BOOKSHELF_INSTALL_DIR="$INSTALL_DIR" BOOKSHELF_BIN_PATH="$BIN_PATH" "$BIN_PATH" _sync-data
+fi
 INSTALL_IN_PROGRESS=0
 
 echo "Installed Bookshelf command: $BIN_PATH"

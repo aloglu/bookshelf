@@ -16,6 +16,8 @@ type Paths struct {
 	PublicDir       string
 	SourceDir       string
 	BooksJSON       string
+	ConfigJSON      string
+	CoverReportJSON string
 	BooksJS         string
 	CoversDir       string
 	ManualCoversDir string
@@ -29,6 +31,8 @@ func NewPaths(root string) Paths {
 		PublicDir:       filepath.Join(root, "public"),
 		SourceDir:       filepath.Join(root, "library"),
 		BooksJSON:       filepath.Join(root, "library", "books.json"),
+		ConfigJSON:      filepath.Join(root, "library", "config.json"),
+		CoverReportJSON: filepath.Join(root, "library", "cover-report.json"),
 		BooksJS:         filepath.Join(root, "public", "data", "books.js"),
 		CoversDir:       filepath.Join(root, "public", "data", "covers"),
 		ManualCoversDir: filepath.Join(root, "library", "manual-covers"),
@@ -80,12 +84,20 @@ func Load(paths Paths) ([]Book, error) {
 	}
 	for i := range books {
 		books[i] = Normalize(books[i])
+		books[i].Permalink = ""
 	}
+	AssignTitleSlugs(books)
 	return books, nil
 }
 
 func Save(paths Paths, books []Book) error {
-	raw, err := json.MarshalIndent(books, "", "    ")
+	sourceBooks := make([]Book, len(books))
+	copy(sourceBooks, books)
+	for index := range sourceBooks {
+		sourceBooks[index].TitleSlug = ""
+		sourceBooks[index].Permalink = ""
+	}
+	raw, err := json.MarshalIndent(sourceBooks, "", "    ")
 	if err != nil {
 		return err
 	}
@@ -93,11 +105,28 @@ func Save(paths Paths, books []Book) error {
 }
 
 func SaveGenerated(paths Paths, books []Book) error {
-	raw, err := json.MarshalIndent(books, "", "    ")
+	config, err := LoadConfig(paths)
 	if err != nil {
 		return err
 	}
-	data := append([]byte("window.booksData = "), raw...)
+	publishedBooks := make([]Book, len(books))
+	copy(publishedBooks, books)
+	AssignTitleSlugs(publishedBooks)
+	for index := range publishedBooks {
+		publishedBooks[index].Permalink = PreferredPermalink(publishedBooks[index], config.PermalinkStyle)
+	}
+	raw, err := json.MarshalIndent(publishedBooks, "", "    ")
+	if err != nil {
+		return err
+	}
+	configRaw, err := json.Marshal(config)
+	if err != nil {
+		return err
+	}
+	data := append([]byte("window.bookshelfConfig = "), configRaw...)
+	data = append(data, ';', '\n')
+	data = append(data, []byte("window.booksData = ")...)
+	data = append(data, raw...)
 	data = append(data, ';', '\n')
 	return atomicWrite(paths.BooksJS, data, 0o644)
 }
@@ -109,24 +138,32 @@ func LoadGenerated(paths Paths) ([]Book, error) {
 	}
 	const prefix = "window.booksData ="
 	text := strings.TrimSpace(string(raw))
-	if !strings.HasPrefix(text, prefix) || !strings.HasSuffix(text, ";") {
+	dataIndex := strings.LastIndex(text, prefix)
+	if dataIndex < 0 || !strings.HasSuffix(text, ";") {
 		return nil, errors.New("generated books file has an invalid format")
 	}
-	text = strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(text, prefix), ";"))
+	text = strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(text[dataIndex:], prefix), ";"))
 	var books []Book
 	if err := json.Unmarshal([]byte(text), &books); err != nil {
 		return nil, err
 	}
 	for i := range books {
 		books[i] = Normalize(books[i])
+		books[i].Permalink = ""
 	}
+	AssignTitleSlugs(books)
 	return books, nil
 }
 
 func Validate(books []Book) []error {
+	validated := make([]Book, len(books))
+	copy(validated, books)
+	AssignTitleSlugs(validated)
+	books = validated
 	var problems []error
 	ids := make(map[string]int)
 	isbns := make(map[string]int)
+	slugs := make(map[string]int)
 	for i, book := range books {
 		label := fmt.Sprintf("book %d", i+1)
 		if strings.TrimSpace(book.ID) == "" {
@@ -144,6 +181,23 @@ func Validate(books []Book) []error {
 				problems = append(problems, fmt.Errorf("%s: duplicate ISBN %q (also book %d)", label, isbn, previous+1))
 			}
 			isbns[isbn] = i
+		}
+		if slug := strings.ToLower(strings.TrimSpace(book.Slug)); slug != "" {
+			if previous, ok := slugs[slug]; ok {
+				problems = append(problems, fmt.Errorf("%s: duplicate URL slug %q (also book %d)", label, slug, previous+1))
+			}
+			slugs[slug] = i
+			cleanSlug := CleanISBN(slug)
+			for otherIndex, other := range books {
+				if otherIndex == i {
+					continue
+				}
+				if strings.EqualFold(slug, other.ID) || strings.EqualFold(slug, other.ISBN) ||
+					(cleanSlug != "" && cleanSlug == CleanISBN(other.ISBN)) {
+					problems = append(problems, fmt.Errorf("%s: URL slug %q conflicts with book %d", label, slug, otherIndex+1))
+					break
+				}
+			}
 		}
 		if book.Published != nil && *book.Published < 0 {
 			problems = append(problems, fmt.Errorf("%s: published must be a non-negative year", label))

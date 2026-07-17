@@ -32,7 +32,13 @@ jobs:
             package_dir="dist/package-$arch"
             mkdir -p "$package_dir/library/manual-covers"
             cp -a public "$package_dir/public"
-            cp library/books.json "$package_dir/library/books.json"
+            rm -rf "$package_dir/public/data/covers"
+            mkdir -p "$package_dir/public/data/covers"
+            printf '%s\n' \
+              'window.bookshelfConfig = {"permalinkStyle":"formatted-isbn"};' \
+              'window.booksData = [];' \
+              > "$package_dir/public/data/books.js"
+            printf '[]\n' > "$package_dir/library/books.json"
             CGO_ENABLED=0 GOOS=linux GOARCH="$arch" go build \
               -trimpath \
               -ldflags "-s -w -X main.version=$VERSION" \
@@ -56,4 +62,3 @@ jobs:
           else
             gh release create "$GITHUB_REF_NAME" dist/* --generate-notes
           fi
-

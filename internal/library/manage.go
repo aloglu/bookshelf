@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 type ChangeOptions struct {
@@ -30,6 +31,9 @@ func Add(ctx context.Context, paths Paths, book Book, options ChangeOptions) (Bo
 				return Book{}, BuildStats{}, fmt.Errorf("a book with ISBN %q already exists", isbn)
 			}
 		}
+	}
+	if err := ensureUniqueSlug(books, book.Slug, -1); err != nil {
+		return Book{}, BuildStats{}, err
 	}
 	books = append(books, book)
 	if err := Save(paths, books); err != nil {
@@ -65,6 +69,9 @@ func Update(ctx context.Context, paths Paths, id string, updates BookPatch, opti
 	if updates.ISBN != nil {
 		current.ISBN = *updates.ISBN
 	}
+	if updates.Slug != nil {
+		current.Slug = *updates.Slug
+	}
 	if updates.Translator != nil {
 		current.Translator = *updates.Translator
 	}
@@ -80,6 +87,9 @@ func Update(ctx context.Context, paths Paths, id string, updates BookPatch, opti
 	current = Normalize(current)
 	if current.Title == "" {
 		return Book{}, BuildStats{}, fmt.Errorf("title is required")
+	}
+	if err := ensureUniqueSlug(books, current.Slug, index); err != nil {
+		return Book{}, BuildStats{}, err
 	}
 	for i, existing := range books {
 		if i == index {
@@ -107,6 +117,19 @@ func Update(ctx context.Context, paths Paths, id string, updates BookPatch, opti
 	return current, stats, err
 }
 
+func ensureUniqueSlug(books []Book, slug string, except int) error {
+	slug = strings.ToLower(strings.TrimSpace(slug))
+	if slug == "" {
+		return nil
+	}
+	for index, existing := range books {
+		if index != except && strings.EqualFold(existing.Slug, slug) {
+			return fmt.Errorf("a book with URL slug %q already exists", slug)
+		}
+	}
+	return nil
+}
+
 func Replace(ctx context.Context, paths Paths, id string, replacement Book, options ChangeOptions) (Book, BuildStats, error) {
 	books, err := Load(paths)
 	if err != nil {
@@ -123,6 +146,9 @@ func Replace(ctx context.Context, paths Paths, id string, replacement Book, opti
 	replacement = Normalize(replacement)
 	if replacement.Title == "" {
 		return Book{}, BuildStats{}, fmt.Errorf("title is required")
+	}
+	if err := ensureUniqueSlug(books, replacement.Slug, index); err != nil {
+		return Book{}, BuildStats{}, err
 	}
 	for i, existing := range books {
 		if i == index {
