@@ -23,26 +23,30 @@ var bookFieldLabels = []string{
 }
 
 type bookFormModel struct {
-	inputs      []textinput.Model
-	initial     []string
-	focus       int
-	width       int
-	height      int
-	title       string
-	build       bool
-	dialog      *decisionModel
-	saved       bool
-	cancelled   bool
-	existing    *library.Book
-	validation  string
-	interrupted bool
+	inputs            []textinput.Model
+	initial           []string
+	focus             int
+	width             int
+	height            int
+	title             string
+	build             bool
+	visibility        library.WebsiteVisibility
+	initialVisibility library.WebsiteVisibility
+	dialog            *decisionModel
+	saved             bool
+	cancelled         bool
+	existing          *library.Book
+	validation        string
+	interrupted       bool
 }
 
 func newBookFormModel(existing *library.Book) bookFormModel {
 	values := make([]string, len(bookFieldLabels))
 	title := "Add a Book"
+	visibility := library.WebsiteVisible
 	if existing != nil {
 		title = "Edit a Book"
+		visibility = library.NormalizeWebsiteVisibility(existing.WebsiteVisibility)
 		values = []string{
 			existing.Title, existing.Author, existing.ISBN, existing.Slug,
 			existing.Translator, existing.Publisher, existing.Binding, existing.Year(),
@@ -57,13 +61,15 @@ func newBookFormModel(existing *library.Book) bookFormModel {
 	}
 	inputs[0].Focus()
 	return bookFormModel{
-		inputs:   inputs,
-		initial:  append([]string(nil), values...),
-		title:    title,
-		build:    true,
-		width:    80,
-		height:   24,
-		existing: existing,
+		inputs:            inputs,
+		initial:           append([]string(nil), values...),
+		title:             title,
+		build:             true,
+		visibility:        visibility,
+		initialVisibility: visibility,
+		width:             80,
+		height:            24,
+		existing:          existing,
 	}
 }
 
@@ -77,15 +83,15 @@ func (m *bookFormModel) dirty() bool {
 			return true
 		}
 	}
-	return !m.build
+	return !m.build || m.visibility != m.initialVisibility
 }
 
 func (m *bookFormModel) setFocus(next int) tea.Cmd {
 	if next < 0 {
 		next = 0
 	}
-	if next > len(m.inputs)+1 {
-		next = len(m.inputs) + 1
+	if next > len(m.inputs)+2 {
+		next = len(m.inputs) + 2
 	}
 	m.focus = next
 	var commands []tea.Cmd
@@ -97,6 +103,10 @@ func (m *bookFormModel) setFocus(next int) tea.Cmd {
 		}
 	}
 	return tea.Batch(commands...)
+}
+
+func (m *bookFormModel) visibilityChanged() bool {
+	return m.visibility != m.initialVisibility
 }
 
 func (m *bookFormModel) validate() bool {
@@ -176,7 +186,7 @@ func (m bookFormModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.focus < len(m.inputs) {
 				return m, m.setFocus(m.focus + 1)
 			}
-			if m.focus == len(m.inputs) {
+			if m.focus <= len(m.inputs)+1 {
 				return m, m.setFocus(m.focus + 1)
 			}
 			if m.validate() {
@@ -186,16 +196,41 @@ func (m bookFormModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "space":
 			if m.focus == len(m.inputs) {
+				if m.visibility == library.WebsiteVisible {
+					m.visibility = library.WebsiteHidden
+				} else {
+					m.visibility = library.WebsiteVisible
+				}
+				if m.visibilityChanged() {
+					m.build = true
+				}
+				return m, nil
+			}
+			if m.focus == len(m.inputs)+1 && !m.visibilityChanged() {
 				m.build = !m.build
 				return m, nil
 			}
 		case "left":
 			if m.focus == len(m.inputs) {
+				m.visibility = library.WebsiteVisible
+				if m.visibilityChanged() {
+					m.build = true
+				}
+				return m, nil
+			}
+			if m.focus == len(m.inputs)+1 && !m.visibilityChanged() {
 				m.build = true
 				return m, nil
 			}
 		case "right":
 			if m.focus == len(m.inputs) {
+				m.visibility = library.WebsiteHidden
+				if m.visibilityChanged() {
+					m.build = true
+				}
+				return m, nil
+			}
+			if m.focus == len(m.inputs)+1 && !m.visibilityChanged() {
 				m.build = false
 				return m, nil
 			}
@@ -274,15 +309,38 @@ func (m bookFormModel) View() tea.View {
 		}
 		return labelStyle.Render(label) + "\n  " + choices
 	}
-	afterSaving := sectionStyle.Render("After Saving") + "\n" +
-		toggle(len(m.inputs), "Update published website data after saving", m.build)
+	visibilityToggle := func() string {
+		label := labelStyle.Foreground(lipgloss.Color("#D8D8D8"))
+		if m.focus == len(m.inputs) {
+			label = activeLabel
+		}
+		button := func(text string, selected bool) string {
+			style := lipgloss.NewStyle().Padding(0, 2).Foreground(lipgloss.Color("#8B8B96"))
+			if selected {
+				style = style.Background(lipgloss.Color("#80EF80")).
+					Foreground(lipgloss.Color("#102015")).Bold(true)
+			}
+			return style.Render(text)
+		}
+		return label.Render("Website Visibility") + "\n  " +
+			button("Visible", m.visibility == library.WebsiteVisible) + "  " +
+			button("Hidden", m.visibility == library.WebsiteHidden)
+	}
+	rows = append(rows, sectionStyle.Render("Visibility")+"\n"+visibilityToggle())
+	afterSavingContent := ""
+	if m.visibilityChanged() {
+		afterSavingContent = labelStyle.Render("The website will be updated because visibility changed.")
+	} else {
+		afterSavingContent = toggle(len(m.inputs)+1, "Update published website data after saving", m.build)
+	}
+	afterSaving := sectionStyle.Render("After Saving") + "\n" + afterSavingContent
 	rows = append(rows, afterSaving)
 	saveStyle := lipgloss.NewStyle().
 		Padding(0, 2).
 		Foreground(lipgloss.Color("#A78BFA")).
 		Bold(true)
 	saveButton := "Save Book"
-	if m.focus == len(m.inputs)+1 {
+	if m.focus == len(m.inputs)+2 {
 		saveStyle = saveStyle.
 			Background(lipgloss.Color("#8B5CF6")).
 			Foreground(lipgloss.Color("#111827"))
@@ -339,10 +397,12 @@ func bookFormResult(model bookFormModel, existing *library.Book) (BookFormResult
 		ISBN: model.inputs[2].Value(), Slug: model.inputs[3].Value(),
 		Translator: model.inputs[4].Value(), Publisher: model.inputs[5].Value(),
 		Binding: model.inputs[6].Value(), Published: model.inputs[7].Value(),
+		WebsiteVisibility: string(model.visibility),
 	}
 	book := library.FromInput(input)
 	if existing != nil {
 		book.ID = existing.ID
+		book.CoverFile = existing.CoverFile
 		book.Cover = existing.Cover
 		book.SpineColor = existing.SpineColor
 		book.SpineTextColor = existing.SpineTextColor

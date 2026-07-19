@@ -6,14 +6,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"image"
 	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
+	"sort"
 	"strings"
 
 	"github.com/aloglu/bookshelf/internal/siteassets"
+	"golang.org/x/sync/semaphore"
 )
 
 const generatedCoverManifestName = "cover-manifest.json"
@@ -48,6 +52,8 @@ const (
 	PublicationPublished           = "Published"
 	PublicationNotPublished        = "Not Published"
 	PublicationChangesNotPublished = "Changes Not Published"
+	PublicationHidden              = "Hidden from Website"
+	PublicationVisibilityPending   = "Still Visible on Website"
 )
 
 func NewPaths(root string) Paths {
@@ -203,6 +209,17 @@ func Save(paths Paths, books []Book) error {
 }
 
 func SaveGenerated(paths Paths, books []Book) error {
+	return SaveGeneratedWithContext(context.Background(), paths, books, nil)
+}
+
+func SaveGeneratedWithProgress(paths Paths, books []Book, progress func(current, total int)) error {
+	return SaveGeneratedWithContext(context.Background(), paths, books, progress)
+}
+
+func SaveGeneratedWithContext(ctx context.Context, paths Paths, books []Book, progress func(current, total int)) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if err := Ensure(paths); err != nil {
 		return err
 	}
@@ -210,9 +227,18 @@ func SaveGenerated(paths Paths, books []Book) error {
 	if err != nil {
 		return err
 	}
-	publishedBooks := make([]Book, len(books))
-	copy(publishedBooks, books)
-	AssignTitleSlugs(publishedBooks)
+	allBooks := make([]Book, len(books))
+	copy(allBooks, books)
+	AssignTitleSlugs(allBooks)
+	publishedBooks := make([]Book, 0, len(allBooks))
+	for _, book := range allBooks {
+		if book.VisibleOnWebsite() {
+			publishedBooks = append(publishedBooks, book)
+		}
+	}
+	if progress != nil {
+		progress(0, len(publishedBooks))
+	}
 
 	stage, err := os.MkdirTemp(filepath.Dir(paths.PublicDir), ".bookshelf-public-")
 	if err != nil {
@@ -233,43 +259,104 @@ func SaveGenerated(paths Paths, books []Book) error {
 	previousManifest := loadGeneratedCoverManifest(paths)
 	nextManifest := generatedCoverManifest{Covers: make(map[string]generatedCoverRecord)}
 
+	type coverJob struct {
+		filename string
+		indices  []int
+	}
+	type coverResult struct {
+		job         coverJob
+		record      generatedCoverRecord
+		publishable bool
+		err         error
+	}
+
+	jobsByFilename := make(map[string][]int)
+	processed := 0
 	for index := range publishedBooks {
 		filename := coverFilename(publishedBooks[index])
 		if filename != "" && fileExists(filepath.Join(paths.CoversDir, filename)) {
-			source := filepath.Join(paths.CoversDir, filename)
-			digest, _, err := fileDigest(source)
-			if err != nil {
-				return err
-			}
-			hash := fmt.Sprintf("%x", digest)
-			record, reused := reuseGeneratedCover(paths, stage, previousManifest.Covers[filename], hash)
-			if !reused {
-				var publishable bool
-				record, publishable, err = generatePublishedCover(source, filename, stageCovers, stageThumbnails, hash)
-				if err != nil {
-					return err
-				}
-				if !publishable {
-					publishedBooks[index].Cover = ""
-					publishedBooks[index].Thumbnail = ""
-					publishedBooks[index].SpineColor = ""
-					publishedBooks[index].SpineTextColor = ""
-					publishedBooks[index].CoverFile = ""
-					publishedBooks[index].Permalink = PreferredPermalink(publishedBooks[index], config.PermalinkStyle)
-					continue
-				}
-			}
-			nextManifest.Covers[filename] = record
-			publishedBooks[index].Cover = record.Cover
-			publishedBooks[index].Thumbnail = record.Thumbnail
+			jobsByFilename[filename] = append(jobsByFilename[filename], index)
 		} else {
-			publishedBooks[index].Cover = ""
-			publishedBooks[index].Thumbnail = ""
-			publishedBooks[index].SpineColor = ""
-			publishedBooks[index].SpineTextColor = ""
+			clearPublishedCover(&publishedBooks[index])
+			processed++
+			if progress != nil {
+				progress(processed, len(publishedBooks))
+			}
 		}
 		publishedBooks[index].CoverFile = ""
 		publishedBooks[index].Permalink = PreferredPermalink(publishedBooks[index], config.PermalinkStyle)
+	}
+
+	filenames := make([]string, 0, len(jobsByFilename))
+	for filename := range jobsByFilename {
+		filenames = append(filenames, filename)
+	}
+	sort.Strings(filenames)
+	jobs := make(chan coverJob, len(filenames))
+	results := make(chan coverResult, len(filenames))
+	workerContext, cancelWorkers := context.WithCancel(ctx)
+	defer cancelWorkers()
+	pixelBudget := semaphore.NewWeighted(maxCoverPixels)
+	workerCount := min(4, runtime.GOMAXPROCS(0), len(filenames))
+	for range workerCount {
+		go func() {
+			for job := range jobs {
+				source := filepath.Join(paths.CoversDir, job.filename)
+				weight := coverPixelWeight(source)
+				if err := pixelBudget.Acquire(workerContext, weight); err != nil {
+					results <- coverResult{job: job, err: err}
+					continue
+				}
+				record, publishable, err := preparePublishedCover(
+					workerContext,
+					paths,
+					stage,
+					stageCovers,
+					stageThumbnails,
+					job.filename,
+					previousManifest.Covers[job.filename],
+				)
+				pixelBudget.Release(weight)
+				results <- coverResult{job: job, record: record, publishable: publishable, err: err}
+			}
+		}()
+	}
+	for _, filename := range filenames {
+		jobs <- coverJob{filename: filename, indices: jobsByFilename[filename]}
+	}
+	close(jobs)
+
+	var firstErr error
+	for range filenames {
+		result := <-results
+		if result.err != nil {
+			if firstErr == nil {
+				firstErr = result.err
+				cancelWorkers()
+			}
+			continue
+		}
+		if result.publishable {
+			nextManifest.Covers[result.job.filename] = result.record
+		}
+		for _, index := range result.job.indices {
+			if result.publishable {
+				publishedBooks[index].Cover = result.record.Cover
+				publishedBooks[index].Thumbnail = result.record.Thumbnail
+			} else {
+				clearPublishedCover(&publishedBooks[index])
+			}
+			processed++
+			if progress != nil {
+				progress(processed, len(publishedBooks))
+			}
+		}
+	}
+	if firstErr != nil {
+		return firstErr
+	}
+	if err := ctx.Err(); err != nil {
+		return err
 	}
 	raw, err := json.MarshalIndent(publishedBooks, "", "    ")
 	if err != nil {
@@ -295,17 +382,70 @@ func SaveGenerated(paths Paths, books []Book) error {
 	if err := atomicWrite(filepath.Join(stage, "data", generatedCoverManifestName), append(manifestRaw, '\n'), 0o644); err != nil {
 		return err
 	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	return replaceDirectory(paths.PublicDir, stage)
 }
 
+func clearPublishedCover(book *Book) {
+	book.Cover = ""
+	book.Thumbnail = ""
+	book.SpineColor = ""
+	book.SpineTextColor = ""
+}
+
+func coverPixelWeight(source string) int64 {
+	input, err := os.Open(source)
+	if err != nil {
+		return maxCoverPixels
+	}
+	defer input.Close()
+	config, _, err := image.DecodeConfig(input)
+	if err != nil || config.Width <= 0 || config.Height <= 0 {
+		return maxCoverPixels
+	}
+	pixels := int64(config.Width) * int64(config.Height)
+	return min(max(int64(1), pixels), int64(maxCoverPixels))
+}
+
+func preparePublishedCover(
+	ctx context.Context,
+	paths Paths,
+	stage string,
+	stageCovers string,
+	stageThumbnails string,
+	filename string,
+	previous generatedCoverRecord,
+) (generatedCoverRecord, bool, error) {
+	if err := ctx.Err(); err != nil {
+		return generatedCoverRecord{}, false, err
+	}
+	source := filepath.Join(paths.CoversDir, filename)
+	digest, _, err := fileDigest(source)
+	if err != nil {
+		return generatedCoverRecord{}, false, err
+	}
+	hash := fmt.Sprintf("%x", digest)
+	if record, reused := reuseGeneratedCover(paths, stage, previous, hash); reused {
+		return record, true, nil
+	}
+	return generatePublishedCoverContext(ctx, source, filename, stageCovers, stageThumbnails, hash)
+}
+
 func generatePublishedCover(source, filename, stageCovers, stageThumbnails, hash string) (generatedCoverRecord, bool, error) {
+	return generatePublishedCoverContext(context.Background(), source, filename, stageCovers, stageThumbnails, hash)
+}
+
+func generatePublishedCoverContext(ctx context.Context, source, filename, stageCovers, stageThumbnails, hash string) (generatedCoverRecord, bool, error) {
 	generatedFilename := generatedWebCoverFilename(filename)
 	record := generatedCoverRecord{
 		SHA256:    hash,
 		Cover:     filepath.ToSlash(filepath.Join("data", "covers", generatedFilename)),
 		Thumbnail: filepath.ToSlash(filepath.Join("data", "thumbnails", generatedFilename)),
 	}
-	err := generateWebCoverVariants(
+	err := generateWebCoverVariantsContext(
+		ctx,
 		source,
 		filepath.Join(stageThumbnails, generatedFilename),
 		filepath.Join(stageCovers, generatedFilename),
@@ -394,10 +534,11 @@ func LoadGenerated(paths Paths) ([]Book, error) {
 		return nil, err
 	}
 	for i := range books {
+		titleSlug := books[i].TitleSlug
 		books[i] = Normalize(books[i])
+		books[i].TitleSlug = titleSlug
 		books[i].Permalink = ""
 	}
-	AssignTitleSlugs(books)
 	return books, nil
 }
 
@@ -448,12 +589,16 @@ func Validate(books []Book) []error {
 		if book.Published != nil && *book.Published < 0 {
 			problems = append(problems, fmt.Errorf("%s: published must be a non-negative year", label))
 		}
+		if visibility := NormalizeWebsiteVisibility(book.WebsiteVisibility); visibility != WebsiteVisible && visibility != WebsiteHidden {
+			problems = append(problems, fmt.Errorf("%s: website visibility must be visible or hidden", label))
+		}
 	}
 	return problems
 }
 
 func GeneratedMatches(paths Paths, source, generated []Book) bool {
-	if !reflect.DeepEqual(comparableBooks(source), comparableBooks(generated)) {
+	visible := VisibleBooks(source)
+	if !reflect.DeepEqual(comparableBooks(visible), comparableBooks(generated)) {
 		return false
 	}
 	byID := make(map[string]Book, len(generated))
@@ -461,7 +606,7 @@ func GeneratedMatches(paths Paths, source, generated []Book) bool {
 		byID[book.ID] = book
 	}
 	manifest := loadGeneratedCoverManifest(paths)
-	for _, book := range source {
+	for _, book := range visible {
 		published, ok := byID[book.ID]
 		if !ok || !generatedCoverCurrent(paths, book, published, manifest) {
 			return false
@@ -475,7 +620,11 @@ func PublicationStatuses(paths Paths, source []Book) map[string]string {
 	generated, err := LoadGenerated(paths)
 	if err != nil {
 		for _, book := range source {
-			statuses[book.ID] = PublicationNotPublished
+			if book.VisibleOnWebsite() {
+				statuses[book.ID] = PublicationNotPublished
+			} else {
+				statuses[book.ID] = PublicationHidden
+			}
 		}
 		return statuses
 	}
@@ -486,6 +635,14 @@ func PublicationStatuses(paths Paths, source []Book) map[string]string {
 	manifest := loadGeneratedCoverManifest(paths)
 	for _, book := range source {
 		published, ok := byID[book.ID]
+		if !book.VisibleOnWebsite() {
+			if ok {
+				statuses[book.ID] = PublicationVisibilityPending
+			} else {
+				statuses[book.ID] = PublicationHidden
+			}
+			continue
+		}
 		coverCurrent := ok && generatedCoverCurrent(paths, book, published, manifest)
 		book.CoverFile = ""
 		published.CoverFile = ""
@@ -503,6 +660,16 @@ func PublicationStatuses(paths Paths, source []Book) map[string]string {
 		}
 	}
 	return statuses
+}
+
+func VisibleBooks(books []Book) []Book {
+	visible := make([]Book, 0, len(books))
+	for _, book := range books {
+		if book.VisibleOnWebsite() {
+			visible = append(visible, book)
+		}
+	}
+	return visible
 }
 
 func generatedCoverCurrent(paths Paths, source, published Book, manifest generatedCoverManifest) bool {

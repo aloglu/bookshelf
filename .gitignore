@@ -3,6 +3,7 @@
 tea_debug.log
 *.test
 CHANGELOG.md
+/.design-prototypes/
 
 # Runtime data and generated output
 /data/

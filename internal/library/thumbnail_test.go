@@ -2,6 +2,8 @@ package library
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"image"
 	"image/color"
 	"image/jpeg"
@@ -72,6 +74,43 @@ func TestResizeWebCoverDoesNotUpscale(t *testing.T) {
 	resized := resizeWebCover(source, websiteDetailWidth)
 	if resized.Bounds().Dx() != 200 || resized.Bounds().Dy() != 300 {
 		t.Fatalf("resized dimensions = %dx%d", resized.Bounds().Dx(), resized.Bounds().Dy())
+	}
+}
+
+func TestSmallWebCoverUsesIdenticalThumbnailAndDetailVariants(t *testing.T) {
+	directory := t.TempDir()
+	source := filepath.Join(directory, "cover.jpg")
+	writeTestJPEG(t, source)
+	thumbnail := filepath.Join(directory, "thumbnail.webp")
+	detail := filepath.Join(directory, "detail.webp")
+	if err := generateWebCoverVariants(source, thumbnail, detail); err != nil {
+		t.Fatal(err)
+	}
+	thumbnailBytes, err := os.ReadFile(thumbnail)
+	if err != nil {
+		t.Fatal(err)
+	}
+	detailBytes, err := os.ReadFile(detail)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(thumbnailBytes, detailBytes) {
+		t.Fatal("small cover variants should be byte-for-byte identical")
+	}
+}
+
+func TestWebCoverGenerationHonorsCancelledContext(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	directory := t.TempDir()
+	err := generateWebCoverVariantsContext(
+		ctx,
+		filepath.Join(directory, "unused.jpg"),
+		filepath.Join(directory, "thumbnail.webp"),
+		filepath.Join(directory, "detail.webp"),
+	)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancelled generation error = %v", err)
 	}
 }
 

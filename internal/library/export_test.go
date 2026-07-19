@@ -10,19 +10,20 @@ import (
 func TestCSVExportIsExcelCompatibleAndImportable(t *testing.T) {
 	year := 2024
 	book := Normalize(Book{
-		ID:             "turkish-book",
-		Title:          "100. Yılında Cumhuriyet’in Haritası",
-		Author:         "Çağdaş Yazar",
-		ISBN:           "978-0-00-000000-0",
-		Slug:           "cumhuriyet-haritasi",
-		Translator:     "Şule Çevirmen",
-		Publisher:      "Örnek Yayınları",
-		Binding:        "Kâğıt kapak",
-		Published:      &year,
-		CoverFile:      "9780000000000.jpg",
-		SpineColor:     "#123456",
-		SpineTextColor: "#FFFFFF",
-		Cover:          "data/covers/9780000000000.jpg",
+		ID:                "turkish-book",
+		Title:             "100. Yılında Cumhuriyet’in Haritası",
+		Author:            "Çağdaş Yazar",
+		ISBN:              "978-0-00-000000-0",
+		Slug:              "cumhuriyet-haritasi",
+		Translator:        "Şule Çevirmen",
+		Publisher:         "Örnek Yayınları",
+		Binding:           "Kâğıt kapak",
+		Published:         &year,
+		WebsiteVisibility: WebsiteHidden,
+		CoverFile:         "9780000000000.jpg",
+		SpineColor:        "#123456",
+		SpineTextColor:    "#FFFFFF",
+		Cover:             "data/covers/9780000000000.jpg",
 	})
 	var output bytes.Buffer
 	if err := EncodeExport(&output, []Book{book}, "csv"); err != nil {
@@ -46,6 +47,7 @@ func TestCSVExportIsExcelCompatibleAndImportable(t *testing.T) {
 	if got.Title != book.Title ||
 		got.Author != book.Author ||
 		got.CoverFile != book.CoverFile ||
+		got.WebsiteVisibility != WebsiteHidden ||
 		got.SpineColor != book.SpineColor ||
 		got.SpineTextColor != book.SpineTextColor {
 		t.Fatalf("CSV round trip = %#v", got)
@@ -95,11 +97,12 @@ func TestCSVExportProtectsSpreadsheetFormulaCellsAndRoundTrips(t *testing.T) {
 
 func TestJSONExportContainsDurableButNotGeneratedFields(t *testing.T) {
 	book := Normalize(Book{
-		Title:     "Dune",
-		ISBN:      "978-0-441-17271-9",
-		CoverFile: "9780441172719.jpg",
-		Cover:     "data/covers/9780441172719.jpg",
-		Permalink: "978-0-441-17271-9",
+		Title:             "Dune",
+		ISBN:              "978-0-441-17271-9",
+		WebsiteVisibility: WebsiteHidden,
+		CoverFile:         "9780441172719.jpg",
+		Cover:             "data/covers/9780441172719.jpg",
+		Permalink:         "978-0-441-17271-9",
 	})
 	var output bytes.Buffer
 	if err := EncodeExport(&output, []Book{book}, "json"); err != nil {
@@ -108,6 +111,9 @@ func TestJSONExportContainsDurableButNotGeneratedFields(t *testing.T) {
 	text := output.String()
 	if !strings.Contains(text, `"coverFile": "9780441172719.jpg"`) {
 		t.Fatalf("JSON export is missing the durable cover reference:\n%s", text)
+	}
+	if !strings.Contains(text, `"websiteVisibility": "hidden"`) {
+		t.Fatalf("JSON export is missing website visibility:\n%s", text)
 	}
 	for _, generated := range []string{`"cover":`, `"permalink":`, `"titleSlug":`} {
 		if strings.Contains(text, generated) {

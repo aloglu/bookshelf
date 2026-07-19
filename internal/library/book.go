@@ -16,65 +16,76 @@ import (
 var strictYearPattern = regexp.MustCompile(`^\d{4}$`)
 var legacyYearPattern = regexp.MustCompile(`(?i)^published(?:\s+in)?\s+(\d{4})$`)
 
+type WebsiteVisibility string
+
+const (
+	WebsiteVisible WebsiteVisibility = "visible"
+	WebsiteHidden  WebsiteVisibility = "hidden"
+)
+
 type Book struct {
-	ID             string `json:"id"`
-	Title          string `json:"title"`
-	Author         string `json:"author,omitempty"`
-	ISBN           string `json:"isbn,omitempty"`
-	Slug           string `json:"slug,omitempty"`
-	TitleSlug      string `json:"titleSlug,omitempty"`
-	Permalink      string `json:"permalink,omitempty"`
-	Translator     string `json:"translator,omitempty"`
-	Publisher      string `json:"publisher,omitempty"`
-	Binding        string `json:"binding,omitempty"`
-	Published      *int   `json:"published,omitempty"`
-	CoverFile      string `json:"coverFile,omitempty"`
-	Cover          string `json:"cover,omitempty"`
-	Thumbnail      string `json:"thumbnail,omitempty"`
-	SpineColor     string `json:"spineColor,omitempty"`
-	SpineTextColor string `json:"spineTextColor,omitempty"`
+	ID                string            `json:"id"`
+	Title             string            `json:"title"`
+	Author            string            `json:"author,omitempty"`
+	ISBN              string            `json:"isbn,omitempty"`
+	Slug              string            `json:"slug,omitempty"`
+	TitleSlug         string            `json:"titleSlug,omitempty"`
+	Permalink         string            `json:"permalink,omitempty"`
+	Translator        string            `json:"translator,omitempty"`
+	Publisher         string            `json:"publisher,omitempty"`
+	Binding           string            `json:"binding,omitempty"`
+	Published         *int              `json:"published,omitempty"`
+	WebsiteVisibility WebsiteVisibility `json:"websiteVisibility"`
+	CoverFile         string            `json:"coverFile,omitempty"`
+	Cover             string            `json:"cover,omitempty"`
+	Thumbnail         string            `json:"thumbnail,omitempty"`
+	SpineColor        string            `json:"spineColor,omitempty"`
+	SpineTextColor    string            `json:"spineTextColor,omitempty"`
 }
 
 type BookInput struct {
-	Title      string
-	Author     string
-	ISBN       string
-	Slug       string
-	Translator string
-	Publisher  string
-	Binding    string
-	Published  string
+	Title             string
+	Author            string
+	ISBN              string
+	Slug              string
+	Translator        string
+	Publisher         string
+	Binding           string
+	Published         string
+	WebsiteVisibility string
 }
 
 type BookPatch struct {
-	Title      *string
-	Author     *string
-	ISBN       *string
-	Slug       *string
-	Translator *string
-	Publisher  *string
-	Binding    *string
-	Published  *string
+	Title             *string
+	Author            *string
+	ISBN              *string
+	Slug              *string
+	Translator        *string
+	Publisher         *string
+	Binding           *string
+	Published         *string
+	WebsiteVisibility *string
 }
 
 func (b *Book) UnmarshalJSON(data []byte) error {
 	type wireBook struct {
-		ID             json.RawMessage `json:"id"`
-		Title          json.RawMessage `json:"title"`
-		Author         json.RawMessage `json:"author"`
-		ISBN           json.RawMessage `json:"isbn"`
-		Slug           json.RawMessage `json:"slug"`
-		TitleSlug      json.RawMessage `json:"titleSlug"`
-		Permalink      json.RawMessage `json:"permalink"`
-		Translator     json.RawMessage `json:"translator"`
-		Publisher      json.RawMessage `json:"publisher"`
-		Binding        json.RawMessage `json:"binding"`
-		Published      json.RawMessage `json:"published"`
-		CoverFile      json.RawMessage `json:"coverFile"`
-		Cover          json.RawMessage `json:"cover"`
-		Thumbnail      json.RawMessage `json:"thumbnail"`
-		SpineColor     json.RawMessage `json:"spineColor"`
-		SpineTextColor json.RawMessage `json:"spineTextColor"`
+		ID                json.RawMessage `json:"id"`
+		Title             json.RawMessage `json:"title"`
+		Author            json.RawMessage `json:"author"`
+		ISBN              json.RawMessage `json:"isbn"`
+		Slug              json.RawMessage `json:"slug"`
+		TitleSlug         json.RawMessage `json:"titleSlug"`
+		Permalink         json.RawMessage `json:"permalink"`
+		Translator        json.RawMessage `json:"translator"`
+		Publisher         json.RawMessage `json:"publisher"`
+		Binding           json.RawMessage `json:"binding"`
+		Published         json.RawMessage `json:"published"`
+		WebsiteVisibility json.RawMessage `json:"websiteVisibility"`
+		CoverFile         json.RawMessage `json:"coverFile"`
+		Cover             json.RawMessage `json:"cover"`
+		Thumbnail         json.RawMessage `json:"thumbnail"`
+		SpineColor        json.RawMessage `json:"spineColor"`
+		SpineTextColor    json.RawMessage `json:"spineTextColor"`
 	}
 	var wire wireBook
 	if err := json.Unmarshal(data, &wire); err != nil {
@@ -85,22 +96,23 @@ func (b *Book) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("invalid published year: %w", err)
 	}
 	*b = Book{
-		ID:             flexibleString(wire.ID),
-		Title:          flexibleString(wire.Title),
-		Author:         flexibleString(wire.Author),
-		ISBN:           flexibleString(wire.ISBN),
-		Slug:           flexibleString(wire.Slug),
-		TitleSlug:      flexibleString(wire.TitleSlug),
-		Permalink:      flexibleString(wire.Permalink),
-		Translator:     flexibleString(wire.Translator),
-		Publisher:      flexibleString(wire.Publisher),
-		Binding:        flexibleString(wire.Binding),
-		Published:      published,
-		CoverFile:      flexibleString(wire.CoverFile),
-		Cover:          flexibleString(wire.Cover),
-		Thumbnail:      flexibleString(wire.Thumbnail),
-		SpineColor:     flexibleString(wire.SpineColor),
-		SpineTextColor: flexibleString(wire.SpineTextColor),
+		ID:                flexibleString(wire.ID),
+		Title:             flexibleString(wire.Title),
+		Author:            flexibleString(wire.Author),
+		ISBN:              flexibleString(wire.ISBN),
+		Slug:              flexibleString(wire.Slug),
+		TitleSlug:         flexibleString(wire.TitleSlug),
+		Permalink:         flexibleString(wire.Permalink),
+		Translator:        flexibleString(wire.Translator),
+		Publisher:         flexibleString(wire.Publisher),
+		Binding:           flexibleString(wire.Binding),
+		Published:         published,
+		WebsiteVisibility: WebsiteVisibility(flexibleString(wire.WebsiteVisibility)),
+		CoverFile:         flexibleString(wire.CoverFile),
+		Cover:             flexibleString(wire.Cover),
+		Thumbnail:         flexibleString(wire.Thumbnail),
+		SpineColor:        flexibleString(wire.SpineColor),
+		SpineTextColor:    flexibleString(wire.SpineTextColor),
 	}
 	return nil
 }
@@ -201,6 +213,10 @@ func Normalize(input Book) Book {
 	input.Translator = NormalizeTypography(strings.TrimSpace(input.Translator))
 	input.Publisher = NormalizeTypography(strings.TrimSpace(input.Publisher))
 	input.Binding = NormalizeTypography(strings.TrimSpace(input.Binding))
+	input.WebsiteVisibility = WebsiteVisibility(strings.ToLower(strings.TrimSpace(string(input.WebsiteVisibility))))
+	if input.WebsiteVisibility == "" {
+		input.WebsiteVisibility = WebsiteVisible
+	}
 	input.CoverFile = strings.TrimSpace(input.CoverFile)
 	input.Cover = strings.TrimSpace(input.Cover)
 	input.Thumbnail = strings.TrimSpace(input.Thumbnail)
@@ -248,15 +264,38 @@ func PreferredPermalink(book Book, style PermalinkStyle) string {
 
 func FromInput(input BookInput) Book {
 	return Normalize(Book{
-		Title:      input.Title,
-		Author:     input.Author,
-		ISBN:       input.ISBN,
-		Slug:       input.Slug,
-		Translator: input.Translator,
-		Publisher:  input.Publisher,
-		Binding:    input.Binding,
-		Published:  ParseYear(input.Published),
+		Title:             input.Title,
+		Author:            input.Author,
+		ISBN:              input.ISBN,
+		Slug:              input.Slug,
+		Translator:        input.Translator,
+		Publisher:         input.Publisher,
+		Binding:           input.Binding,
+		Published:         ParseYear(input.Published),
+		WebsiteVisibility: WebsiteVisibility(input.WebsiteVisibility),
 	})
+}
+
+func (b Book) VisibleOnWebsite() bool {
+	return NormalizeWebsiteVisibility(b.WebsiteVisibility) == WebsiteVisible
+}
+
+func NormalizeWebsiteVisibility(value WebsiteVisibility) WebsiteVisibility {
+	value = WebsiteVisibility(strings.ToLower(strings.TrimSpace(string(value))))
+	if value == "" {
+		return WebsiteVisible
+	}
+	return value
+}
+
+func ParseWebsiteVisibility(value string) (WebsiteVisibility, error) {
+	visibility := NormalizeWebsiteVisibility(WebsiteVisibility(value))
+	switch visibility {
+	case WebsiteVisible, WebsiteHidden:
+		return visibility, nil
+	default:
+		return "", fmt.Errorf("website visibility must be visible or hidden")
+	}
 }
 
 func (b Book) Key() string {

@@ -13,6 +13,67 @@ type ChangeOptions struct {
 	Build bool
 }
 
+type VisibilityChangeOptions struct {
+	Progress func(current, total int)
+}
+
+func SetWebsiteVisibility(
+	ctx context.Context,
+	paths Paths,
+	ids []string,
+	visibility WebsiteVisibility,
+	options VisibilityChangeOptions,
+) ([]Book, error) {
+	visibility, err := ParseWebsiteVisibility(string(visibility))
+	if err != nil {
+		return nil, err
+	}
+	if len(ids) == 0 {
+		return nil, fmt.Errorf("provide at least one book")
+	}
+	unlock, err := acquireLibraryLock(ctx, paths)
+	if err != nil {
+		return nil, err
+	}
+	defer unlock()
+	books, err := Load(paths)
+	if err != nil {
+		return nil, err
+	}
+	original := append([]Book(nil), books...)
+	changed := make([]Book, 0, len(ids))
+	seen := make(map[int]bool, len(ids))
+	for _, id := range ids {
+		index := FindIndex(books, id)
+		if index < 0 {
+			return nil, fmt.Errorf("no book found for %q", id)
+		}
+		if seen[index] {
+			continue
+		}
+		seen[index] = true
+		if books[index].WebsiteVisibility == visibility {
+			continue
+		}
+		books[index].WebsiteVisibility = visibility
+		changed = append(changed, books[index])
+	}
+	if len(changed) == 0 {
+		return changed, nil
+	}
+	if problems := Validate(books); len(problems) > 0 {
+		return nil, validationError(problems)
+	}
+	if err := SaveGeneratedWithContext(ctx, paths, books, options.Progress); err != nil {
+		return nil, err
+	}
+	if err := Save(paths, books); err != nil {
+		rollbackErr := SaveGenerated(paths, original)
+		return nil, errors.Join(err, rollbackErr)
+	}
+	return changed, nil
+}
+
 func Add(ctx context.Context, paths Paths, book Book, options ChangeOptions) (Book, BuildStats, error) {
 	unlock, err := acquireLibraryLock(ctx, paths)
 	if err != nil {
@@ -43,6 +104,16 @@ func Add(ctx context.Context, paths Paths, book Book, options ChangeOptions) (Bo
 	books = append(books, book)
 	if problems := Validate(books); len(problems) > 0 {
 		return Book{}, BuildStats{}, validationError(problems)
+	}
+	if options.Build && !book.VisibleOnWebsite() {
+		if err := SaveGeneratedWithContext(ctx, paths, books, nil); err != nil {
+			return Book{}, BuildStats{}, err
+		}
+		if err := Save(paths, books); err != nil {
+			rollbackErr := SaveGenerated(paths, books[:len(books)-1])
+			return Book{}, BuildStats{}, errors.Join(err, rollbackErr)
+		}
+		return book, visibilityBuildStats(books, book), nil
 	}
 	if err := Save(paths, books); err != nil {
 		return Book{}, BuildStats{}, err
@@ -99,6 +170,12 @@ func Update(ctx context.Context, paths Paths, id string, updates BookPatch, opti
 			return Book{}, BuildStats{}, err
 		}
 	}
+	if updates.WebsiteVisibility != nil {
+		current.WebsiteVisibility, err = ParseWebsiteVisibility(*updates.WebsiteVisibility)
+		if err != nil {
+			return Book{}, BuildStats{}, err
+		}
+	}
 	current = Normalize(current)
 	if current.Title == "" {
 		return Book{}, BuildStats{}, fmt.Errorf("title is required")
@@ -119,12 +196,25 @@ func Update(ctx context.Context, paths Paths, id string, updates BookPatch, opti
 	}
 	original := books[index]
 	books[index] = current
+	visibilityChanged := original.WebsiteVisibility != current.WebsiteVisibility
 	if problems := Validate(books); len(problems) > 0 {
 		return Book{}, BuildStats{}, validationError(problems)
 	}
 	rollbackCover, err := renameCoverForBook(paths, original, &current)
 	if err != nil {
 		return Book{}, BuildStats{}, err
+	}
+	if visibilityChanged {
+		if err := SaveGeneratedWithContext(ctx, paths, books, nil); err != nil {
+			rollbackCover()
+			return Book{}, BuildStats{}, err
+		}
+		if err := Save(paths, books); err != nil {
+			rollbackCover()
+			rollbackErr := SaveGenerated(paths, replaceBookAt(books, index, original))
+			return Book{}, BuildStats{}, errors.Join(err, rollbackErr)
+		}
+		return current, visibilityBuildStats(books, current), nil
 	}
 	if err := Save(paths, books); err != nil {
 		rollbackCover()
@@ -192,12 +282,25 @@ func Replace(ctx context.Context, paths Paths, id string, replacement Book, opti
 	}
 	original := books[index]
 	books[index] = replacement
+	visibilityChanged := original.WebsiteVisibility != replacement.WebsiteVisibility
 	if problems := Validate(books); len(problems) > 0 {
 		return Book{}, BuildStats{}, validationError(problems)
 	}
 	rollbackCover, err := renameCoverForBook(paths, original, &replacement)
 	if err != nil {
 		return Book{}, BuildStats{}, err
+	}
+	if visibilityChanged {
+		if err := SaveGeneratedWithContext(ctx, paths, books, nil); err != nil {
+			rollbackCover()
+			return Book{}, BuildStats{}, err
+		}
+		if err := Save(paths, books); err != nil {
+			rollbackCover()
+			rollbackErr := SaveGenerated(paths, replaceBookAt(books, index, original))
+			return Book{}, BuildStats{}, errors.Join(err, rollbackErr)
+		}
+		return replacement, visibilityBuildStats(books, replacement), nil
 	}
 	if err := Save(paths, books); err != nil {
 		rollbackCover()
@@ -211,6 +314,20 @@ func Replace(ctx context.Context, paths Paths, id string, replacement Book, opti
 		ProcessOnly: map[string]bool{replacement.Key(): true},
 	})
 	return replacement, stats, savedButUnpublished("book", err)
+}
+
+func visibilityBuildStats(books []Book, changed Book) BuildStats {
+	stats := BuildStats{Books: len(books), Processed: 1}
+	if coverFilename(changed) == "" {
+		stats.Missing = 1
+	}
+	return stats
+}
+
+func replaceBookAt(books []Book, index int, replacement Book) []Book {
+	restored := append([]Book(nil), books...)
+	restored[index] = replacement
+	return restored
 }
 
 func Remove(ctx context.Context, paths Paths, ids []string, removeCovers bool) ([]Book, error) {
@@ -287,7 +404,7 @@ func Remove(ctx context.Context, paths Paths, ids []string, removeCovers bool) (
 	if err := Save(paths, remaining); err != nil {
 		return nil, errors.Join(err, restoreCovers())
 	}
-	if err := SaveGenerated(paths, remaining); err != nil {
+	if err := SaveGeneratedWithContext(ctx, paths, remaining, nil); err != nil {
 		restoreErr := restoreCovers()
 		saveErr := Save(paths, books)
 		publishErr := SaveGenerated(paths, books)

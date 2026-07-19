@@ -55,6 +55,46 @@ func TestAddCommandRejectsMalformedPublishedYear(t *testing.T) {
 	}
 }
 
+func TestBuildSkippedNoticeExplainsHowToPublish(t *testing.T) {
+	var output bytes.Buffer
+	printBuildSkippedNotice(&output)
+	if got := output.String(); got != "Published website not updated. Run `bookshelf build` when ready.\n" {
+		t.Fatalf("build-skipped notice = %q", got)
+	}
+}
+
+func TestVisibilityCommandRequiresAnActionAndPublishesTheChange(t *testing.T) {
+	paths := library.NewPaths(t.TempDir())
+	if err := library.Initialize(paths); err != nil {
+		t.Fatal(err)
+	}
+	book := library.Normalize(library.Book{ID: "dune", Title: "Dune"})
+	if err := library.Save(paths, []library.Book{book}); err != nil {
+		t.Fatal(err)
+	}
+	if err := library.SaveGenerated(paths, []library.Book{book}); err != nil {
+		t.Fatal(err)
+	}
+	if err := visibilityCommand(context.Background(), paths, []string{book.ID}); err == nil ||
+		!strings.Contains(err.Error(), "choose --hide or --show") {
+		t.Fatalf("missing-action error = %v", err)
+	}
+	if err := visibilityCommand(context.Background(), paths, []string{"--hide", book.ID}); err != nil {
+		t.Fatal(err)
+	}
+	books, err := library.Load(paths)
+	if err != nil {
+		t.Fatal(err)
+	}
+	generated, err := library.LoadGenerated(paths)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if books[0].WebsiteVisibility != library.WebsiteHidden || len(generated) != 0 {
+		t.Fatalf("stored = %#v, generated = %#v", books, generated)
+	}
+}
+
 func TestEditIsTheOnlyPublicEditingCommand(t *testing.T) {
 	var output bytes.Buffer
 	if !commandUsage(&output, "edit") {
@@ -556,6 +596,20 @@ func TestExportCommandInfersCSVAndProtectsExistingFiles(t *testing.T) {
 	}
 	if err := exportCommand(context.Background(), paths, []string{destination, "--force"}); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestExportCommandExplainsFilenameFormats(t *testing.T) {
+	paths := library.NewPaths(t.TempDir())
+	if err := library.Initialize(paths); err != nil {
+		t.Fatal(err)
+	}
+	err := exportCommand(context.Background(), paths, []string{filepath.Join(t.TempDir(), "library")})
+	if err == nil ||
+		!strings.Contains(err.Error(), ".bookshelf") ||
+		!strings.Contains(err.Error(), ".json") ||
+		!strings.Contains(err.Error(), ".csv") {
+		t.Fatalf("extensionless export error = %v", err)
 	}
 }
 

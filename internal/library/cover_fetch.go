@@ -414,7 +414,7 @@ func (s *CoverFetchSession) Commit(ctx context.Context) (CoverFetchSummary, erro
 		rollback()
 		return summary, err
 	}
-	if err := SaveGenerated(s.paths, books); err != nil {
+	if err := SaveGeneratedWithContext(ctx, s.paths, books, nil); err != nil {
 		rollback()
 		return summary, err
 	}

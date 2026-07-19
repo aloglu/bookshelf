@@ -334,6 +334,60 @@ const runChecks = async (url, browserWebSocket) => {
   if (!initial.titles.includes("NASA and iPhone · İstanbul")) fail("title capitalization changed in the browser");
   if (!initial.shelf) fail("desktop Shelf layout was not initialized");
 
+  const shelfInteraction = await evaluate(
+    devtools,
+    `(() => {
+      const shelf = document.querySelector("#bookshelf");
+      shelf.style.width = "260px";
+      shelf.style.maxWidth = "260px";
+      const books = [...document.querySelectorAll(".book")];
+      books[1].click();
+      return new Promise((resolve) => setTimeout(() => {
+        const bookCenter = books[1].offsetLeft + books[1].offsetWidth / 2;
+        const viewportCenter = shelf.scrollLeft + shelf.clientWidth / 2;
+        const centered = Math.abs(bookCenter - viewportCenter) < 3;
+        window.stopShelfScroll?.();
+        shelf.scrollLeft = shelf.scrollWidth - shelf.clientWidth;
+        const beforeWheel = shelf.scrollLeft;
+        shelf.dispatchEvent(new WheelEvent("wheel", {
+          deltaY: -300,
+          bubbles: true,
+          cancelable: true,
+        }));
+        setTimeout(() => {
+          const tilted = [...books].some((book) =>
+            Math.abs(parseFloat(book.style.getPropertyValue("--tilt")) || 0) > 0.05
+          );
+          const afterWheel = shelf.scrollLeft;
+          const shelfAnimation = { ...window.shelfState };
+          const nativePosition = shelf.scrollWidth - shelf.clientWidth;
+          shelf.scrollLeft = nativePosition;
+          shelf.dispatchEvent(new Event("scroll"));
+          setTimeout(() => {
+            const nativeScrollPreserved = Math.abs(shelf.scrollLeft - nativePosition) < 3;
+            window.stopShelfScroll?.();
+            shelf.style.width = "";
+            shelf.style.maxWidth = "";
+            resolve({
+              centered,
+              nativeScrollPreserved,
+              tilted,
+              reducedMotion: matchMedia("(prefers-reduced-motion: reduce)").matches,
+              tiltValues: books.map((book) => book.style.getPropertyValue("--tilt")),
+              beforeWheel,
+              afterWheel,
+              shelfAnimation,
+            });
+          }, 250);
+        }, 30);
+      }, 700));
+    })()`,
+  );
+  if (!shelfInteraction.centered || !shelfInteraction.nativeScrollPreserved ||
+      !shelfInteraction.tilted) {
+    fail(`Shelf interaction regressed: ${JSON.stringify(shelfInteraction)}`);
+  }
+
   await evaluate(
     devtools,
     `(() => {
@@ -373,6 +427,10 @@ const runChecks = async (url, browserWebSocket) => {
   for (const view of ["stack", "coverflow", "shelf"]) {
     await evaluate(devtools, `document.querySelector('#view-control [data-view="${view}"]').click()`);
     await waitUntil(devtools, `document.body.classList.contains("view-${view}")`, `${view} view`);
+    if (view === "stack") {
+      const animated = await evaluate(devtools, `document.querySelector("#bookshelf").classList.contains("view-animate")`);
+      if (animated) fail("Stack view retained the view-change animation");
+    }
     if (view === "coverflow") {
       await waitUntil(
         devtools,
@@ -397,6 +455,41 @@ const runChecks = async (url, browserWebSocket) => {
         `!window.cfState.isAnimating && window.cfState.targetIndex === null`,
         "Coverflow returning to idle",
       );
+      await waitUntil(
+        devtools,
+        `document.querySelector(".coverflow-details")?.classList.contains("visible") &&
+          document.querySelector(".coverflow-details").textContent.trim().length > 0`,
+        "Coverflow delayed details",
+      );
+      const stableCoverflowLink = await evaluate(
+        devtools,
+        `(() => {
+          const active = document.querySelector(".book.is-3d-active");
+          active.click();
+          const firstHash = location.hash;
+          active.click();
+          return firstHash.length > 1 && location.hash === firstHash;
+        })()`,
+      );
+      if (!stableCoverflowLink) fail("clicking the active Coverflow book cleared its permalink");
+      await evaluate(
+        devtools,
+        `(() => {
+          window.stackTransformTransitions = 0;
+          document.querySelectorAll(".book").forEach((book) => {
+            book.addEventListener("transitionrun", (event) => {
+              if (event.propertyName === "transform") window.stackTransformTransitions++;
+            });
+          });
+          document.querySelector('#view-control [data-view="stack"]').click();
+        })()`,
+      );
+      await waitUntil(devtools, `document.body.classList.contains("view-stack")`, "Coverflow to Stack view");
+      await new Promise((resolveDelay) => setTimeout(resolveDelay, 100));
+      const stackTransitions = await evaluate(devtools, `window.stackTransformTransitions`);
+      if (stackTransitions !== 0) {
+        fail(`Coverflow-to-Stack transform transition count: ${stackTransitions}`);
+      }
     }
   }
 
@@ -471,11 +564,13 @@ const runChecks = async (url, browserWebSocket) => {
         positioned: rect.top >= 0 && rect.left >= 0 &&
           rect.bottom <= window.innerHeight && rect.right <= window.innerWidth,
         links: [...popup.querySelectorAll(".isbn-link:not([hidden])")].every((link) => Boolean(link.href)),
+        background: getComputedStyle(trigger).backgroundColor,
       };
     })()`,
   );
   if (!stackIsbn.visible || stackIsbn.expanded !== "true" || stackIsbn.insideDetails ||
-      !stackIsbn.positioned || !stackIsbn.links) {
+      !stackIsbn.positioned || !stackIsbn.links ||
+      !["rgba(0, 0, 0, 0)", "transparent"].includes(stackIsbn.background)) {
     fail(`Stack ISBN popup was not usable: ${JSON.stringify(stackIsbn)}`);
   }
   await evaluate(

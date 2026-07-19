@@ -4,11 +4,14 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"image"
 	"image/color"
 	"image/jpeg"
 	"image/png"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -36,7 +39,16 @@ func TestBookshelfArchiveReplaceRoundTripIncludesImagesAndSettings(t *testing.T)
 	if result.Books != 1 || result.Covers != 1 || result.ManualCovers != 1 {
 		t.Fatalf("export result = %#v", result)
 	}
-	info, err := InspectArchive(archive)
+	var checkProgress []ArchiveProgress
+	prepared, err := PrepareArchiveWithProgress(context.Background(), archive, func(progress ArchiveProgress) {
+		checkProgress = append(checkProgress, progress)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer prepared.Close()
+	assertFinalArchiveProgress(t, checkProgress, "Checking archive", 5, "files")
+	info, err := prepared.Info()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -56,7 +68,18 @@ func TestBookshelfArchiveReplaceRoundTripIncludesImagesAndSettings(t *testing.T)
 		t.Fatal(err)
 	}
 	writeTestJPEG(t, filepath.Join(destination.CoversDir, "obsolete.jpg"))
-	imported, err := ImportArchive(context.Background(), destination, archive, ArchiveImportOptions{Mode: ArchiveReplace})
+	var importProgress []ArchiveProgress
+	imported, err := ImportPreparedArchive(
+		context.Background(),
+		destination,
+		prepared,
+		ArchiveImportOptions{
+			Mode: ArchiveReplace,
+			Progress: func(progress ArchiveProgress) {
+				importProgress = append(importProgress, progress)
+			},
+		},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -86,6 +109,135 @@ func TestBookshelfArchiveReplaceRoundTripIncludesImagesAndSettings(t *testing.T)
 	}
 	if !fileExists(destination.BooksJS) {
 		t.Fatal("published website data was not rebuilt")
+	}
+	assertFinalArchiveProgress(t, importProgress, "Restoring library", 4, "files")
+	assertFinalArchiveProgress(t, importProgress, "Rebuilding website", 1, "books")
+}
+
+func TestArchiveV2PreservesWebsiteVisibilityAndRejectsV1(t *testing.T) {
+	source := fixture(t)
+	visible := Normalize(Book{ID: "visible", Title: "Visible Book"})
+	hidden := Normalize(Book{ID: "hidden", Title: "Hidden Book", WebsiteVisibility: WebsiteHidden})
+	if err := Save(source, []Book{visible, hidden}); err != nil {
+		t.Fatal(err)
+	}
+	v2 := filepath.Join(t.TempDir(), "library-v2.bookshelf")
+	writeTestArchive(t, v2, source)
+	if version := archiveManifestVersion(t, v2); version != archiveVersion {
+		t.Fatalf("archive version = %d, want %d", version, archiveVersion)
+	}
+
+	v2Destination := fixture(t)
+	if _, err := ImportArchive(
+		context.Background(), v2Destination, v2, ArchiveImportOptions{Mode: ArchiveReplace},
+	); err != nil {
+		t.Fatal(err)
+	}
+	v2Books, err := Load(v2Destination)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v2Books[1].WebsiteVisibility != WebsiteHidden {
+		t.Fatalf("v2 hidden visibility = %q", v2Books[1].WebsiteVisibility)
+	}
+
+	v1 := filepath.Join(t.TempDir(), "library-v1.bookshelf")
+	rewriteArchiveVersion(t, v2, v1, 1)
+	v1Destination := fixture(t)
+	if _, err := ImportArchive(
+		context.Background(), v1Destination, v1, ArchiveImportOptions{Mode: ArchiveReplace},
+	); err == nil || !strings.Contains(err.Error(), "unsupported Bookshelf archive format or version") {
+		t.Fatalf("v1 import error = %v", err)
+	}
+}
+
+func TestClosedPreparedArchiveCannotBeImported(t *testing.T) {
+	source := fixture(t)
+	archive := filepath.Join(t.TempDir(), "library.bookshelf")
+	writeTestArchive(t, archive, source)
+	prepared, err := PrepareArchive(context.Background(), archive)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := prepared.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := prepared.Info(); err == nil {
+		t.Fatal("closed archive preparation still returned information")
+	}
+	if _, err := ImportPreparedArchive(
+		context.Background(),
+		fixture(t),
+		prepared,
+		ArchiveImportOptions{Mode: ArchiveReplace},
+	); err == nil {
+		t.Fatal("closed archive preparation was imported")
+	}
+}
+
+func TestEncodeArchiveReportsWrittenFiles(t *testing.T) {
+	paths := fixture(t)
+	var output bytes.Buffer
+	var events []ArchiveProgress
+	if _, err := EncodeArchiveWithProgress(&output, paths, nil, func(progress ArchiveProgress) {
+		events = append(events, progress)
+	}); err != nil {
+		t.Fatal(err)
+	}
+	assertFinalArchiveProgress(t, events, "Creating safety backup", 3, "files")
+}
+
+func TestArchiveCancellationDuringWebsiteBuildLeavesLibraryUnchanged(t *testing.T) {
+	source := fixture(t)
+	if err := Save(source, []Book{Normalize(Book{Title: "Imported Book"})}); err != nil {
+		t.Fatal(err)
+	}
+	archive := filepath.Join(t.TempDir(), "library.bookshelf")
+	writeTestArchive(t, archive, source)
+	prepared, err := PrepareArchive(context.Background(), archive)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer prepared.Close()
+
+	destination := fixture(t)
+	oldBook := Normalize(Book{Title: "Existing Book"})
+	if err := Save(destination, []Book{oldBook}); err != nil {
+		t.Fatal(err)
+	}
+	if err := SaveGenerated(destination, []Book{oldBook}); err != nil {
+		t.Fatal(err)
+	}
+	oldWebsite, err := os.ReadFile(destination.BooksJS)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	_, err = ImportPreparedArchive(ctx, destination, prepared, ArchiveImportOptions{
+		Mode: ArchiveReplace,
+		Progress: func(progress ArchiveProgress) {
+			if progress.Phase == "Rebuilding website" {
+				cancel()
+			}
+		},
+	})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancelled import error = %v", err)
+	}
+	books, err := Load(destination)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(books) != 1 || books[0].Title != oldBook.Title {
+		t.Fatalf("cancelled import changed books: %#v", books)
+	}
+	website, err := os.ReadFile(destination.BooksJS)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(website, oldWebsite) {
+		t.Fatal("cancelled import changed the published website")
 	}
 }
 
@@ -349,6 +501,104 @@ func writeTestArchive(t *testing.T, filename string, paths Paths) ArchiveExportR
 		t.Fatal(closeErr)
 	}
 	return result
+}
+
+func archiveManifestVersion(t *testing.T, filename string) int {
+	t.Helper()
+	reader, err := zip.OpenReader(filename)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reader.Close()
+	for _, entry := range reader.File {
+		if entry.Name != "manifest.json" {
+			continue
+		}
+		input, err := entry.Open()
+		if err != nil {
+			t.Fatal(err)
+		}
+		var manifest archiveManifest
+		decodeErr := json.NewDecoder(input).Decode(&manifest)
+		closeErr := input.Close()
+		if decodeErr != nil {
+			t.Fatal(decodeErr)
+		}
+		if closeErr != nil {
+			t.Fatal(closeErr)
+		}
+		return manifest.Version
+	}
+	t.Fatal("archive is missing manifest.json")
+	return 0
+}
+
+func rewriteArchiveVersion(t *testing.T, source, destination string, version int) {
+	t.Helper()
+	reader, err := zip.OpenReader(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reader.Close()
+	output, err := os.Create(destination)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writer := zip.NewWriter(output)
+	for _, entry := range reader.File {
+		input, err := entry.Open()
+		if err != nil {
+			t.Fatal(err)
+		}
+		data, readErr := io.ReadAll(input)
+		closeErr := input.Close()
+		if readErr != nil {
+			t.Fatal(readErr)
+		}
+		if closeErr != nil {
+			t.Fatal(closeErr)
+		}
+		if entry.Name == "manifest.json" {
+			var manifest archiveManifest
+			if err := json.Unmarshal(data, &manifest); err != nil {
+				t.Fatal(err)
+			}
+			manifest.Version = version
+			data, err = json.MarshalIndent(manifest, "", "  ")
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+		target, err := writer.CreateHeader(&entry.FileHeader)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := target.Write(data); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := output.Close(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func assertFinalArchiveProgress(t *testing.T, events []ArchiveProgress, phase string, total int, unit string) {
+	t.Helper()
+	var found *ArchiveProgress
+	for index := range events {
+		if events[index].Phase == phase {
+			found = &events[index]
+		}
+	}
+	if found == nil {
+		t.Fatalf("progress never entered %q: %#v", phase, events)
+	}
+	if found.Current != total || found.Total != total || found.Unit != unit {
+		t.Fatalf("final %s progress = %#v, want %d / %d %s", phase, *found, total, total, unit)
+	}
 }
 
 func assertArchiveEntries(t *testing.T, filename string, expected []string) {

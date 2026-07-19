@@ -32,7 +32,7 @@ func TestDecisionEscapeDismissesWithoutChoosing(t *testing.T) {
 func TestAccessibleBookFormUsesLinePromptsWithoutStartingBubbleTea(t *testing.T) {
 	t.Setenv("BOOKSHELF_ACCESSIBLE", "1")
 	previousInput, previousOutput := accessibleInput, accessibleOutput
-	accessibleInput = strings.NewReader("Dune\nFrank Herbert\n978-0-441-17271-9\n\n\nAce\nPaperback\nedition-1965\n1965\ny\n")
+	accessibleInput = strings.NewReader("Dune\nFrank Herbert\n978-0-441-17271-9\n\n\nAce\nPaperback\nedition-1965\n1965\n\ny\n")
 	var output bytes.Buffer
 	accessibleOutput = &output
 	t.Cleanup(func() {
@@ -277,7 +277,7 @@ func TestSettingsTextInputAcceptsBracketedPaste(t *testing.T) {
 
 func TestBookFormUsesSpaceForTogglesAndDoesNotWrap(t *testing.T) {
 	model := newBookFormModel(nil)
-	model.setFocus(len(model.inputs))
+	model.setFocus(len(model.inputs) + 1)
 	updated, _ := model.Update(tea.KeyPressMsg{Code: tea.KeySpace, Text: " "})
 	model = updated.(bookFormModel)
 	if model.build {
@@ -295,17 +295,52 @@ func TestBookFormUsesSpaceForTogglesAndDoesNotWrap(t *testing.T) {
 	}
 	updated, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	model = updated.(bookFormModel)
-	if model.focus != len(model.inputs)+1 {
+	if model.focus != len(model.inputs)+2 {
 		t.Fatalf("enter focus = %d, want next option", model.focus)
 	}
-	model.setFocus(len(model.inputs) + 1)
 	model.setFocus(len(model.inputs) + 2)
-	if model.focus != len(model.inputs)+1 {
+	model.setFocus(len(model.inputs) + 3)
+	if model.focus != len(model.inputs)+2 {
 		t.Fatalf("focus wrapped past Save Book to %d", model.focus)
 	}
 	model.setFocus(-1)
 	if model.focus != 0 {
 		t.Fatalf("focus wrapped above Title to %d", model.focus)
+	}
+}
+
+func TestBookFormVisibilityChangeForcesWebsiteUpdate(t *testing.T) {
+	model := newBookFormModel(nil)
+	model.build = false
+	model.setFocus(len(model.inputs))
+	updated, _ := model.Update(tea.KeyPressMsg{Code: tea.KeySpace, Text: " "})
+	model = updated.(bookFormModel)
+	if model.visibility != library.WebsiteHidden {
+		t.Fatalf("visibility = %q, want hidden", model.visibility)
+	}
+	if !model.build {
+		t.Fatal("visibility change did not force a website update")
+	}
+}
+
+func TestVisibilityWorkflowSelectsBooksAndConfirmsAction(t *testing.T) {
+	book := library.Normalize(library.Book{ID: "dune", Title: "Dune"})
+	model := newVisibilityWorkflowModel([]library.Book{book})
+	updated, _ := model.Update(tea.KeyPressMsg{Code: tea.KeySpace, Text: " "})
+	model = updated.(visibilityWorkflowModel)
+	updated, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	model = updated.(visibilityWorkflowModel)
+	if model.dialog == nil {
+		t.Fatal("selected books did not open the visibility decision")
+	}
+	updated, _ = model.Update(tea.KeyPressMsg{Code: tea.KeyRight})
+	model = updated.(visibilityWorkflowModel)
+	updated, command := model.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	model = updated.(visibilityWorkflowModel)
+	if command == nil || !model.result.Confirmed ||
+		model.result.Visibility != library.WebsiteHidden ||
+		len(model.result.IDs) != 1 || model.result.IDs[0] != book.ID {
+		t.Fatalf("visibility workflow result = %#v, command nil = %v", model.result, command == nil)
 	}
 }
 

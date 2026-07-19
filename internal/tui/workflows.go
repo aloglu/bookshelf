@@ -340,6 +340,131 @@ func RunRemoveWorkflow(books []library.Book) (RemoveWorkflowResult, error) {
 	return model.result, nil
 }
 
+type VisibilityWorkflowResult struct {
+	IDs        []string
+	Visibility library.WebsiteVisibility
+	Confirmed  bool
+}
+
+type visibilityWorkflowModel struct {
+	picker      browserModel
+	dialog      *decisionModel
+	selectedIDs []string
+	result      VisibilityWorkflowResult
+	interrupted bool
+}
+
+func newVisibilityWorkflowModel(books []library.Book) visibilityWorkflowModel {
+	statuses := make(map[string]string, len(books))
+	for _, book := range books {
+		if book.VisibleOnWebsite() {
+			statuses[book.ID] = "Visible on Website"
+		} else {
+			statuses[book.ID] = library.PublicationHidden
+		}
+	}
+	return visibilityWorkflowModel{
+		picker: newBookSelectorModel(books, statuses, nil, "Bookshelf · Visibility", true, false),
+	}
+}
+
+func (m visibilityWorkflowModel) Init() tea.Cmd { return m.picker.Init() }
+
+func (m visibilityWorkflowModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if m.dialog != nil {
+		if size, ok := msg.(tea.WindowSizeMsg); ok {
+			m.dialog.width = size.Width
+			return m, nil
+		}
+		if key, ok := msg.(tea.KeyPressMsg); ok && key.String() == "ctrl+c" {
+			m.interrupted = true
+			return m, tea.Quit
+		}
+		choice, done, dismissed := m.dialog.handleKey(keyString(msg))
+		if !done {
+			return m, nil
+		}
+		if dismissed {
+			m.dialog = nil
+			m.picker.result = BrowserResult{Action: ActionQuit}
+			return m, nil
+		}
+		m.result = VisibilityWorkflowResult{
+			IDs:        append([]string(nil), m.selectedIDs...),
+			Visibility: library.WebsiteVisibility(choice),
+			Confirmed:  true,
+		}
+		return m, tea.Quit
+	}
+	updated, command := m.picker.Update(msg)
+	m.picker = updated.(browserModel)
+	if m.picker.interrupted {
+		m.interrupted = true
+		return m, tea.Quit
+	}
+	if m.picker.result.Action == ActionSelect {
+		m.selectedIDs = append([]string(nil), m.picker.result.IDs...)
+		dialog := newDecisionModel(DecisionRequest{
+			Title:       "Change Website Visibility",
+			Description: fmt.Sprintf("%d book(s) selected. The published website will be updated.", len(m.selectedIDs)),
+			Options: []DecisionOption{
+				{ID: string(library.WebsiteVisible), Label: "Show on Website"},
+				{ID: string(library.WebsiteHidden), Label: "Hide from Website", Tone: DecisionDanger},
+			},
+			Default: 0,
+		})
+		dialog.width = m.picker.width
+		m.dialog = &dialog
+		return m, nil
+	}
+	return m, command
+}
+
+func (m visibilityWorkflowModel) View() tea.View {
+	if m.dialog != nil {
+		view := tea.NewView(renderDecision(m.dialog.request, m.dialog.cursor, m.dialog.width))
+		view.AltScreen = true
+		view.WindowTitle = "Bookshelf Visibility"
+		return view
+	}
+	return m.picker.View()
+}
+
+func RunVisibilityWorkflow(books []library.Book) (VisibilityWorkflowResult, error) {
+	if AccessibleMode() {
+		p := newAccessiblePrompter()
+		ids, confirmed, err := p.pickBooks(books, true, "Bookshelf · Visibility")
+		if err != nil || !confirmed {
+			return VisibilityWorkflowResult{}, err
+		}
+		value, err := p.choice(
+			fmt.Sprintf("Change website visibility for %d selected book(s)?", len(ids)),
+			[]string{"Show on Website", "Hide from Website", "Cancel"},
+			"Show on Website",
+		)
+		if err != nil || value == "Cancel" {
+			return VisibilityWorkflowResult{}, err
+		}
+		visibility := library.WebsiteVisible
+		if value == "Hide from Website" {
+			visibility = library.WebsiteHidden
+		}
+		return VisibilityWorkflowResult{IDs: ids, Visibility: visibility, Confirmed: true}, nil
+	}
+	final, err := tea.NewProgram(newVisibilityWorkflowModel(books)).Run()
+	if err != nil {
+		return VisibilityWorkflowResult{}, err
+	}
+	model, ok := final.(visibilityWorkflowModel)
+	if !ok {
+		return VisibilityWorkflowResult{}, fmt.Errorf("unexpected visibility workflow result %T", final)
+	}
+	if model.interrupted {
+		return VisibilityWorkflowResult{}, ErrInterrupted
+	}
+	return model.result, nil
+}
+
 func selectedBooks(books []library.Book, ids []string) []library.Book {
 	wanted := make(map[string]bool, len(ids))
 	for _, id := range ids {

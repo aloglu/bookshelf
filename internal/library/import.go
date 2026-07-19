@@ -217,6 +217,7 @@ func decodeCSVImport(reader io.Reader) ([]Book, error) {
 		var coverFile string
 		var spineColor string
 		var spineTextColor string
+		var websiteVisibility string
 		for column, value := range record {
 			if column >= len(headers) {
 				continue
@@ -241,6 +242,8 @@ func decodeCSVImport(reader io.Reader) ([]Book, error) {
 				input.Binding = value
 			case "published", "year", "publishedyear":
 				input.Published = value
+			case "visibility", "websitevisibility":
+				websiteVisibility = value
 			case "coverfile":
 				coverFile = value
 			case "spinecolor":
@@ -251,6 +254,13 @@ func decodeCSVImport(reader io.Reader) ([]Book, error) {
 		}
 		if _, err := ParseYearInput(input.Published); err != nil {
 			return nil, fmt.Errorf("CSV row %d: %w", rowIndex+2, err)
+		}
+		if strings.TrimSpace(websiteVisibility) != "" {
+			visibility, err := ParseWebsiteVisibility(websiteVisibility)
+			if err != nil {
+				return nil, fmt.Errorf("CSV row %d: %w", rowIndex+2, err)
+			}
+			input.WebsiteVisibility = string(visibility)
 		}
 		book := FromInput(input)
 		book.CoverFile = strings.TrimSpace(coverFile)

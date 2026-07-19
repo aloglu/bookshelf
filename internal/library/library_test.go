@@ -400,6 +400,48 @@ func TestGeneratedSiteIsRebuiltFromTemplatesAndDurableCovers(t *testing.T) {
 	}
 }
 
+func TestGeneratedSiteProcessesDistinctCoversAndDuplicateReferences(t *testing.T) {
+	paths := fixture(t)
+	books := make([]Book, 0, 9)
+	for index := range 8 {
+		book := Normalize(Book{Title: fmt.Sprintf("Book %d", index+1)})
+		book.CoverFile = book.ID + ".jpg"
+		writeTestJPEG(t, filepath.Join(paths.CoversDir, book.CoverFile))
+		books = append(books, book)
+	}
+	duplicate := Normalize(Book{Title: "Shared Cover"})
+	duplicate.CoverFile = books[0].CoverFile
+	books = append(books, duplicate)
+
+	var progress []int
+	if err := SaveGeneratedWithContext(context.Background(), paths, books, func(current, total int) {
+		if total != len(books) {
+			t.Fatalf("progress total = %d, want %d", total, len(books))
+		}
+		progress = append(progress, current)
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if len(progress) == 0 || progress[len(progress)-1] != len(books) {
+		t.Fatalf("final progress = %#v", progress)
+	}
+	generated, err := LoadGenerated(paths)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(generated) != len(books) {
+		t.Fatalf("generated books = %d, want %d", len(generated), len(books))
+	}
+	for index, book := range generated {
+		if book.Cover == "" || book.Thumbnail == "" {
+			t.Fatalf("book %d has no generated cover: %#v", index, book)
+		}
+	}
+	if generated[len(generated)-1].Cover != generated[0].Cover {
+		t.Fatal("books sharing a durable cover did not share its generated variant")
+	}
+}
+
 func TestSourceLibraryDoesNotPersistPublishedCoverPaths(t *testing.T) {
 	paths := fixture(t)
 	book := Normalize(Book{
@@ -1010,6 +1052,152 @@ func TestPublicationStatusesDistinguishUnpublishedChanges(t *testing.T) {
 	}
 }
 
+func TestGeneratedWebsiteExcludesHiddenBooksAndTheirCoverAssets(t *testing.T) {
+	paths := fixture(t)
+	visible := Normalize(Book{ID: "visible", Title: "Collected Poems", ISBN: "978-0-00-000000-1"})
+	hidden := Normalize(Book{
+		ID:                "hidden",
+		Title:             "Collected Poems",
+		ISBN:              "978-0-00-000000-2",
+		WebsiteVisibility: WebsiteHidden,
+	})
+	visible.CoverFile = preferredCoverFilename(visible)
+	hidden.CoverFile = preferredCoverFilename(hidden)
+	writeTestJPEG(t, filepath.Join(paths.CoversDir, visible.CoverFile))
+	writeTestJPEG(t, filepath.Join(paths.CoversDir, hidden.CoverFile))
+
+	if err := SaveGenerated(paths, []Book{visible, hidden}); err != nil {
+		t.Fatal(err)
+	}
+	generated, err := LoadGenerated(paths)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(generated) != 1 || generated[0].ID != visible.ID {
+		t.Fatalf("generated books = %#v", generated)
+	}
+	all := []Book{visible, hidden}
+	AssignTitleSlugs(all)
+	if generated[0].TitleSlug != all[0].TitleSlug {
+		t.Fatalf("visible title slug = %q, want globally assigned %q", generated[0].TitleSlug, all[0].TitleSlug)
+	}
+	hiddenWebCover := filepath.Join(paths.PublicDir, "data", "covers", generatedWebCoverFilename(hidden.CoverFile))
+	if _, err := os.Stat(hiddenWebCover); !os.IsNotExist(err) {
+		t.Fatalf("hidden generated cover exists or returned unexpected error: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(paths.CoversDir, hidden.CoverFile)); err != nil {
+		t.Fatalf("hidden durable cover was removed: %v", err)
+	}
+}
+
+func TestWebsiteVisibilityStatusesDistinguishHiddenAndPendingChanges(t *testing.T) {
+	paths := fixture(t)
+	book := Normalize(Book{ID: "dune", Title: "Dune"})
+	if err := SaveGenerated(paths, []Book{book}); err != nil {
+		t.Fatal(err)
+	}
+	hidden := book
+	hidden.WebsiteVisibility = WebsiteHidden
+	if got := PublicationStatuses(paths, []Book{hidden})[book.ID]; got != PublicationVisibilityPending {
+		t.Fatalf("unpublished hide status = %q", got)
+	}
+	if err := SaveGenerated(paths, []Book{hidden}); err != nil {
+		t.Fatal(err)
+	}
+	if got := PublicationStatuses(paths, []Book{hidden})[book.ID]; got != PublicationHidden {
+		t.Fatalf("published hide status = %q", got)
+	}
+}
+
+func TestSetWebsiteVisibilityPublishesAtomicallyAndPreservesCover(t *testing.T) {
+	paths := fixture(t)
+	book := Normalize(Book{ID: "dune", Title: "Dune", ISBN: "978-0-441-17271-9"})
+	book.CoverFile = preferredCoverFilename(book)
+	coverPath := filepath.Join(paths.CoversDir, book.CoverFile)
+	writeTestJPEG(t, coverPath)
+	if err := Save(paths, []Book{book}); err != nil {
+		t.Fatal(err)
+	}
+	if err := SaveGenerated(paths, []Book{book}); err != nil {
+		t.Fatal(err)
+	}
+
+	changed, err := SetWebsiteVisibility(
+		context.Background(), paths, []string{book.ID}, WebsiteHidden, VisibilityChangeOptions{},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(changed) != 1 || changed[0].WebsiteVisibility != WebsiteHidden {
+		t.Fatalf("hidden changes = %#v", changed)
+	}
+	stored, err := Load(paths)
+	if err != nil {
+		t.Fatal(err)
+	}
+	generated, err := LoadGenerated(paths)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stored[0].WebsiteVisibility != WebsiteHidden || len(generated) != 0 {
+		t.Fatalf("stored = %#v, generated = %#v", stored, generated)
+	}
+	if _, err := os.Stat(coverPath); err != nil {
+		t.Fatalf("durable cover was not preserved: %v", err)
+	}
+
+	if _, err := SetWebsiteVisibility(
+		context.Background(), paths, []string{book.ID}, WebsiteVisible, VisibilityChangeOptions{},
+	); err != nil {
+		t.Fatal(err)
+	}
+	generated, err = LoadGenerated(paths)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(generated) != 1 || generated[0].ID != book.ID {
+		t.Fatalf("restored generated books = %#v", generated)
+	}
+}
+
+func TestSetWebsiteVisibilityCancellationLeavesLibraryAndWebsiteUnchanged(t *testing.T) {
+	paths := fixture(t)
+	book := Normalize(Book{ID: "dune", Title: "Dune"})
+	if err := Save(paths, []Book{book}); err != nil {
+		t.Fatal(err)
+	}
+	if err := SaveGenerated(paths, []Book{book}); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.ReadFile(filepath.Join(paths.PublicDir, "data", "books.js"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	_, err = SetWebsiteVisibility(ctx, paths, []string{book.ID}, WebsiteHidden, VisibilityChangeOptions{
+		Progress: func(_, _ int) {
+			cancel()
+		},
+	})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("visibility cancellation error = %v", err)
+	}
+	stored, loadErr := Load(paths)
+	if loadErr != nil {
+		t.Fatal(loadErr)
+	}
+	if len(stored) != 1 || stored[0].WebsiteVisibility != WebsiteVisible {
+		t.Fatalf("library changed after cancellation: %#v", stored)
+	}
+	after, readErr := os.ReadFile(filepath.Join(paths.PublicDir, "data", "books.js"))
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	if !bytes.Equal(before, after) {
+		t.Fatal("generated website changed after cancellation")
+	}
+}
+
 func TestPublicationStatusDetectsChangedDurableCoverContents(t *testing.T) {
 	paths := fixture(t)
 	book := Normalize(Book{Title: "Dune", ISBN: "978-0-441-17271-9"})
@@ -1213,19 +1401,24 @@ func TestDecodeImportJSONAndCSV(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(jsonBooks) != 1 || jsonBooks[0].Title != "Dune" {
+	if len(jsonBooks) != 1 || jsonBooks[0].Title != "Dune" ||
+		Normalize(jsonBooks[0]).WebsiteVisibility != WebsiteVisible {
 		t.Fatalf("JSON books = %#v", jsonBooks)
 	}
 
-	csvBooks, err := DecodeImport(strings.NewReader("\ufeffTitle,Author,ISBN,Published Year\nFoundation,Isaac Asimov,9780553293357,1951\n"), "csv")
+	csvBooks, err := DecodeImport(strings.NewReader("\ufeffTitle,Author,ISBN,Published Year,Website Visibility\nFoundation,Isaac Asimov,9780553293357,1951,hidden\n"), "csv")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(csvBooks) != 1 || csvBooks[0].ISBN != "9780553293357" || csvBooks[0].Year() != "1951" {
+	if len(csvBooks) != 1 || csvBooks[0].ISBN != "9780553293357" ||
+		csvBooks[0].Year() != "1951" || csvBooks[0].WebsiteVisibility != WebsiteHidden {
 		t.Fatalf("CSV books = %#v", csvBooks)
 	}
 	if _, err := DecodeImport(strings.NewReader("Title,Published Year\nBad Year,edition-1951\n"), "csv"); err == nil {
 		t.Fatal("invalid CSV year was accepted")
+	}
+	if _, err := DecodeImport(strings.NewReader("Title,Website Visibility\nDune,private\n"), "csv"); err == nil {
+		t.Fatal("invalid CSV website visibility was accepted")
 	}
 }
 

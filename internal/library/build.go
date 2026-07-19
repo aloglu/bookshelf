@@ -164,7 +164,7 @@ func Build(ctx context.Context, paths Paths, options BuildOptions) (stats BuildS
 	if err := SaveConfig(paths, config); err != nil {
 		return stats, err
 	}
-	if err := SaveGenerated(paths, books); err != nil {
+	if err := SaveGeneratedWithContext(ctx, paths, books, nil); err != nil {
 		return stats, err
 	}
 	committed = true

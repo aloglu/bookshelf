@@ -225,13 +225,35 @@ func (p *accessiblePrompter) bookForm(existing *library.Book) (BookFormResult, e
 	if err != nil {
 		return BookFormResult{}, err
 	}
-	build, err := p.yesNo("Update published website data after saving?", true)
+	currentVisibility := library.NormalizeWebsiteVisibility(current.WebsiteVisibility)
+	visibilityLabel, err := p.choice(
+		"Website visibility",
+		[]string{"Visible", "Hidden"},
+		map[library.WebsiteVisibility]string{
+			library.WebsiteVisible: "Visible",
+			library.WebsiteHidden:  "Hidden",
+		}[currentVisibility],
+	)
 	if err != nil {
 		return BookFormResult{}, err
+	}
+	visibility := library.WebsiteVisible
+	if visibilityLabel == "Hidden" {
+		visibility = library.WebsiteHidden
+	}
+	build := true
+	if visibility == currentVisibility {
+		build, err = p.yesNo("Update published website data after saving?", true)
+		if err != nil {
+			return BookFormResult{}, err
+		}
+	} else {
+		fmt.Fprintln(p.output, "The website will be updated because visibility changed.")
 	}
 	book := library.FromInput(library.BookInput{
 		Title: title, Author: author, ISBN: isbn, Slug: slug, Translator: translator,
 		Publisher: publisher, Binding: binding, Published: published,
+		WebsiteVisibility: string(visibility),
 	})
 	if existing != nil {
 		book.ID = existing.ID

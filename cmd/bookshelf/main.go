@@ -112,6 +112,8 @@ func run(ctx context.Context, args []string) error {
 		return exportCommand(ctx, paths, args)
 	case "edit":
 		return editCommand(ctx, paths, args)
+	case "visibility":
+		return visibilityCommand(ctx, paths, args)
 	case "remove", "delete", "rm":
 		return removeCommand(ctx, paths, args)
 	case "covers", "cover":
@@ -138,7 +140,7 @@ func syncDataCommand(ctx context.Context, paths library.Paths) error {
 			}
 			return fmt.Errorf("library synchronization failed with %d problem(s)", len(problems))
 		}
-		return library.SaveGenerated(paths, books)
+		return library.SaveGeneratedWithContext(ctx, paths, books, nil)
 	})
 }
 
@@ -245,6 +247,7 @@ Usage:
   bookshelf import FILE [options]   Import metadata or a complete backup
   bookshelf export FILE [options]   Export metadata or a complete backup
   bookshelf edit --id-or-isbn ID    Edit an existing book
+  bookshelf visibility              Show or hide books on the website
   bookshelf remove [IDs...]         Remove one or more books
   bookshelf build [options]         Generate the published website
   bookshelf preview [options]       Preview the generated website locally
@@ -272,7 +275,7 @@ func commandUsage(output io.Writer, command string) bool {
   bookshelf add --from FILE [options]   Import books from JSON or CSV
 
 Single-book fields:
-  --title, --author, --isbn, --slug, --translator, --publisher, --binding, --published
+  --title, --author, --isbn, --slug, --translator, --publisher, --binding, --published, --visibility
   --no-build        Save without refreshing published data
 
 Batch options:
@@ -283,7 +286,8 @@ Batch options:
   --dry-run            Parse and validate without saving
 
 JSON may be an array of book objects or {"books":[...]}. CSV requires a title
-column and supports id, author, isbn, slug, translator, publisher, binding, and published.`)
+column and supports id, author, isbn, slug, translator, publisher, binding,
+published, and website visibility.`)
 	case "import":
 		fmt.Fprintln(output, `Usage:
   bookshelf import FILE [options]
@@ -344,6 +348,8 @@ With no options in a terminal, opens the Settings screen.
 Mobile visitors always use the stacks view.`)
 	case "edit":
 		fmt.Fprintln(output, "Usage:\n  bookshelf edit [--id-or-isbn ID] [fields] [--no-build]\n\nWithout an ID in a terminal, opens the book picker.\nThe editable fields are the same as for `bookshelf add`.")
+	case "visibility":
+		fmt.Fprintln(output, "Usage:\n  bookshelf visibility\n  bookshelf visibility --hide ID [ID...]\n  bookshelf visibility --show ID [ID...]\n\nVisibility changes always update the published website.")
 	case "remove", "delete", "rm":
 		fmt.Fprintln(output, "Usage:\n  bookshelf remove [--yes] [--remove-covers] ID [ID...]\n  bookshelf remove --id-or-isbn ID [--id-or-isbn ID...]\n\nWith no IDs in a terminal, opens the interactive manager for selection.")
 	case "covers", "cover":
@@ -522,6 +528,8 @@ type statusOutput struct {
 	Published           int    `json:"published"`
 	NotPublished        int    `json:"notPublished"`
 	ChangesNotPublished int    `json:"changesNotPublished"`
+	Hidden              int    `json:"hidden"`
+	VisibilityPending   int    `json:"visibilityPending"`
 	Website             string `json:"website"`
 	CoverAttention      int    `json:"coverAttention"`
 	DataDirectory       string `json:"dataDirectory"`
@@ -550,8 +558,11 @@ func statusCommand(paths library.Paths, args []string) error {
 	fmt.Println("Bookshelf Status")
 	fmt.Printf("Books:              %d\n", output.Books)
 	fmt.Printf("Covers:             %d Has Cover · %d Cover Missing\n", output.Covers, output.MissingCovers)
-	fmt.Printf("Publication:        %d Published · %d Not Published · %d Changes Not Published\n",
-		output.Published, output.NotPublished, output.ChangesNotPublished)
+	fmt.Printf("Publication:        %d Published · %d Not Published · %d Changes Not Published · %d Hidden\n",
+		output.Published, output.NotPublished, output.ChangesNotPublished, output.Hidden)
+	if output.VisibilityPending > 0 {
+		fmt.Printf("Visibility:         %d Still Visible on Website\n", output.VisibilityPending)
+	}
 	fmt.Printf("Website:            %s\n", output.Website)
 	fmt.Printf("Cover Attention:    %d\n", output.CoverAttention)
 	fmt.Printf("Data:               %s\n", output.DataDirectory)
@@ -577,6 +588,10 @@ func collectStatus(paths library.Paths) (statusOutput, error) {
 			output.Published++
 		case library.PublicationChangesNotPublished:
 			output.ChangesNotPublished++
+		case library.PublicationHidden:
+			output.Hidden++
+		case library.PublicationVisibilityPending:
+			output.VisibilityPending++
 		default:
 			output.NotPublished++
 		}
@@ -768,7 +783,7 @@ func settingsCommand(ctx context.Context, paths library.Paths, args []string) er
 		if saveErr := library.SaveConfig(paths, currentConfig); saveErr != nil {
 			return saveErr
 		}
-		if buildErr := library.SaveGenerated(paths, books); buildErr != nil {
+		if buildErr := library.SaveGeneratedWithContext(ctx, paths, books, nil); buildErr != nil {
 			return fmt.Errorf("settings were saved, but the published website could not be updated; run `bookshelf build` to retry: %w", buildErr)
 		}
 		return nil
@@ -910,6 +925,16 @@ func addCommand(ctx context.Context, paths library.Paths, args []string) error {
 		if _, err := library.ParseYearInput(input.Published); err != nil {
 			return err
 		}
+		if strings.TrimSpace(input.WebsiteVisibility) != "" {
+			visibility, err := library.ParseWebsiteVisibility(input.WebsiteVisibility)
+			if err != nil {
+				return err
+			}
+			input.WebsiteVisibility = string(visibility)
+			if visibility == library.WebsiteHidden {
+				*noBuild = false
+			}
+		}
 		book = library.FromInput(*input)
 	}
 	added, stats, err := library.Add(ctx, paths, book, library.ChangeOptions{
@@ -921,6 +946,8 @@ func addCommand(ctx context.Context, paths library.Paths, args []string) error {
 	fmt.Printf("Added %q.\n", added.Title)
 	if !*noBuild {
 		printStats(stats)
+	} else {
+		printBuildSkippedNotice(os.Stdout)
 	}
 	return nil
 }
@@ -999,7 +1026,13 @@ func exportCommand(ctx context.Context, paths library.Paths, args []string) erro
 		selectedFormat = strings.TrimPrefix(filepath.Ext(destination), ".")
 	}
 	if selectedFormat == "" {
-		return fmt.Errorf("--format is required when exporting to standard output")
+		if destination == "-" {
+			return fmt.Errorf("--format is required when exporting to standard output; use json or csv")
+		}
+		return fmt.Errorf(
+			"cannot determine an export format from %q; use .bookshelf, .json, or .csv, or pass --format bookshelf|json|csv",
+			destination,
+		)
 	}
 	selectedFormat = strings.ToLower(strings.TrimPrefix(selectedFormat, "."))
 	if selectedFormat != "json" && selectedFormat != "csv" && selectedFormat != "bookshelf" {
@@ -1074,6 +1107,16 @@ func writeExportFile(destination string, books []library.Book, format string, re
 }
 
 func writeArchiveFile(destination string, paths library.Paths, books []library.Book, replace bool) (library.ArchiveExportResult, error) {
+	return writeArchiveFileWithProgress(destination, paths, books, replace, nil)
+}
+
+func writeArchiveFileWithProgress(
+	destination string,
+	paths library.Paths,
+	books []library.Book,
+	replace bool,
+	progress library.ArchiveProgressFunc,
+) (library.ArchiveExportResult, error) {
 	var result library.ArchiveExportResult
 	directory := filepath.Dir(destination)
 	temp, err := os.CreateTemp(directory, "."+filepath.Base(destination)+".tmp-*")
@@ -1082,7 +1125,7 @@ func writeArchiveFile(destination string, paths library.Paths, books []library.B
 	}
 	tempName := temp.Name()
 	defer os.Remove(tempName)
-	result, err = library.EncodeArchive(temp, paths, books)
+	result, err = library.EncodeArchiveWithProgress(temp, paths, books, progress)
 	if err != nil {
 		temp.Close()
 		return result, err
@@ -1157,6 +1200,8 @@ func runBatchImport(ctx context.Context, paths library.Paths, options *batchImpo
 	fmt.Printf("%s %d book(s). Skipped: %d.\n", verb, result.Imported, result.Skipped)
 	if !options.noBuild && !options.dryRun && result.Imported > 0 {
 		printStats(result.Build)
+	} else if options.noBuild && !options.dryRun && result.Imported > 0 {
+		printBuildSkippedNotice(os.Stdout)
 	}
 	return nil
 }
@@ -1171,7 +1216,22 @@ func runArchiveImport(ctx context.Context, paths library.Paths, options *batchIm
 	if options.noBuild {
 		return fmt.Errorf("Bookshelf archives always rebuild published data; --no-build is not supported")
 	}
-	info, err := library.InspectArchive(options.from)
+	prepared, err := tui.RunProgress(
+		ctx,
+		tui.TaskProgress{Phase: "Checking " + filepath.Base(options.from)},
+		func(taskContext context.Context, report tui.ProgressReporter) (*library.PreparedArchive, error) {
+			return library.PrepareArchiveWithProgress(
+				taskContext,
+				options.from,
+				archiveProgressReporter(report, "Checking "+filepath.Base(options.from)),
+			)
+		},
+	)
+	if err != nil {
+		return err
+	}
+	defer prepared.Close()
+	info, err := prepared.Info()
 	if err != nil {
 		return err
 	}
@@ -1204,12 +1264,24 @@ func runArchiveImport(ctx context.Context, paths library.Paths, options *batchIm
 		SkipDuplicates: options.skipDuplicates,
 		DryRun:         options.dryRun,
 	}
-	if mode == library.ArchiveReplace && !options.dryRun {
-		importOptions.BeforeReplace = func(books []library.Book) (string, error) {
-			return writeSafetyArchive(paths, books)
-		}
+	initialProgress := tui.TaskProgress{Phase: "Restoring library"}
+	if options.dryRun {
+		initialProgress.Phase = "Checking archive import"
 	}
-	result, err := library.ImportArchive(ctx, paths, options.from, importOptions)
+	result, err := tui.RunProgress(
+		ctx,
+		initialProgress,
+		func(taskContext context.Context, report tui.ProgressReporter) (library.ArchiveImportResult, error) {
+			operationOptions := importOptions
+			operationOptions.Progress = archiveProgressReporter(report, "")
+			if mode == library.ArchiveReplace && !options.dryRun {
+				operationOptions.BeforeReplace = func(books []library.Book) (string, error) {
+					return writeSafetyArchiveWithProgress(paths, books, operationOptions.Progress)
+				}
+			}
+			return library.ImportPreparedArchive(taskContext, paths, prepared, operationOptions)
+		},
+	)
 	if result.SafetyBackup != "" {
 		fmt.Printf("Safety backup: %s\n", result.SafetyBackup)
 	}
@@ -1230,6 +1302,14 @@ func runArchiveImport(ctx context.Context, paths library.Paths, options *batchIm
 }
 
 func writeSafetyArchive(paths library.Paths, books []library.Book) (string, error) {
+	return writeSafetyArchiveWithProgress(paths, books, nil)
+}
+
+func writeSafetyArchiveWithProgress(
+	paths library.Paths,
+	books []library.Book,
+	progress library.ArchiveProgressFunc,
+) (string, error) {
 	directory := filepath.Join(paths.Root, "backups")
 	if err := os.MkdirAll(directory, 0o755); err != nil {
 		return "", err
@@ -1244,13 +1324,28 @@ func writeSafetyArchive(paths library.Paths, books []library.Book) (string, erro
 		}
 		destination = filepath.Join(directory, fmt.Sprintf("%s-%d.bookshelf", base, suffix))
 	}
-	if _, err := writeArchiveFile(destination, paths, books, false); err != nil {
+	if _, err := writeArchiveFileWithProgress(destination, paths, books, false, progress); err != nil {
 		return "", err
 	}
 	if err := pruneSafetyArchives(directory, safetyBackupRetention); err != nil {
 		return destination, fmt.Errorf("prune old safety backups after creating %s: %w", destination, err)
 	}
 	return destination, nil
+}
+
+func archiveProgressReporter(report tui.ProgressReporter, phaseOverride string) library.ArchiveProgressFunc {
+	return func(progress library.ArchiveProgress) {
+		phase := progress.Phase
+		if phaseOverride != "" {
+			phase = phaseOverride
+		}
+		report(tui.TaskProgress{
+			Phase:   phase,
+			Current: progress.Current,
+			Total:   progress.Total,
+			Unit:    progress.Unit,
+		})
+	}
 }
 
 func pruneSafetyArchives(directory string, keep int) error {
@@ -1296,7 +1391,8 @@ func pruneSafetyArchives(directory string, keep int) error {
 
 func hasBookInput(input library.BookInput) bool {
 	return input.Title != "" || input.Author != "" || input.ISBN != "" || input.Translator != "" ||
-		input.Slug != "" || input.Publisher != "" || input.Binding != "" || input.Published != ""
+		input.Slug != "" || input.Publisher != "" || input.Binding != "" || input.Published != "" ||
+		input.WebsiteVisibility != ""
 }
 
 func editCommand(ctx context.Context, paths library.Paths, args []string) error {
@@ -1326,6 +1422,8 @@ func editCommand(ctx context.Context, paths library.Paths, args []string) error 
 			fmt.Printf("Edited %q.\n", edited.Title)
 			if workflow.Form.Build {
 				printStats(stats)
+			} else {
+				printBuildSkippedNotice(os.Stdout)
 			}
 			return nil
 		}
@@ -1335,14 +1433,16 @@ func editCommand(ctx context.Context, paths library.Paths, args []string) error 
 		return runInteractiveEdit(ctx, paths, *id)
 	}
 	updated, stats, err := library.Update(ctx, paths, *id, *patch, library.ChangeOptions{
-		Build: !*noBuild,
+		Build: !*noBuild || patch.WebsiteVisibility != nil,
 	})
 	if err != nil {
 		return err
 	}
 	fmt.Printf("Edited %q.\n", updated.Title)
-	if !*noBuild {
+	if !*noBuild || patch.WebsiteVisibility != nil {
 		printStats(stats)
+	} else {
+		printBuildSkippedNotice(os.Stdout)
 	}
 	return nil
 }
@@ -1365,13 +1465,98 @@ func runInteractiveEdit(ctx context.Context, paths library.Paths, id string) err
 	fmt.Printf("Edited %q.\n", edited.Title)
 	if form.Build {
 		printStats(stats)
+	} else {
+		printBuildSkippedNotice(os.Stdout)
 	}
+	return nil
+}
+
+func printBuildSkippedNotice(output io.Writer) {
+	fmt.Fprintln(output, "Published website not updated. Run `bookshelf build` when ready.")
+}
+
+func visibilityCommand(ctx context.Context, paths library.Paths, args []string) error {
+	flags := flag.NewFlagSet("visibility", flag.ContinueOnError)
+	flags.SetOutput(os.Stderr)
+	hide := flags.Bool("hide", false, "hide selected books from the website")
+	show := flags.Bool("show", false, "show selected books on the website")
+	var flaggedIDs []string
+	flags.Func("id-or-isbn", "book id or ISBN; repeatable", func(value string) error {
+		flaggedIDs = append(flaggedIDs, value)
+		return nil
+	})
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+	if *hide && *show {
+		return fmt.Errorf("--hide and --show cannot be combined")
+	}
+	ids := append(flaggedIDs, flags.Args()...)
+	visibility := library.WebsiteVisibility("")
+	switch {
+	case *hide:
+		visibility = library.WebsiteHidden
+	case *show:
+		visibility = library.WebsiteVisible
+	case len(ids) > 0:
+		return fmt.Errorf("choose --hide or --show")
+	}
+	if len(ids) == 0 {
+		if !tui.IsTerminal() {
+			return fmt.Errorf("provide book IDs with --hide or --show")
+		}
+		books, err := library.Load(paths)
+		if err != nil {
+			return err
+		}
+		workflow, err := tui.RunVisibilityWorkflow(books)
+		if err != nil || !workflow.Confirmed {
+			return err
+		}
+		ids = workflow.IDs
+		visibility = workflow.Visibility
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	changed, err := tui.RunProgress(
+		ctx,
+		tui.TaskProgress{Phase: "Updating published website"},
+		func(taskContext context.Context, report tui.ProgressReporter) ([]library.Book, error) {
+			return library.SetWebsiteVisibility(
+				taskContext,
+				paths,
+				ids,
+				visibility,
+				library.VisibilityChangeOptions{
+					Progress: func(current, total int) {
+						report(tui.TaskProgress{
+							Phase: "Updating published website", Current: current, Total: total, Unit: "books",
+						})
+					},
+				},
+			)
+		},
+	)
+	if err != nil {
+		return err
+	}
+	if len(changed) == 0 {
+		fmt.Println("Selected books already have that website visibility.")
+		return nil
+	}
+	action := "Made visible"
+	if visibility == library.WebsiteHidden {
+		action = "Hidden"
+	}
+	fmt.Printf("%s %d book(s) and updated the published website.\n", action, len(changed))
 	return nil
 }
 
 func emptyBookPatch(patch library.BookPatch) bool {
 	return patch.Title == nil && patch.Author == nil && patch.ISBN == nil && patch.Slug == nil &&
-		patch.Translator == nil && patch.Publisher == nil && patch.Binding == nil && patch.Published == nil
+		patch.Translator == nil && patch.Publisher == nil && patch.Binding == nil && patch.Published == nil &&
+		patch.WebsiteVisibility == nil
 }
 
 func removeCommand(ctx context.Context, paths library.Paths, args []string) error {
@@ -1672,6 +1857,7 @@ func bookFlags(flags *flag.FlagSet) (*library.BookInput, *bool) {
 	flags.StringVar(&input.Publisher, "publisher", "", "publisher")
 	flags.StringVar(&input.Binding, "binding", "", "binding")
 	flags.StringVar(&input.Published, "published", "", "published year")
+	flags.StringVar(&input.WebsiteVisibility, "visibility", "", "website visibility: visible or hidden")
 	noBuild := flags.Bool("no-build", false, "save without refreshing published data")
 	return input, noBuild
 }
@@ -1686,6 +1872,7 @@ func updateFlags(flags *flag.FlagSet) (*library.BookPatch, *bool) {
 	optionalStringFlag(flags, "publisher", "publisher; pass an empty value to clear", &patch.Publisher)
 	optionalStringFlag(flags, "binding", "binding; pass an empty value to clear", &patch.Binding)
 	optionalStringFlag(flags, "published", "published year; pass an empty value to clear", &patch.Published)
+	optionalStringFlag(flags, "visibility", "website visibility: visible or hidden", &patch.WebsiteVisibility)
 	noBuild := flags.Bool("no-build", false, "save without refreshing published data")
 	return patch, noBuild
 }

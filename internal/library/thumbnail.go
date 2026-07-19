@@ -1,6 +1,7 @@
 package library
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"image"
@@ -44,6 +45,13 @@ func generatedWebCoverFilename(sourceFilename string) string {
 }
 
 func generateWebCoverVariants(source, thumbnailDestination, detailDestination string) error {
+	return generateWebCoverVariantsContext(context.Background(), source, thumbnailDestination, detailDestination)
+}
+
+func generateWebCoverVariantsContext(ctx context.Context, source, thumbnailDestination, detailDestination string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	input, err := os.Open(source)
 	if err != nil {
 		return err
@@ -61,10 +69,27 @@ func generateWebCoverVariants(source, thumbnailDestination, detailDestination st
 		return &invalidCoverSourceError{err: fmt.Errorf("cover has invalid dimensions")}
 	}
 
-	if err := encodeWebCover(thumbnailDestination, resizeWebCover(decoded, websiteThumbnailWidth)); err != nil {
+	thumbnail := resizeWebCover(decoded, websiteThumbnailWidth)
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if err := encodeWebCoverContext(ctx, thumbnailDestination, thumbnail); err != nil {
 		return fmt.Errorf("encode website cover thumbnail: %w", err)
 	}
-	if err := encodeWebCover(detailDestination, resizeWebCover(decoded, websiteDetailWidth)); err != nil {
+	if bounds.Dx() <= websiteThumbnailWidth {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if err := copyFile(thumbnailDestination, detailDestination); err != nil {
+			return fmt.Errorf("copy website detail cover: %w", err)
+		}
+		return nil
+	}
+	detail := resizeWebCover(decoded, websiteDetailWidth)
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if err := encodeWebCoverContext(ctx, detailDestination, detail); err != nil {
 		return fmt.Errorf("encode website detail cover: %w", err)
 	}
 	return nil
@@ -113,6 +138,13 @@ func resizeWebCover(source image.Image, maximumWidth int) image.Image {
 }
 
 func encodeWebCover(destination string, source image.Image) error {
+	return encodeWebCoverContext(context.Background(), destination, source)
+}
+
+func encodeWebCoverContext(ctx context.Context, destination string, source image.Image) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if err := os.MkdirAll(filepath.Dir(destination), 0o755); err != nil {
 		return err
 	}
@@ -120,14 +152,18 @@ func encodeWebCover(destination string, source image.Image) error {
 	if err != nil {
 		return err
 	}
-	encodeErr := gowebp.Encode(output, source, &gowebp.Options{
+	encodeErr := gowebp.EncodeContext(ctx, output, source, &gowebp.Options{
 		Lossy:   true,
 		Quality: websiteWebPQuality,
 		Method:  websiteWebPMethod,
 	})
 	closeErr := output.Close()
 	if encodeErr != nil {
+		_ = os.Remove(destination)
 		return encodeErr
+	}
+	if closeErr != nil {
+		_ = os.Remove(destination)
 	}
 	return closeErr
 }

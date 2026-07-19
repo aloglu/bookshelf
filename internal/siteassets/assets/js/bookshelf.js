@@ -1,3 +1,11 @@
+const appendTextElement = (parent, tagName, className, value) => {
+  const element = document.createElement(tagName);
+  if (className) element.className = className;
+  element.textContent = String(value);
+  parent.appendChild(element);
+  return element;
+};
+
 (function () {
   const allBooks = Array.isArray(window.booksData) ? window.booksData : [];
   const permalinkStyle = window.bookshelfConfig?.permalinkStyle || "formatted-isbn";
@@ -35,14 +43,6 @@
   const isbnPopup = document.getElementById("isbn-popup");
   const isbnLinks = isbnPopup ? Array.from(isbnPopup.querySelectorAll(".isbn-link")) : [];
   let activeIsbnTrigger = null;
-
-  const appendTextElement = (parent, tagName, className, value) => {
-    const element = document.createElement(tagName);
-    if (className) element.className = className;
-    element.textContent = String(value);
-    parent.appendChild(element);
-    return element;
-  };
 
   const safeAssetPath = (value) =>
     String(value || "")
@@ -533,6 +533,10 @@
     }
 
     el.addEventListener("click", () => {
+      if (window.currentView === "coverflow") {
+        if (activeId !== book.id) setActive(book.id, false);
+        return;
+      }
       if (activeId === book.id) {
         setActive(null);
       } else {
@@ -980,6 +984,7 @@
             el.scrollIntoView({ behavior: preferredScrollBehavior, block: 'center' });
           } else {
             // Horizontal Scroll for Shelf View
+            window.stopShelfScroll?.();
             const containerWidth = bookshelf.clientWidth;
             const bookLeft = el.offsetLeft;
             const bookWidth = el.offsetWidth;
@@ -1189,6 +1194,7 @@
       bookshelf.style.scrollBehavior = preferredScrollBehavior;
     } else if (!isCoverflow) {
       bookshelf.classList.add("force-shelf");
+      bookshelf.style.scrollBehavior = "auto";
     }
   };
 
@@ -1267,11 +1273,13 @@
     // Delta Time Calculation
     const time = dtTime || performance.now();
 
-    if (!shelfState.lastFrameTime) shelfState.lastFrameTime = time;
-
-    // Safety clamp: if tab was backgrounded, dt can be huge. Cap at 0.1s.
-    let dt = (time - shelfState.lastFrameTime) / 1000;
-    if (dt > 0.1 || dt < 0) dt = 0.016;
+    // A newly awakened frame still needs a usable interval so a single
+    // native scroll event can produce velocity and tilt.
+    let dt = 0.016;
+    if (shelfState.lastFrameTime) {
+      dt = (time - shelfState.lastFrameTime) / 1000;
+      if (dt > 0.1 || dt <= 0) dt = 0.016;
+    }
 
     shelfState.lastFrameTime = time;
 
@@ -1519,6 +1527,7 @@
   let cfTitle = null;
   let cfDetails = null;
   let cfDetailsTimer = null;
+  let cfDetailsIndex = -1;
   let cfSliderContainer = null;
   let cfSlider = null;
   let cfBookCache = [];
@@ -1538,6 +1547,16 @@
   let shelfScrollTarget = bookshelf.scrollLeft;
   let shelfScrollFrame = null;
   let shelfScrollTime = 0;
+  let shelfScrollLastWritten = bookshelf.scrollLeft;
+
+  const stopShelfScroll = () => {
+    if (shelfScrollFrame !== null) cancelAnimationFrame(shelfScrollFrame);
+    shelfScrollFrame = null;
+    shelfScrollTime = 0;
+    shelfScrollTarget = bookshelf.scrollLeft;
+    shelfScrollLastWritten = bookshelf.scrollLeft;
+  };
+  window.stopShelfScroll = stopShelfScroll;
 
   const animateShelfScroll = (time) => {
     const elapsed = shelfScrollTime ? Math.min((time - shelfScrollTime) / 1000, 0.05) : 0.016;
@@ -1545,14 +1564,24 @@
     const distance = shelfScrollTarget - bookshelf.scrollLeft;
     if (Math.abs(distance) < 0.5) {
       bookshelf.scrollLeft = shelfScrollTarget;
+      shelfScrollLastWritten = shelfScrollTarget;
       shelfScrollFrame = null;
       shelfScrollTime = 0;
       return;
     }
     const progress = 1 - Math.exp(-14 * elapsed);
-    bookshelf.scrollLeft += distance * progress;
+    const nextPosition = bookshelf.scrollLeft + distance * progress;
+    shelfScrollLastWritten = nextPosition;
+    bookshelf.scrollLeft = nextPosition;
     shelfScrollFrame = requestAnimationFrame(animateShelfScroll);
   };
+
+  bookshelf.addEventListener('scroll', () => {
+    if (shelfScrollFrame !== null &&
+      Math.abs(bookshelf.scrollLeft - shelfScrollLastWritten) > 1) {
+      stopShelfScroll();
+    }
+  }, { passive: true });
 
   const scrollShelfBy = (distance) => {
     if (shelfScrollFrame === null) {
@@ -1750,9 +1779,11 @@
 
     // Trigger Fade-In Animation
     const shelfContainer = document.getElementById('bookshelf');
+    const suppressBookTransitions = prevView === 'coverflow' && view !== 'coverflow';
     if (shelfContainer) {
+      shelfContainer.classList.toggle('view-switching', suppressBookTransitions);
       shelfContainer.classList.remove('view-animate');
-      if (!reduceMotion) {
+      if (!reduceMotion && view !== 'stack') {
         void shelfContainer.offsetWidth;
         shelfContainer.classList.add('view-animate');
       }
@@ -1781,8 +1812,10 @@
     body.classList.remove('view-shelf', 'view-stack', 'view-coverflow');
     body.classList.add('view-' + view);
     if (view === 'shelf') {
+      stopShelfScroll();
       requestAnimationFrame(() => window.wakeShelfAnimation?.());
     } else {
+      stopShelfScroll();
       window.stopShelfAnimation?.();
     }
 
@@ -1842,11 +1875,18 @@
               // Shelf View
               const container = document.getElementById('bookshelf');
               const centerPos = targetBook.offsetLeft - (container.clientWidth / 2) + (targetBook.offsetWidth / 2);
+              stopShelfScroll();
               container.scrollTo({ left: centerPos, behavior: 'auto' });
             }
           });
         }
       }
+    }
+
+    if (suppressBookTransitions && shelfContainer) {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => shelfContainer.classList.remove('view-switching'));
+      });
     }
   }
 
@@ -2040,17 +2080,11 @@
     }
 
     const moving = coverflowNeedsAnimation();
-    if (moving) {
-      clearTimeout(cfDetailsTimer);
-      cfDetailsTimer = null;
-      if (cfDetails) cfDetails.classList.remove('visible');
-    }
 
     coverflowIndex = Math.round(cfState.index);
     updateCoverflow();
 
     if (moving) wakeCoverflow();
-    else scheduleCoverflowDetails();
   }
 
   function coverflowNeedsAnimation() {
@@ -2061,11 +2095,20 @@
       Math.abs(Math.round(cfState.index) - cfState.index) > 0.001;
   }
 
-  function scheduleCoverflowDetails() {
-    if (cfDetailsTimer || !cfDetails || cfDetails.classList.contains('visible')) return;
+  function scheduleCoverflowDetails(index = Math.round(cfState.index)) {
+    if (!cfDetails) return;
+    if (cfDetailsIndex !== index) {
+      cfDetailsIndex = index;
+      clearTimeout(cfDetailsTimer);
+      cfDetailsTimer = null;
+      cfDetails.classList.remove('visible');
+    }
+    if (cfDetailsTimer || cfDetails.classList.contains('visible')) return;
     cfDetailsTimer = setTimeout(() => {
       cfDetailsTimer = null;
-      if (cfState.isActive && !coverflowNeedsAnimation()) showCoverflowDetails();
+      if (cfState.isActive && cfDetailsIndex === Math.round(cfState.index)) {
+        showCoverflowDetails();
+      }
     }, CF_IDLE_TIME);
   }
 
@@ -2169,6 +2212,7 @@
         }
       }
     }
+    scheduleCoverflowDetails(intIdx);
 
     // Update Slider UI (if not being dragged)
     if (cfSlider && document.activeElement !== cfSlider) {

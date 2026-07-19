@@ -1816,14 +1816,6 @@ body.view-stack .book:hover {
 
 
 
-.stack-isbn-btn[aria-expanded="true"] {
-    background-color: var(--text-color);
-    color: var(--page-surface);
-    text-decoration: none;
-    padding: 0 2px;
-    border-radius: 2px;
-}
-
 /* Allow selection within stack content even if parent is a button */
 .stack-content {
     user-select: text !important;
@@ -1846,6 +1838,11 @@ body.view-stack .book:hover {
 
 .view-animate {
     animation: viewFadeIn 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+.bookshelf.view-switching .book {
+    transition: none !important;
+    animation: none !important;
 }
 
 @media (min-width: 769px) {

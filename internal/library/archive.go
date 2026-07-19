@@ -18,7 +18,7 @@ import (
 
 const (
 	archiveFormat          = "bookshelf"
-	archiveVersion         = 1
+	archiveVersion         = 2
 	archiveMaxMetadata     = 64 << 20
 	archiveMaxImage        = 50 << 20
 	archiveMaxUncompressed = 8 << 30
@@ -49,7 +49,17 @@ type ArchiveImportOptions struct {
 	SkipDuplicates bool
 	DryRun         bool
 	BeforeReplace  func([]Book) (string, error)
+	Progress       ArchiveProgressFunc
 }
+
+type ArchiveProgress struct {
+	Phase   string
+	Current int
+	Total   int
+	Unit    string
+}
+
+type ArchiveProgressFunc func(ArchiveProgress)
 
 type ArchiveImportResult struct {
 	Imported     int
@@ -58,6 +68,10 @@ type ArchiveImportResult struct {
 	ManualCovers int
 	Replaced     bool
 	SafetyBackup string
+}
+
+type PreparedArchive struct {
+	archive *extractedArchive
 }
 
 type archiveManifest struct {
@@ -78,21 +92,54 @@ type extractedArchive struct {
 // InspectArchive fully validates an archive before the caller asks the user
 // whether it should be merged or used as a replacement.
 func InspectArchive(filename string) (ArchiveInfo, error) {
-	archive, err := extractArchive(filename)
+	prepared, err := PrepareArchive(context.Background(), filename)
 	if err != nil {
 		return ArchiveInfo{}, err
 	}
-	defer os.RemoveAll(archive.root)
+	defer prepared.Close()
+	return prepared.Info()
+}
+
+func PrepareArchive(ctx context.Context, filename string) (*PreparedArchive, error) {
+	return PrepareArchiveWithProgress(ctx, filename, nil)
+}
+
+func PrepareArchiveWithProgress(ctx context.Context, filename string, progress ArchiveProgressFunc) (*PreparedArchive, error) {
+	archive, err := extractArchive(ctx, filename, progress)
+	if err != nil {
+		return nil, err
+	}
+	return &PreparedArchive{archive: archive}, nil
+}
+
+func (prepared *PreparedArchive) Info() (ArchiveInfo, error) {
+	if prepared == nil || prepared.archive == nil {
+		return ArchiveInfo{}, fmt.Errorf("Bookshelf archive preparation is closed")
+	}
 	return ArchiveInfo{
-		Books:        len(archive.books),
-		Covers:       len(archive.covers),
-		ManualCovers: len(archive.manualCovers),
-		SiteTitle:    archive.config.SiteTitle,
+		Books:        len(prepared.archive.books),
+		Covers:       len(prepared.archive.covers),
+		ManualCovers: len(prepared.archive.manualCovers),
+		SiteTitle:    prepared.archive.config.SiteTitle,
 	}, nil
 }
 
+func (prepared *PreparedArchive) Close() error {
+	if prepared == nil || prepared.archive == nil {
+		return nil
+	}
+	root := prepared.archive.root
+	prepared.archive = nil
+	return os.RemoveAll(root)
+}
+
 func EncodeArchive(writer io.Writer, paths Paths, books []Book) (ArchiveExportResult, error) {
+	return EncodeArchiveWithProgress(writer, paths, books, nil)
+}
+
+func EncodeArchiveWithProgress(writer io.Writer, paths Paths, books []Book, progress ArchiveProgressFunc) (ArchiveExportResult, error) {
 	var result ArchiveExportResult
+	reportArchiveProgress(progress, "Creating safety backup", 0, 0, "files")
 	config, err := LoadConfig(paths)
 	if err != nil {
 		return result, err
@@ -169,6 +216,9 @@ func EncodeArchive(writer io.Writer, paths Paths, books []Book) (ArchiveExportRe
 	}
 
 	zipWriter := zip.NewWriter(writer)
+	totalFiles := 3 + len(images)
+	writtenFiles := 0
+	reportArchiveProgress(progress, "Creating safety backup", writtenFiles, totalFiles, "files")
 	closeWithError := func(inputErr error) (ArchiveExportResult, error) {
 		closeErr := zipWriter.Close()
 		if inputErr != nil {
@@ -179,23 +229,43 @@ func EncodeArchive(writer io.Writer, paths Paths, books []Book) (ArchiveExportRe
 	if err := writeArchiveBytes(zipWriter, "manifest.json", manifestJSON); err != nil {
 		return closeWithError(err)
 	}
+	writtenFiles++
+	reportArchiveProgress(progress, "Creating safety backup", writtenFiles, totalFiles, "files")
 	if err := writeArchiveBytes(zipWriter, manifest.Books, booksJSON); err != nil {
 		return closeWithError(err)
 	}
+	writtenFiles++
+	reportArchiveProgress(progress, "Creating safety backup", writtenFiles, totalFiles, "files")
 	if err := writeArchiveBytes(zipWriter, manifest.Settings, settingsJSON); err != nil {
 		return closeWithError(err)
 	}
+	writtenFiles++
+	reportArchiveProgress(progress, "Creating safety backup", writtenFiles, totalFiles, "files")
 	for _, image := range images {
 		if err := writeArchiveFile(zipWriter, image.name, image.source); err != nil {
 			return closeWithError(err)
 		}
+		writtenFiles++
+		reportArchiveProgress(progress, "Creating safety backup", writtenFiles, totalFiles, "files")
 	}
 	result.Books = len(books)
 	return closeWithError(nil)
 }
 
 func ImportArchive(ctx context.Context, paths Paths, filename string, options ArchiveImportOptions) (ArchiveImportResult, error) {
+	prepared, err := PrepareArchive(ctx, filename)
+	if err != nil {
+		return ArchiveImportResult{}, err
+	}
+	defer prepared.Close()
+	return ImportPreparedArchive(ctx, paths, prepared, options)
+}
+
+func ImportPreparedArchive(ctx context.Context, paths Paths, prepared *PreparedArchive, options ArchiveImportOptions) (ArchiveImportResult, error) {
 	var result ArchiveImportResult
+	if prepared == nil || prepared.archive == nil {
+		return result, fmt.Errorf("Bookshelf archive preparation is closed")
+	}
 	unlock, err := acquireLibraryLock(ctx, paths)
 	if err != nil {
 		return result, err
@@ -204,11 +274,7 @@ func ImportArchive(ctx context.Context, paths Paths, filename string, options Ar
 	if options.Mode != ArchiveMerge && options.Mode != ArchiveReplace {
 		return result, fmt.Errorf("archive import mode must be merge or replace")
 	}
-	archive, err := extractArchive(filename)
-	if err != nil {
-		return result, err
-	}
-	defer os.RemoveAll(archive.root)
+	archive := prepared.archive
 
 	existing, err := Load(paths)
 	if err != nil {
@@ -268,27 +334,82 @@ func ImportArchive(ctx context.Context, paths Paths, filename string, options Ar
 			}
 		}
 	}
-	result.Covers, result.ManualCovers, err = copyArchiveImages(ctx, archive, stagePaths, importedBooks, options.Mode)
+	coverCount, manualCount := archiveImageCounts(archive, importedBooks, options.Mode)
+	restoreTotal := coverCount + manualCount + 2
+	restoredFiles := 0
+	reportArchiveProgress(options.Progress, "Restoring library", restoredFiles, restoreTotal, "files")
+	result.Covers, result.ManualCovers, err = copyArchiveImages(
+		ctx,
+		archive,
+		stagePaths,
+		importedBooks,
+		options.Mode,
+		func() {
+			restoredFiles++
+			reportArchiveProgress(options.Progress, "Restoring library", restoredFiles, restoreTotal, "files")
+		},
+	)
 	if err != nil {
 		return result, err
 	}
 	if err := Save(stagePaths, finalBooks); err != nil {
 		return result, err
 	}
+	restoredFiles++
+	reportArchiveProgress(options.Progress, "Restoring library", restoredFiles, restoreTotal, "files")
 	if err := SaveConfig(stagePaths, config); err != nil {
 		return result, err
+	}
+	restoredFiles++
+	reportArchiveProgress(options.Progress, "Restoring library", restoredFiles, restoreTotal, "files")
+	reportArchiveProgress(options.Progress, "Rebuilding website", 0, len(VisibleBooks(finalBooks)), "books")
+	if err := seedGeneratedCoverCache(ctx, paths, stagePaths); err != nil {
+		return result, err
+	}
+	if err := SaveGeneratedWithContext(ctx, stagePaths, finalBooks, func(current, total int) {
+		reportArchiveProgress(options.Progress, "Rebuilding website", current, total, "books")
+	}); err != nil {
+		return result, fmt.Errorf("rebuild imported website: %w", err)
 	}
 	if err := replaceDirectory(paths.DataDir, stagePaths.DataDir); err != nil {
 		return result, err
 	}
-	loaded, err := Load(paths)
-	if err != nil {
-		return result, err
-	}
-	if err := SaveGenerated(paths, loaded); err != nil {
-		return result, fmt.Errorf("archive data imported but published website rebuild failed: %w", err)
+	if err := replaceDirectory(paths.PublicDir, stagePaths.PublicDir); err != nil {
+		return result, fmt.Errorf("archive data imported but published website commit failed: %w", err)
 	}
 	return result, nil
+}
+
+func seedGeneratedCoverCache(ctx context.Context, source, destination Paths) error {
+	sourceData := filepath.Join(source.PublicDir, "data")
+	destinationData := filepath.Join(destination.PublicDir, "data")
+	for _, directory := range []string{"covers", "thumbnails"} {
+		names, err := regularFileNames(filepath.Join(sourceData, directory))
+		if err != nil {
+			return err
+		}
+		for _, name := range names {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			if err := copyFile(
+				filepath.Join(sourceData, directory, name),
+				filepath.Join(destinationData, directory, name),
+			); err != nil {
+				return err
+			}
+		}
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	manifest := filepath.Join(sourceData, generatedCoverManifestName)
+	if fileExists(manifest) {
+		if err := copyFile(manifest, filepath.Join(destinationData, generatedCoverManifestName)); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func encodeArchiveJSON(value any, limit int64) ([]byte, error) {
@@ -332,7 +453,7 @@ func writeArchiveFile(zipWriter *zip.Writer, name, source string) error {
 	return err
 }
 
-func extractArchive(filename string) (*extractedArchive, error) {
+func extractArchive(ctx context.Context, filename string, progress ArchiveProgressFunc) (*extractedArchive, error) {
 	reader, err := zip.OpenReader(filename)
 	if err != nil {
 		return nil, fmt.Errorf("open Bookshelf archive: %w", err)
@@ -340,7 +461,11 @@ func extractArchive(filename string) (*extractedArchive, error) {
 	defer reader.Close()
 	entries := make(map[string]*zip.File, len(reader.File))
 	var total uint64
+	totalFiles := 0
 	for _, entry := range reader.File {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		name := entry.Name
 		if !validArchiveEntry(name, entry.FileInfo().IsDir()) {
 			return nil, fmt.Errorf("archive contains an unsupported or unsafe path %q", name)
@@ -353,10 +478,15 @@ func extractArchive(filename string) (*extractedArchive, error) {
 		}
 		entries[name] = entry
 		total += entry.UncompressedSize64
+		if !entry.FileInfo().IsDir() {
+			totalFiles++
+		}
 		if total > archiveMaxUncompressed {
 			return nil, fmt.Errorf("archive expands beyond the %d GiB safety limit", archiveMaxUncompressed>>30)
 		}
 	}
+	checkedFiles := 0
+	reportArchiveProgress(progress, "Checking archive", checkedFiles, totalFiles, "files")
 	manifestEntry := entries["manifest.json"]
 	if manifestEntry == nil {
 		return nil, fmt.Errorf("archive is missing manifest.json")
@@ -365,10 +495,13 @@ func extractArchive(filename string) (*extractedArchive, error) {
 	if err := decodeArchiveJSON(manifestEntry, archiveMaxMetadata, &manifest); err != nil {
 		return nil, fmt.Errorf("read archive manifest: %w", err)
 	}
-	if manifest.Format != archiveFormat || manifest.Version != archiveVersion ||
+	if manifest.Format != archiveFormat ||
+		manifest.Version != archiveVersion ||
 		manifest.Books != "books.json" || manifest.Settings != "settings.json" {
 		return nil, fmt.Errorf("unsupported Bookshelf archive format or version")
 	}
+	checkedFiles++
+	reportArchiveProgress(progress, "Checking archive", checkedFiles, totalFiles, "files")
 	var books []Book
 	if err := decodeArchiveJSON(entries[manifest.Books], archiveMaxMetadata, &books); err != nil {
 		return nil, fmt.Errorf("read archive books: %w", err)
@@ -387,6 +520,8 @@ func extractArchive(filename string) (*extractedArchive, error) {
 	if problems := Validate(books); len(problems) > 0 {
 		return nil, validationError(problems)
 	}
+	checkedFiles++
+	reportArchiveProgress(progress, "Checking archive", checkedFiles, totalFiles, "files")
 	config := DefaultConfig()
 	if err := decodeArchiveJSON(entries[manifest.Settings], archiveMaxMetadata, &config); err != nil {
 		return nil, fmt.Errorf("read archive settings: %w", err)
@@ -395,6 +530,8 @@ func extractArchive(filename string) (*extractedArchive, error) {
 	if err := ValidateConfig(config); err != nil {
 		return nil, fmt.Errorf("validate archive settings: %w", err)
 	}
+	checkedFiles++
+	reportArchiveProgress(progress, "Checking archive", checkedFiles, totalFiles, "files")
 
 	root, err := os.MkdirTemp("", ".bookshelf-archive-")
 	if err != nil {
@@ -412,6 +549,9 @@ func extractArchive(filename string) (*extractedArchive, error) {
 		manualCovers: make(map[string]string),
 	}
 	for name, entry := range entries {
+		if err := ctx.Err(); err != nil {
+			return cleanup(err)
+		}
 		if entry.FileInfo().IsDir() || name == "manifest.json" || name == manifest.Books || name == manifest.Settings {
 			continue
 		}
@@ -431,6 +571,8 @@ func extractArchive(filename string) (*extractedArchive, error) {
 		} else {
 			extracted.manualCovers[base] = destination
 		}
+		checkedFiles++
+		reportArchiveProgress(progress, "Checking archive", checkedFiles, totalFiles, "files")
 	}
 	for _, book := range books {
 		if filename := coverFilename(book); filename != "" {
@@ -561,7 +703,14 @@ func mergeArchiveBooks(existing, candidates []Book, skipDuplicates bool) ([]Book
 	return combined, imported, skipped, nil
 }
 
-func copyArchiveImages(ctx context.Context, archive *extractedArchive, paths Paths, books []Book, mode ArchiveImportMode) (int, int, error) {
+func copyArchiveImages(
+	ctx context.Context,
+	archive *extractedArchive,
+	paths Paths,
+	books []Book,
+	mode ArchiveImportMode,
+	copied func(),
+) (int, int, error) {
 	coverCount := 0
 	manualCount := 0
 	for _, book := range books {
@@ -576,6 +725,9 @@ func copyArchiveImages(ctx context.Context, archive *extractedArchive, paths Pat
 			return coverCount, manualCount, err
 		}
 		coverCount++
+		if copied != nil {
+			copied()
+		}
 	}
 	for filename, source := range archive.manualCovers {
 		if mode == ArchiveMerge && !manualCoverMatchesAny(filename, books) {
@@ -588,8 +740,17 @@ func copyArchiveImages(ctx context.Context, archive *extractedArchive, paths Pat
 			return coverCount, manualCount, err
 		}
 		manualCount++
+		if copied != nil {
+			copied()
+		}
 	}
 	return coverCount, manualCount, nil
+}
+
+func reportArchiveProgress(progress ArchiveProgressFunc, phase string, current, total int, unit string) {
+	if progress != nil {
+		progress(ArchiveProgress{Phase: phase, Current: current, Total: total, Unit: unit})
+	}
 }
 
 func archiveImageCounts(archive *extractedArchive, books []Book, mode ArchiveImportMode) (int, int) {

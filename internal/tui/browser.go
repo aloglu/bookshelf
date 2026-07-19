@@ -306,7 +306,7 @@ func renderBookDescription(book bookItem, width int, base lipgloss.Style) string
 		switch part {
 		case library.PublicationNotPublished:
 			style = style.Foreground(lipgloss.Color("#F59E0B"))
-		case library.PublicationChangesNotPublished:
+		case library.PublicationChangesNotPublished, library.PublicationVisibilityPending:
 			style = style.Foreground(lipgloss.Color("#EF4444"))
 		case "Cover Missing":
 			style = style.Foreground(lipgloss.Color("#EF4444"))

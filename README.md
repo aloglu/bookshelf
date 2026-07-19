@@ -10,6 +10,7 @@ the books that appear on it.
 - Interactive terminal library browser
 - Add and edit forms
 - Multi-select and batch removal
+- Per-book public website visibility
 - JSON, Excel-compatible CSV, and complete ZIP-based Bookshelf archives
 - Manual and automatically downloaded covers
 - Pure-Go cover conversion and spine-color extraction
@@ -80,7 +81,10 @@ Esc      Back, cancel, or quit
 
 `bookshelf edit` opens a single-book picker and guided form. `bookshelf remove`
 supports selecting multiple books across pages and reviewing the complete
-selection before confirmation.
+selection before confirmation. `bookshelf visibility` shows or hides one or
+more selected books on the public website without removing them from the
+library.
+
 `q` remains a
 compatibility shortcut outside text fields, but Escape is the consistent
 navigation key throughout the interface.
@@ -107,6 +111,8 @@ bookshelf export backup.json
 bookshelf export library.bookshelf
 bookshelf add --from books.json --dry-run
 bookshelf edit --id-or-isbn "9780441172719" --binding "Hardcover"
+bookshelf visibility --hide "9780441172719"
+bookshelf visibility --show "9780441172719"
 bookshelf remove "9780441172719" "9780441172696" --yes
 bookshelf build
 bookshelf preview
@@ -121,7 +127,8 @@ bookshelf upgrade
 
 Batch import accepts JSON or CSV. JSON can be a top-level array or an object
 with a `books` array. CSV requires a `title` column and also recognizes `id`,
-`author`, `isbn`, `slug`, `translator`, `publisher`, `binding`, and `published`.
+`author`, `isbn`, `slug`, `translator`, `publisher`, `binding`, `published`,
+and `website visibility`.
 Use `--format json|csv` when reading standard input with `bookshelf import -`.
 Imports are saved together and trigger one final build; `--no-build`,
 `--skip-duplicates`, and `--dry-run` adjust that behavior.
@@ -143,7 +150,8 @@ values. Existing files are protected unless `--force` is supplied.
 A `.bookshelf` file is a standard ZIP archive containing `manifest.json`,
 `books.json`, `settings.json`, fetched covers, and manual covers. It can be
 opened with any ZIP program. Generated `public/` files are omitted and rebuilt
-after import.
+after import. Archive v2 preserves website visibility and is the supported
+Bookshelf archive format.
 
 Importing an archive into an empty library restores it directly. With an
 existing library, Bookshelf asks whether to merge, replace, or cancel:
@@ -210,6 +218,13 @@ The list command compares the two and reports:
 - `Published`: source and published records match
 - `Changes Not Published`: the published record differs
 - `Not Published`: the book is absent from published data
+- `Hidden from Website`: the book is intentionally retained only in the library
+- `Still Visible on Website`: a pending hide has not been published
+
+Visibility changes made through `bookshelf visibility` or Add/Edit are
+published automatically. Hidden books and their generated cover files are
+excluded from the website, while their original covers remain available for
+backups, exports, and later restoration.
 
 The Covers screen separately reports `Has Cover` in the normal metadata color
 or `Cover Missing` in red. Publication status appears only in the List screen.
