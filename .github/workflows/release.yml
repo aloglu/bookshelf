@@ -61,8 +61,9 @@ jobs:
           "$smoke_dir/bookshelf" version | grep -F "$VERSION"
 
           mkdir -p "$smoke_dir/home"
+          export HOME="$smoke_dir/home"
+          export XDG_CONFIG_HOME="$HOME/.config"
           cp install.sh "$smoke_dir/install-release.sh"
-          HOME="$smoke_dir/home" \
           BOOKSHELF_INSTALL_DIR="$smoke_dir/install" \
           BOOKSHELF_BIN_DIR="$smoke_dir/bin" \
           BOOKSHELF_RELEASE_BASE_URL="file://$GITHUB_WORKSPACE/dist" \
@@ -70,22 +71,20 @@ jobs:
           "$smoke_dir/bin/bookshelf" version | grep -F "$VERSION"
           test -f "$smoke_dir/install/data/books.json"
           test -f "$smoke_dir/install/public/index.html"
-          HOME="$smoke_dir/home" "$smoke_dir/bin/bookshelf" status --json \
+          "$smoke_dir/bin/bookshelf" status --json \
             | grep -F "\"dataDirectory\": \"$smoke_dir/install/data\""
 
-          HOME="$smoke_dir/home" \
           BOOKSHELF_BIN_PATH="$smoke_dir/bin/bookshelf" \
             "$smoke_dir/bin/bookshelf" uninstall --yes
           test -f "$smoke_dir/install/data/books.json"
-          test -f "$smoke_dir/home/.config/bookshelf/root"
+          test -f "$XDG_CONFIG_HOME/bookshelf/root"
           test ! -e "$smoke_dir/bin/bookshelf"
 
-          HOME="$smoke_dir/home" \
           BOOKSHELF_BIN_DIR="$smoke_dir/bin" \
           BOOKSHELF_RELEASE_BASE_URL="file://$GITHUB_WORKSPACE/dist" \
             sh "$smoke_dir/install-release.sh"
           test -f "$smoke_dir/install/data/books.json"
-          HOME="$smoke_dir/home" "$smoke_dir/bin/bookshelf" status --json \
+          "$smoke_dir/bin/bookshelf" status --json \
             | grep -F "\"dataDirectory\": \"$smoke_dir/install/data\""
 
       - name: Publish GitHub release
