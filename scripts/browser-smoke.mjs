@@ -27,6 +27,18 @@ const fail = (message) => {
   throw new Error(message);
 };
 
+const waitWithTimeout = async (promise, milliseconds) => {
+  let timer;
+  const timeout = new Promise((resolveTimeout) => {
+    timer = setTimeout(resolveTimeout, milliseconds);
+  });
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    clearTimeout(timer);
+  }
+};
+
 const findBrowser = () => {
   const candidates = [
     process.env.CHROME_BIN,
@@ -186,6 +198,27 @@ const launchBrowser = (executable) =>
       }
     });
   });
+
+const stopBrowser = async (instance) => {
+  const hasExited = () =>
+    instance.process.exitCode !== null || instance.process.signalCode !== null;
+  if (!instance?.process || hasExited()) return;
+
+  const exited = new Promise((resolveExit) => instance.process.once("exit", resolveExit));
+  try {
+    const devtools = new DevTools(instance.browserWebSocket);
+    await devtools.open();
+    await waitWithTimeout(devtools.send("Browser.close"), 1000);
+  } catch {
+    // Fall through to the process-level shutdown below.
+  }
+
+  await waitWithTimeout(exited, 5000);
+  if (!hasExited()) {
+    instance.process.kill("SIGKILL");
+    await exited;
+  }
+};
 
 class DevTools {
   constructor(url) {
@@ -663,11 +696,7 @@ try {
     console.log("Browser smoke test passed.");
   }
 } finally {
-  if (browser?.process && browser.process.exitCode === null) {
-    const exited = new Promise((resolveExit) => browser.process.once("exit", resolveExit));
-    browser.process.kill("SIGKILL");
-    await exited;
-  }
+  await stopBrowser(browser);
   if (server) await new Promise((resolveClose) => server.close(resolveClose));
-  rmSync(temporaryRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  rmSync(temporaryRoot, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
 }
