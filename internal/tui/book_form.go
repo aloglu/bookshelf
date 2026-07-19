@@ -313,6 +313,9 @@ func (m bookFormModel) View() tea.View {
 }
 
 func RunBookForm(existing *library.Book) (BookFormResult, error) {
+	if AccessibleMode() {
+		return newAccessiblePrompter().bookForm(existing)
+	}
 	final, err := tea.NewProgram(newBookFormModel(existing)).Run()
 	if err != nil {
 		return BookFormResult{}, err

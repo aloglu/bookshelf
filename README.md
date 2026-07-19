@@ -58,7 +58,8 @@ bookshelf uninstall --purge
 ```
 
 Non-interactive uninstall requires `--yes`. `--delete-data` is an explicit
-alias for `--purge`.
+alias for `--purge`. Purging removes Bookshelf-owned data while preserving
+unrelated files if a custom installation directory is shared with other data.
 
 ## Interactive manager
 
@@ -84,8 +85,10 @@ selection before confirmation.
 compatibility shortcut outside text fields, but Escape is the consistent
 navigation key throughout the interface.
 
-Set `BOOKSHELF_ACCESSIBLE=1` to use screen-reader-friendly standard prompts
-instead of full-screen forms.
+Set `BOOKSHELF_ACCESSIBLE=1` to use screen-reader-friendly, line-oriented
+prompts instead of the full-screen interface. Numbered choices replace
+highlighted menus; while editing, press Enter to keep an existing value or
+enter `-` to clear it.
 
 ## Direct commands
 
@@ -95,6 +98,8 @@ for scripts and automation:
 ```bash
 bookshelf list --plain
 bookshelf list --json
+bookshelf status
+bookshelf status --json
 bookshelf add --title "Dune" --author "Frank Herbert" --isbn "9780441172719"
 bookshelf import books.csv --skip-duplicates
 bookshelf export books.csv
@@ -108,6 +113,7 @@ bookshelf preview
 bookshelf covers --id-or-isbn "9780441172719"
 bookshelf covers --all
 bookshelf covers --missing
+bookshelf covers --attention
 bookshelf validate
 bookshelf settings --default-view coverflow --default-sort author
 bookshelf upgrade
@@ -130,8 +136,9 @@ bookshelf export - --format json
 ```
 
 CSV exports use UTF-8 with Excel-compatible headings and line endings, retain
-non-ASCII metadata, and can be imported into Bookshelf again. Existing files
-are protected unless `--force` is supplied.
+non-ASCII metadata, protect formula-like cells when opened in spreadsheet
+software, and can be imported into Bookshelf again without changing those
+values. Existing files are protected unless `--force` is supplied.
 
 A `.bookshelf` file is a standard ZIP archive containing `manifest.json`,
 `books.json`, `settings.json`, fetched covers, and manual covers. It can be
@@ -149,8 +156,11 @@ bookshelf import library.bookshelf --replace
 
 Merge retains current website settings and copies covers belonging to imported
 books. Replace restores the archive’s books, settings, fetched covers, and
-manual covers as a complete backup. Scripts must specify `--merge` or
-`--replace` when the destination is not empty.
+manual covers as a complete backup. The archive is fully validated before the
+choice is shown. Replacing a non-empty library first writes a timestamped
+safety archive under `backups/`. Bookshelf retains the five most recent
+automatic safety archives and never prunes files with other names. Scripts must
+specify `--merge` or `--replace` when the destination is not empty.
 
 Run `bookshelf help COMMAND`, `bookshelf COMMAND help`, or
 `bookshelf COMMAND --help` to see command-specific options.
@@ -170,6 +180,7 @@ bookshelf settings
 bookshelf settings --permalink-style title-slug
 bookshelf settings --statistics hide
 bookshelf settings --default-view coverflow
+bookshelf settings --shelf-scroll-speed slow --coverflow-scroll-speed fast
 bookshelf settings --default-sort author
 bookshelf settings --sort-direction descending
 bookshelf settings --site-title "My Library" --site-subtitle "Books worth sharing"
@@ -203,8 +214,15 @@ The list command compares the two and reports:
 The Covers screen separately reports `Has Cover` in the normal metadata color
 or `Cover Missing` in red. Publication status appears only in the List screen.
 
+`bookshelf status` gives a quick summary of book and cover counts, publication
+state, website freshness, unresolved cover work, and storage paths. Add
+`--json` for scripts.
+
 `bookshelf validate` compares complete records rather than only array lengths,
-so same-sized but stale generated libraries are detected.
+so same-sized but stale generated libraries are detected. Hard integrity or
+publishing errors fail the command; repair-worthy issues such as suspicious
+ISBN checksums, missing or orphaned covers, unsupported manual covers, and
+likely duplicate ISBN-less books are reported as warnings.
 
 ## Installed layout
 
@@ -220,16 +238,28 @@ so same-sized but stale generated libraries are detected.
     ...                # generated, disposable publishing output
     data/
       books.js
-      covers/
+      covers/          # 480px WebP detail covers
+      thumbnails/      # 360px WebP covers used by list views
+  backups/
+    before-replace-*.bookshelf
 ```
 
 A fresh installation starts with an empty library and generated index, even
 when installed from a checkout containing development books or covers. Website
 templates are embedded in the executable. Upgrades replace only that executable
-and regenerate `public/` without fetching or processing covers; everything in
-`data/` remains untouched. `bookshelf upgrade` checks the latest GitHub release
+and regenerate `public/` without fetching covers; unchanged WebP variants are
+reused and only changed covers are processed. Everything in `data/` remains
+untouched. `bookshelf upgrade` checks the latest GitHub release
 first and does nothing when that version is already installed; use `--check` to
 check only or `--force` to reinstall it.
+
+Release installations use `~/.local/share/bookshelf`. Running `./install.sh`
+from a source checkout builds a development binary that instead uses
+`~/.local/share/bookshelf-dev`, even when launched outside the checkout.
+Repository-local `data/`, `public/`, and `backups/` directories are ignored by
+Git and never selected implicitly. A custom `BOOKSHELF_INSTALL_DIR` selected
+during installation is remembered for later commands. Setting the variable for
+an individual command remains available as an explicit temporary override.
 
 ## Covers
 
@@ -239,8 +269,10 @@ Canonical covers live in durable user storage:
 ~/.local/share/bookshelf/data/covers/
 ```
 
-`bookshelf build` copies them into `public/data/covers/`; that published copy
-can be deleted and recreated at any time.
+`bookshelf build` creates lossy WebP derivatives: 360px-wide thumbnails for
+shelf, stack, and coverflow views, and 480px-wide covers for the detail view.
+Smaller originals are never upscaled. Durable source covers remain untouched;
+both published directories are disposable and recreated by a build.
 
 ISBN-backed covers retain their entered formatting in searchable filenames,
 such as `978-0-441-17271-9.jpg` or `9780441172719.jpg`.
@@ -270,17 +302,24 @@ automatic fallback:
 bookshelf covers
 bookshelf covers --all
 bookshelf covers --missing
+bookshelf covers --attention
 bookshelf covers --all --source goodreads
 bookshelf covers BOOK_ID --url "https://example.com/cover.jpg"
 ```
 
 Use `--missing` to retry every book that does not currently have a durable
-cover. Existing covers are skipped unless `--replace` is supplied. Interactive
-fetching uses a progress screen. Escape pauses the operation and offers to keep
+cover. Existing covers are skipped unless `--replace` is supplied; choosing a
+custom URL for one book is itself an explicit replacement. Interactive fetching
+uses a progress screen. Escape pauses the operation and offers to keep
 the completed downloads, discard the entire session, or continue. Downloads
 remain staged until they are committed, so discarding leaves existing data
 unchanged. The progress bar distinguishes downloaded, skipped, missing, and
 failed results.
+
+Use `--attention` to revisit unresolved books from the most recent fetch
+report. Books that were removed or have since received covers are omitted. You
+can select a smaller set, retry another source, or provide a custom URL when
+only one book is selected.
 
 Custom image URLs are offered only when one book is selected. After a
 single-cover download, Bookshelf can open the result in the operating system's
@@ -318,16 +357,23 @@ Building from source requires Go. Normal installations do not.
 
 ```bash
 go test ./...
-go build ./cmd/bookshelf
+node scripts/browser-smoke.mjs
+mkdir -p build
+go build -o build/bookshelf ./cmd/bookshelf
 ```
 
-Run against the repository data:
+The browser smoke test uses Node.js 22 and Chromium or Chrome when available,
+and otherwise skips locally when no browser is installed; CI requires it. The
+compiled binary is written beneath the ignored `build/` directory so it cannot
+replace the tracked development launcher.
+
+Run directly from the checkout with an isolated, repository-local library:
 
 ```bash
 ./bookshelf
 ```
 
-Install a local checkout into the normal per-user layout:
+Install a local checkout as the isolated per-user development profile:
 
 ```bash
 ./install.sh

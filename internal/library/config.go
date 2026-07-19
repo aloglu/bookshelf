@@ -13,6 +13,7 @@ type WebsiteView string
 type WebsiteSort string
 type SortDirection string
 type ISBNLinkSources string
+type ScrollSpeed string
 
 const (
 	PermalinkFormattedISBN PermalinkStyle = "formatted-isbn"
@@ -33,6 +34,10 @@ const (
 	ISBNLinksBoth      ISBNLinkSources = "both"
 	ISBNLinksWikipedia ISBNLinkSources = "wikipedia"
 	ISBNLinksGoodreads ISBNLinkSources = "goodreads"
+
+	ScrollSpeedSlow   ScrollSpeed = "slow"
+	ScrollSpeedNormal ScrollSpeed = "normal"
+	ScrollSpeedFast   ScrollSpeed = "fast"
 )
 
 type Config struct {
@@ -44,6 +49,8 @@ type Config struct {
 	SiteTitle        string          `json:"siteTitle"`
 	SiteSubtitle     string          `json:"siteSubtitle"`
 	ShowRandom       bool            `json:"showRandom"`
+	ShelfScrollSpeed ScrollSpeed     `json:"shelfScrollSpeed"`
+	CoverflowSpeed   ScrollSpeed     `json:"coverflowScrollSpeed"`
 	ISBNLinkSources  ISBNLinkSources `json:"isbnLinkSources"`
 	ShowFooter       bool            `json:"showFooter"`
 	FooterText       string          `json:"footerText,omitempty"`
@@ -59,6 +66,8 @@ func DefaultConfig() Config {
 		SiteTitle:        "Bookshelf",
 		SiteSubtitle:     "Click on a book spine to see its details",
 		ShowRandom:       true,
+		ShelfScrollSpeed: ScrollSpeedNormal,
+		CoverflowSpeed:   ScrollSpeedNormal,
 		ISBNLinkSources:  ISBNLinksBoth,
 		ShowFooter:       true,
 	}
@@ -117,6 +126,12 @@ func ValidateConfig(config Config) error {
 	}
 	if err := ValidateISBNLinkSources(config.ISBNLinkSources); err != nil {
 		return err
+	}
+	if err := ValidateScrollSpeed(config.ShelfScrollSpeed); err != nil {
+		return fmt.Errorf("invalid shelf scroll speed: %w", err)
+	}
+	if err := ValidateScrollSpeed(config.CoverflowSpeed); err != nil {
+		return fmt.Errorf("invalid Coverflow scroll speed: %w", err)
 	}
 	if strings.TrimSpace(config.SiteTitle) == "" {
 		return fmt.Errorf("website title cannot be empty")
@@ -229,5 +244,27 @@ func ParseISBNLinkSources(value string) (ISBNLinkSources, error) {
 		return ISBNLinksGoodreads, nil
 	default:
 		return "", fmt.Errorf("invalid ISBN link sources %q; use both, wikipedia, or goodreads", value)
+	}
+}
+
+func ValidateScrollSpeed(speed ScrollSpeed) error {
+	switch speed {
+	case ScrollSpeedSlow, ScrollSpeedNormal, ScrollSpeedFast:
+		return nil
+	default:
+		return fmt.Errorf("%q; use slow, normal, or fast", speed)
+	}
+}
+
+func ParseScrollSpeed(value string) (ScrollSpeed, error) {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "slow":
+		return ScrollSpeedSlow, nil
+	case "normal", "default":
+		return ScrollSpeedNormal, nil
+	case "fast":
+		return ScrollSpeedFast, nil
+	default:
+		return "", fmt.Errorf("invalid scroll speed %q; use slow, normal, or fast", value)
 	}
 }

@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"html"
-	"image"
 	"image/jpeg"
 	"io"
 	"math/rand/v2"
@@ -85,6 +84,16 @@ type CoverFetchOutcome struct {
 	Status     CoverFetchStatus
 	Message    string
 	stagedPath string
+}
+
+type CoverReportEntry struct {
+	ID      string           `json:"id"`
+	Title   string           `json:"title"`
+	Author  string           `json:"author,omitempty"`
+	ISBN    string           `json:"isbn,omitempty"`
+	Status  CoverFetchStatus `json:"status"`
+	Source  CoverSource      `json:"source"`
+	Message string           `json:"message,omitempty"`
 }
 
 type CoverFetchSummary struct {
@@ -264,21 +273,12 @@ func (s *CoverFetchSession) Summary() CoverFetchSummary {
 }
 
 func (s *CoverFetchSession) WriteReport() (string, int, error) {
-	type reportEntry struct {
-		ID      string           `json:"id"`
-		Title   string           `json:"title"`
-		Author  string           `json:"author,omitempty"`
-		ISBN    string           `json:"isbn,omitempty"`
-		Status  CoverFetchStatus `json:"status"`
-		Source  CoverSource      `json:"source"`
-		Message string           `json:"message,omitempty"`
-	}
-	entries := make([]reportEntry, 0)
+	entries := make([]CoverReportEntry, 0)
 	for _, outcome := range s.outcomes {
 		if outcome.Status == CoverFetchDownloaded {
 			continue
 		}
-		entries = append(entries, reportEntry{
+		entries = append(entries, CoverReportEntry{
 			ID:      outcome.Book.ID,
 			Title:   outcome.Book.Title,
 			Author:  outcome.Book.Author,
@@ -304,8 +304,52 @@ func (s *CoverFetchSession) WriteReport() (string, int, error) {
 	return s.paths.CoverReportJSON, len(entries), nil
 }
 
-func (s *CoverFetchSession) Commit() (CoverFetchSummary, error) {
+func LoadCoverReport(paths Paths) ([]CoverReportEntry, error) {
+	raw, err := os.ReadFile(paths.CoverReportJSON)
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var entries []CoverReportEntry
+	if err := json.Unmarshal(raw, &entries); err != nil {
+		return nil, fmt.Errorf("parse %s: %w", paths.CoverReportJSON, err)
+	}
+	return entries, nil
+}
+
+// CoverAttentionBooks returns unresolved books from the latest cover-fetch
+// report that are still present in the library and still lack a stored cover.
+func CoverAttentionBooks(paths Paths, books []Book) ([]Book, error) {
+	report, err := LoadCoverReport(paths)
+	if err != nil {
+		return nil, err
+	}
+	byID := make(map[string]Book, len(books))
+	for _, book := range books {
+		byID[book.ID] = book
+	}
+	attention := make([]Book, 0, len(report))
+	seen := make(map[string]bool, len(report))
+	for _, entry := range report {
+		book, exists := byID[entry.ID]
+		if !exists || seen[book.ID] || book.Cover != "" {
+			continue
+		}
+		seen[book.ID] = true
+		attention = append(attention, book)
+	}
+	return attention, nil
+}
+
+func (s *CoverFetchSession) Commit(ctx context.Context) (CoverFetchSummary, error) {
 	summary := s.Summary()
+	unlock, err := acquireLibraryLock(ctx, s.paths)
+	if err != nil {
+		return summary, err
+	}
+	defer unlock()
 	books, err := Load(s.paths)
 	if err != nil {
 		return summary, err
@@ -525,7 +569,7 @@ func (s *CoverFetchSession) downloadJPEG(ctx context.Context, imageURL, destinat
 	if len(raw) < 1000 {
 		return false, "cover image was empty", nil
 	}
-	img, _, err := image.Decode(bytes.NewReader(raw))
+	img, _, err := decodeCoverImage(bytes.NewReader(raw))
 	if err != nil {
 		return false, "cover response was not an image", nil
 	}

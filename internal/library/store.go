@@ -2,6 +2,7 @@ package library
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,10 +16,25 @@ import (
 	"github.com/aloglu/bookshelf/internal/siteassets"
 )
 
+const generatedCoverManifestName = "cover-manifest.json"
+
+type generatedCoverRecord struct {
+	SHA256          string `json:"sha256"`
+	Cover           string `json:"cover"`
+	CoverSHA256     string `json:"coverSha256"`
+	Thumbnail       string `json:"thumbnail"`
+	ThumbnailSHA256 string `json:"thumbnailSha256"`
+}
+
+type generatedCoverManifest struct {
+	Covers map[string]generatedCoverRecord `json:"covers"`
+}
+
 type Paths struct {
 	Root            string
 	DataDir         string
 	PublicDir       string
+	RootMarker      string
 	BooksJSON       string
 	ConfigJSON      string
 	CoverReportJSON string
@@ -40,6 +56,7 @@ func NewPaths(root string) Paths {
 		Root:            root,
 		DataDir:         filepath.Join(root, "data"),
 		PublicDir:       filepath.Join(root, "public"),
+		RootMarker:      filepath.Join(root, "data", ".bookshelf-root"),
 		BooksJSON:       filepath.Join(root, "data", "books.json"),
 		ConfigJSON:      filepath.Join(root, "data", "settings.json"),
 		CoverReportJSON: filepath.Join(root, "data", "cover-report.json"),
@@ -51,25 +68,53 @@ func NewPaths(root string) Paths {
 }
 
 func ResolveRoot() (string, error) {
+	return ResolveRootFor("bookshelf")
+}
+
+func ResolveRootFor(dataDirectory string) (string, error) {
 	if configured := strings.TrimSpace(os.Getenv("BOOKSHELF_INSTALL_DIR")); configured != "" {
-		return filepath.Abs(configured)
+		return ResolveRootAt(configured)
 	}
-	if cwd, err := os.Getwd(); err == nil {
-		paths := NewPaths(cwd)
-		if fileExists(paths.BooksJSON) {
-			return paths.Root, nil
-		}
+	root, err := DefaultRootFor(dataDirectory)
+	if err != nil {
+		return "", err
+	}
+	return ResolveRootAt(root)
+}
+
+func ResolveRootAt(root string) (string, error) {
+	root = strings.TrimSpace(root)
+	if root == "" {
+		return "", fmt.Errorf("Bookshelf data directory cannot be empty")
+	}
+	root, err := filepath.Abs(root)
+	if err != nil {
+		return "", err
+	}
+	paths := NewPaths(root)
+	if err := recoverDataIfNeeded(paths); err != nil {
+		return "", err
+	}
+	if fileExists(paths.BooksJSON) {
+		return root, nil
+	}
+	return "", fmt.Errorf("bookshelf data was not found; expected data/books.json under %s", root)
+}
+
+func DefaultRoot() (string, error) {
+	return DefaultRootFor("bookshelf")
+}
+
+func DefaultRootFor(dataDirectory string) (string, error) {
+	dataDirectory = strings.TrimSpace(dataDirectory)
+	if dataDirectory == "" || filepath.Base(dataDirectory) != dataDirectory || dataDirectory == "." {
+		return "", fmt.Errorf("invalid Bookshelf data directory name %q", dataDirectory)
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
 	}
-	root := filepath.Join(home, ".local", "share", "bookshelf")
-	paths := NewPaths(root)
-	if fileExists(paths.BooksJSON) {
-		return root, nil
-	}
-	return "", fmt.Errorf("bookshelf data was not found; expected data/books.json under %s", root)
+	return filepath.Join(home, ".local", "share", dataDirectory), nil
 }
 
 func Ensure(paths Paths) error {
@@ -83,6 +128,14 @@ func Ensure(paths Paths) error {
 }
 
 func Initialize(paths Paths) error {
+	unlock, err := acquireLibraryLock(context.Background(), paths)
+	if err != nil {
+		return err
+	}
+	defer unlock()
+	if err := recoverDataDirectory(paths); err != nil {
+		return err
+	}
 	if err := os.MkdirAll(paths.CoversDir, 0o755); err != nil {
 		return err
 	}
@@ -94,7 +147,15 @@ func Initialize(paths Paths) error {
 			return err
 		}
 	}
+	if err := atomicWrite(paths.RootMarker, []byte("bookshelf-root-v1\n"), 0o644); err != nil {
+		return err
+	}
 	return Ensure(paths)
+}
+
+func OwnsRoot(paths Paths) bool {
+	raw, err := os.ReadFile(paths.RootMarker)
+	return err == nil && string(raw) == "bookshelf-root-v1\n"
 }
 
 func Load(paths Paths) ([]Book, error) {
@@ -110,6 +171,7 @@ func Load(paths Paths) ([]Book, error) {
 	for i := range books {
 		books[i] = Normalize(books[i])
 		books[i].Permalink = ""
+		books[i].Thumbnail = ""
 		filename := coverFilename(books[i])
 		if filename != "" && fileExists(filepath.Join(paths.CoversDir, filename)) {
 			books[i].Cover = filepath.ToSlash(filepath.Join("data", "covers", filename))
@@ -129,6 +191,7 @@ func Save(paths Paths, books []Book) error {
 	copy(sourceBooks, books)
 	for index := range sourceBooks {
 		sourceBooks[index].Cover = ""
+		sourceBooks[index].Thumbnail = ""
 		sourceBooks[index].TitleSlug = ""
 		sourceBooks[index].Permalink = ""
 	}
@@ -150,14 +213,58 @@ func SaveGenerated(paths Paths, books []Book) error {
 	publishedBooks := make([]Book, len(books))
 	copy(publishedBooks, books)
 	AssignTitleSlugs(publishedBooks)
-	coverFiles := make([]string, 0, len(publishedBooks))
+
+	stage, err := os.MkdirTemp(filepath.Dir(paths.PublicDir), ".bookshelf-public-")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(stage)
+	if err := copyEmbeddedSite(stage); err != nil {
+		return err
+	}
+	stageCovers := filepath.Join(stage, "data", "covers")
+	if err := os.MkdirAll(stageCovers, 0o755); err != nil {
+		return err
+	}
+	stageThumbnails := filepath.Join(stage, "data", "thumbnails")
+	if err := os.MkdirAll(stageThumbnails, 0o755); err != nil {
+		return err
+	}
+	previousManifest := loadGeneratedCoverManifest(paths)
+	nextManifest := generatedCoverManifest{Covers: make(map[string]generatedCoverRecord)}
+
 	for index := range publishedBooks {
 		filename := coverFilename(publishedBooks[index])
 		if filename != "" && fileExists(filepath.Join(paths.CoversDir, filename)) {
-			publishedBooks[index].Cover = filepath.ToSlash(filepath.Join("data", "covers", filename))
-			coverFiles = append(coverFiles, filename)
+			source := filepath.Join(paths.CoversDir, filename)
+			digest, _, err := fileDigest(source)
+			if err != nil {
+				return err
+			}
+			hash := fmt.Sprintf("%x", digest)
+			record, reused := reuseGeneratedCover(paths, stage, previousManifest.Covers[filename], hash)
+			if !reused {
+				var publishable bool
+				record, publishable, err = generatePublishedCover(source, filename, stageCovers, stageThumbnails, hash)
+				if err != nil {
+					return err
+				}
+				if !publishable {
+					publishedBooks[index].Cover = ""
+					publishedBooks[index].Thumbnail = ""
+					publishedBooks[index].SpineColor = ""
+					publishedBooks[index].SpineTextColor = ""
+					publishedBooks[index].CoverFile = ""
+					publishedBooks[index].Permalink = PreferredPermalink(publishedBooks[index], config.PermalinkStyle)
+					continue
+				}
+			}
+			nextManifest.Covers[filename] = record
+			publishedBooks[index].Cover = record.Cover
+			publishedBooks[index].Thumbnail = record.Thumbnail
 		} else {
 			publishedBooks[index].Cover = ""
+			publishedBooks[index].Thumbnail = ""
 			publishedBooks[index].SpineColor = ""
 			publishedBooks[index].SpineTextColor = ""
 		}
@@ -178,27 +285,96 @@ func SaveGenerated(paths Paths, books []Book) error {
 	data = append(data, raw...)
 	data = append(data, ';', '\n')
 
-	stage, err := os.MkdirTemp(filepath.Dir(paths.PublicDir), ".bookshelf-public-")
-	if err != nil {
-		return err
-	}
-	defer os.RemoveAll(stage)
-	if err := copyEmbeddedSite(stage); err != nil {
-		return err
-	}
-	stageCovers := filepath.Join(stage, "data", "covers")
-	if err := os.MkdirAll(stageCovers, 0o755); err != nil {
-		return err
-	}
-	for _, filename := range coverFiles {
-		if err := copyFile(filepath.Join(paths.CoversDir, filename), filepath.Join(stageCovers, filename)); err != nil {
-			return err
-		}
-	}
 	if err := atomicWrite(filepath.Join(stage, "data", "books.js"), data, 0o644); err != nil {
 		return err
 	}
+	manifestRaw, err := json.MarshalIndent(nextManifest, "", "    ")
+	if err != nil {
+		return err
+	}
+	if err := atomicWrite(filepath.Join(stage, "data", generatedCoverManifestName), append(manifestRaw, '\n'), 0o644); err != nil {
+		return err
+	}
 	return replaceDirectory(paths.PublicDir, stage)
+}
+
+func generatePublishedCover(source, filename, stageCovers, stageThumbnails, hash string) (generatedCoverRecord, bool, error) {
+	generatedFilename := generatedWebCoverFilename(filename)
+	record := generatedCoverRecord{
+		SHA256:    hash,
+		Cover:     filepath.ToSlash(filepath.Join("data", "covers", generatedFilename)),
+		Thumbnail: filepath.ToSlash(filepath.Join("data", "thumbnails", generatedFilename)),
+	}
+	err := generateWebCoverVariants(
+		source,
+		filepath.Join(stageThumbnails, generatedFilename),
+		filepath.Join(stageCovers, generatedFilename),
+	)
+	if isInvalidCoverSource(err) {
+		return generatedCoverRecord{}, false, nil
+	}
+	if err != nil {
+		return generatedCoverRecord{}, false, err
+	}
+	record, err = finalizeGeneratedCoverRecord(stageCovers, stageThumbnails, record)
+	if err != nil {
+		return generatedCoverRecord{}, false, err
+	}
+	return record, true, nil
+}
+
+func finalizeGeneratedCoverRecord(stageCovers, stageThumbnails string, record generatedCoverRecord) (generatedCoverRecord, error) {
+	coverDigest, _, err := fileDigest(filepath.Join(stageCovers, filepath.Base(record.Cover)))
+	if err != nil {
+		return generatedCoverRecord{}, err
+	}
+	thumbnailDigest, _, err := fileDigest(filepath.Join(stageThumbnails, filepath.Base(record.Thumbnail)))
+	if err != nil {
+		return generatedCoverRecord{}, err
+	}
+	record.CoverSHA256 = fmt.Sprintf("%x", coverDigest)
+	record.ThumbnailSHA256 = fmt.Sprintf("%x", thumbnailDigest)
+	return record, nil
+}
+
+func loadGeneratedCoverManifest(paths Paths) generatedCoverManifest {
+	manifest := generatedCoverManifest{Covers: make(map[string]generatedCoverRecord)}
+	raw, err := os.ReadFile(filepath.Join(paths.PublicDir, "data", generatedCoverManifestName))
+	if err != nil || json.Unmarshal(raw, &manifest) != nil || manifest.Covers == nil {
+		manifest.Covers = make(map[string]generatedCoverRecord)
+	}
+	return manifest
+}
+
+func reuseGeneratedCover(paths Paths, stage string, record generatedCoverRecord, hash string) (generatedCoverRecord, bool) {
+	if record.SHA256 != hash ||
+		!validGeneratedCoverPath(record.Cover, "data/covers/") ||
+		!validGeneratedCoverPath(record.Thumbnail, "data/thumbnails/") {
+		return generatedCoverRecord{}, false
+	}
+	for _, relative := range []string{record.Cover, record.Thumbnail} {
+		source := filepath.Join(paths.PublicDir, filepath.FromSlash(relative))
+		destination := filepath.Join(stage, filepath.FromSlash(relative))
+		expectedHash := record.CoverSHA256
+		if relative == record.Thumbnail {
+			expectedHash = record.ThumbnailSHA256
+		}
+		digest, _, err := fileDigest(source)
+		if err != nil || expectedHash == "" || fmt.Sprintf("%x", digest) != expectedHash ||
+			copyFile(source, destination) != nil {
+			return generatedCoverRecord{}, false
+		}
+	}
+	return record, true
+}
+
+func validGeneratedCoverPath(relative, prefix string) bool {
+	if relative == "" || filepath.IsAbs(relative) || strings.Contains(relative, "\\") {
+		return false
+	}
+	clean := filepath.ToSlash(filepath.Clean(relative))
+	return clean == relative && strings.HasPrefix(clean, prefix) &&
+		strings.EqualFold(filepath.Ext(clean), ".webp")
 }
 
 func LoadGenerated(paths Paths) ([]Book, error) {
@@ -276,8 +452,22 @@ func Validate(books []Book) []error {
 	return problems
 }
 
-func GeneratedMatches(source, generated []Book) bool {
-	return reflect.DeepEqual(comparableBooks(source), comparableBooks(generated))
+func GeneratedMatches(paths Paths, source, generated []Book) bool {
+	if !reflect.DeepEqual(comparableBooks(source), comparableBooks(generated)) {
+		return false
+	}
+	byID := make(map[string]Book, len(generated))
+	for _, book := range generated {
+		byID[book.ID] = book
+	}
+	manifest := loadGeneratedCoverManifest(paths)
+	for _, book := range source {
+		published, ok := byID[book.ID]
+		if !ok || !generatedCoverCurrent(paths, book, published, manifest) {
+			return false
+		}
+	}
+	return true
 }
 
 func PublicationStatuses(paths Paths, source []Book) map[string]string {
@@ -293,14 +483,20 @@ func PublicationStatuses(paths Paths, source []Book) map[string]string {
 	for _, book := range generated {
 		byID[book.ID] = book
 	}
+	manifest := loadGeneratedCoverManifest(paths)
 	for _, book := range source {
 		published, ok := byID[book.ID]
+		coverCurrent := ok && generatedCoverCurrent(paths, book, published, manifest)
 		book.CoverFile = ""
 		published.CoverFile = ""
+		book.Cover = ""
+		published.Cover = ""
+		book.Thumbnail = ""
+		published.Thumbnail = ""
 		switch {
 		case !ok:
 			statuses[book.ID] = PublicationNotPublished
-		case !reflect.DeepEqual(book, published):
+		case !coverCurrent || !reflect.DeepEqual(book, published):
 			statuses[book.ID] = PublicationChangesNotPublished
 		default:
 			statuses[book.ID] = PublicationPublished
@@ -309,20 +505,57 @@ func PublicationStatuses(paths Paths, source []Book) map[string]string {
 	return statuses
 }
 
+func generatedCoverCurrent(paths Paths, source, published Book, manifest generatedCoverManifest) bool {
+	filename := coverFilename(source)
+	if filename == "" || !fileExists(filepath.Join(paths.CoversDir, filename)) {
+		return published.Cover == "" && published.Thumbnail == ""
+	}
+	record, ok := manifest.Covers[filename]
+	if !ok || record.Cover != published.Cover || record.Thumbnail != published.Thumbnail {
+		return false
+	}
+	sourceDigest, _, err := fileDigest(filepath.Join(paths.CoversDir, filename))
+	if err != nil || fmt.Sprintf("%x", sourceDigest) != record.SHA256 {
+		return false
+	}
+	for relative, expected := range map[string]string{
+		record.Cover:     record.CoverSHA256,
+		record.Thumbnail: record.ThumbnailSHA256,
+	} {
+		if !validGeneratedCoverPath(relative, "data/") || expected == "" {
+			return false
+		}
+		digest, _, err := fileDigest(filepath.Join(paths.PublicDir, filepath.FromSlash(relative)))
+		if err != nil || fmt.Sprintf("%x", digest) != expected {
+			return false
+		}
+	}
+	return true
+}
+
 func comparableBooks(books []Book) []Book {
 	result := append([]Book(nil), books...)
 	for index := range result {
 		result[index].CoverFile = ""
+		result[index].Cover = ""
+		result[index].Thumbnail = ""
 	}
 	return result
 }
 
 func FindIndex(books []Book, idOrISBN string) int {
 	needle := strings.TrimSpace(idOrISBN)
-	needleISBN := CleanISBN(needle)
 	for i, book := range books {
-		if book.ID == needle || (needleISBN != "" && CleanISBN(book.ISBN) == needleISBN) {
+		if book.ID == needle {
 			return i
+		}
+	}
+	needleISBN := CleanISBN(needle)
+	if needleISBN != "" {
+		for i, book := range books {
+			if CleanISBN(book.ISBN) == needleISBN {
+				return i
+			}
 		}
 	}
 	return -1

@@ -14,12 +14,12 @@ type BookFormResult struct {
 	Cancelled bool
 }
 
-func ChooseArchiveImportMode(existingBooks int, filename string) (library.ArchiveImportMode, bool, error) {
+func ChooseArchiveImportMode(existingBooks int, filename string, info library.ArchiveInfo) (library.ArchiveImportMode, bool, error) {
 	choice, chosen, err := RunDecision(DecisionRequest{
 		Title: "Import Bookshelf Archive?",
 		Description: fmt.Sprintf(
-			"%s\n\nThe current library contains %d book(s). Merge keeps current settings; replace restores the archive as a complete backup.",
-			filename, existingBooks,
+			"%s\nArchive: %d book(s), %d cover(s), %d manual cover(s)\nCurrent library: %d book(s)\n\nMerge keeps current settings. Replace restores the complete backup and first saves a safety copy of the current library.",
+			filename, info.Books, info.Covers, info.ManualCovers, existingBooks,
 		),
 		Borderless: true,
 		Options: []DecisionOption{
@@ -37,11 +37,11 @@ func ChooseArchiveImportMode(existingBooks int, filename string) (library.Archiv
 
 func ConfirmUninstall(binPath, installDir string, purge bool) (bool, error) {
 	title := "Uninstall Bookshelf?"
-	description := fmt.Sprintf("Remove the command and generated website?\n\n%s\n%s\n\nEverything under data/ will be kept. To remove it too, cancel and run `bookshelf uninstall --purge`.", binPath, filepath.Join(installDir, "public"))
+	description := fmt.Sprintf("Remove the command and generated website?\n\n%s\n%s\n\nEverything under data/ and backups/ will be kept. To remove it too, cancel and run `bookshelf uninstall --purge`.", binPath, filepath.Join(installDir, "public"))
 	affirmative := "Uninstall"
 	if purge {
 		title = "Delete Bookshelf and all data?"
-		description = fmt.Sprintf("This permanently removes the command, books, covers, settings, reports, and generated website.\n\n%s\n%s", binPath, installDir)
+		description = fmt.Sprintf("This permanently removes the command, books, covers, settings, reports, backups, and generated website. Unrelated files in a custom installation directory are preserved.\n\n%s\n%s", binPath, installDir)
 		affirmative = "Delete Everything"
 	}
 	choice, chosen, err := RunDecision(DecisionRequest{

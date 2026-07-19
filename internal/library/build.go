@@ -2,8 +2,8 @@ package library
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"image"
 	"image/jpeg"
 	_ "image/png"
 	"os"
@@ -27,8 +27,12 @@ type BuildStats struct {
 	Missing   int
 }
 
-func Build(ctx context.Context, paths Paths, options BuildOptions) (BuildStats, error) {
-	var stats BuildStats
+func Build(ctx context.Context, paths Paths, options BuildOptions) (stats BuildStats, resultErr error) {
+	unlock, err := acquireLibraryLock(ctx, paths)
+	if err != nil {
+		return stats, err
+	}
+	defer unlock()
 	if err := Ensure(paths); err != nil {
 		return stats, err
 	}
@@ -44,17 +48,39 @@ func Build(ctx context.Context, paths Paths, options BuildOptions) (BuildStats, 
 	if problems := Validate(books); len(problems) > 0 {
 		return stats, validationError(problems)
 	}
+	originalBooks := append([]Book(nil), books...)
 	stats.Books = len(books)
+	stage, err := os.MkdirTemp(paths.DataDir, ".build-covers-")
+	if err != nil {
+		return stats, err
+	}
+	defer os.RemoveAll(stage)
 	var renameRollbacks []func()
+	var coverRollbacks []func() error
+	sourceSaved := false
 	committed := false
 	defer func() {
 		if committed {
 			return
 		}
+		var rollbackErr error
+		for index := len(coverRollbacks) - 1; index >= 0; index-- {
+			rollbackErr = errors.Join(rollbackErr, coverRollbacks[index]())
+		}
 		for index := len(renameRollbacks) - 1; index >= 0; index-- {
 			renameRollbacks[index]()
 		}
+		if sourceSaved {
+			rollbackErr = errors.Join(rollbackErr, Save(paths, originalBooks))
+			rollbackErr = errors.Join(rollbackErr, SaveGenerated(paths, originalBooks))
+		}
+		resultErr = errors.Join(resultErr, rollbackErr)
 	}()
+	type pendingCover struct {
+		staged      string
+		destination string
+	}
+	var pendingCovers []pendingCover
 
 	for i := range books {
 		book := &books[i]
@@ -75,18 +101,22 @@ func Build(ctx context.Context, paths Paths, options BuildOptions) (BuildStats, 
 		}
 		destination := filepath.Join(paths.CoversDir, filename)
 		manual := findManualCover(paths, *book)
+		paletteSource := destination
 		if manual != "" {
-			if err := transcodeJPEG(manual, destination); err != nil {
+			staged := filepath.Join(stage, fmt.Sprintf("%06d-%s", i, filename))
+			if err := transcodeJPEG(manual, staged); err != nil {
 				return stats, fmt.Errorf("process manual cover for %q: %w", book.Title, err)
 			}
+			pendingCovers = append(pendingCovers, pendingCover{staged: staged, destination: destination})
+			paletteSource = staged
 			stats.Manuals++
 		}
 
-		if fileExists(destination) {
+		if fileExists(paletteSource) {
 			book.CoverFile = filename
 			book.Cover = filepath.ToSlash(filepath.Join("data", "covers", filename))
 			if options.RecomputeColors || book.SpineColor == "" || book.SpineTextColor == "" {
-				background, foreground, colorErr := extractPalette(destination)
+				background, foreground, colorErr := extractPalette(paletteSource)
 				if colorErr == nil {
 					book.SpineColor = background
 					book.SpineTextColor = foreground
@@ -101,16 +131,43 @@ func Build(ctx context.Context, paths Paths, options BuildOptions) (BuildStats, 
 		}
 	}
 
+	for index, pending := range pendingCovers {
+		backup := ""
+		if fileExists(pending.destination) {
+			backup = filepath.Join(stage, fmt.Sprintf("backup-%06d-%s", index, filepath.Base(pending.destination)))
+			if err := os.Rename(pending.destination, backup); err != nil {
+				return stats, err
+			}
+		}
+		if err := os.Rename(pending.staged, pending.destination); err != nil {
+			if backup != "" {
+				_ = os.Rename(backup, pending.destination)
+			}
+			return stats, err
+		}
+		destination := pending.destination
+		coverRollbacks = append(coverRollbacks, func() error {
+			removeErr := os.Remove(destination)
+			if errors.Is(removeErr, os.ErrNotExist) {
+				removeErr = nil
+			}
+			if backup == "" {
+				return removeErr
+			}
+			return errors.Join(removeErr, os.Rename(backup, destination))
+		})
+	}
 	if err := Save(paths, books); err != nil {
 		return stats, err
 	}
-	committed = true
+	sourceSaved = true
 	if err := SaveConfig(paths, config); err != nil {
 		return stats, err
 	}
 	if err := SaveGenerated(paths, books); err != nil {
 		return stats, err
 	}
+	committed = true
 	return stats, nil
 }
 
@@ -202,7 +259,7 @@ func transcodeJPEG(source, destination string) error {
 		return err
 	}
 	defer input.Close()
-	img, _, err := image.Decode(input)
+	img, _, err := decodeCoverImage(input)
 	if err != nil {
 		return err
 	}
@@ -231,7 +288,7 @@ func extractPalette(name string) (string, string, error) {
 		return "", "", err
 	}
 	defer file.Close()
-	img, _, err := image.Decode(file)
+	img, _, err := decodeCoverImage(file)
 	if err != nil {
 		return "", "", err
 	}

@@ -14,6 +14,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"syscall"
 	"text/tabwriter"
@@ -24,10 +25,12 @@ import (
 )
 
 var version = "dev"
+var defaultDataDirectory = "bookshelf"
 var httpClient = &http.Client{Timeout: 30 * time.Second}
 
 const defaultInstallerURL = "https://raw.githubusercontent.com/aloglu/bookshelf/main/install.sh"
 const defaultLatestReleaseURL = "https://api.github.com/repos/aloglu/bookshelf/releases/latest"
+const safetyBackupRetention = 5
 
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -68,17 +71,20 @@ func run(ctx context.Context, args []string) error {
 		usage(os.Stdout)
 		return nil
 	case "version", "--version", "-v":
+		if len(args) != 0 {
+			return fmt.Errorf("unexpected argument %q", args[0])
+		}
 		fmt.Printf("bookshelf %s\n", version)
 		return nil
 	case "upgrade":
 		return upgradeCommand(ctx, args)
 	case "uninstall":
-		return uninstallCommand(args)
+		return uninstallCommand(ctx, args)
 	case "_init":
-		return initializeCommand()
+		return initializeCommand(ctx)
 	}
 
-	root, err := library.ResolveRoot()
+	root, err := resolveLibraryRoot()
 	if err != nil {
 		return err
 	}
@@ -90,18 +96,20 @@ func run(ctx context.Context, args []string) error {
 	switch command {
 	case "list", "ls":
 		return listCommand(ctx, paths, args)
+	case "status":
+		return statusCommand(paths, args)
 	case "build":
 		return buildCommand(ctx, paths, args)
 	case "preview", "serve":
 		return previewCommand(ctx, paths, args)
 	case "validate":
-		return validateCommand(paths)
+		return validateCommand(paths, args)
 	case "add":
 		return addCommand(ctx, paths, args)
 	case "import":
 		return importCommand(ctx, paths, args)
 	case "export":
-		return exportCommand(paths, args)
+		return exportCommand(ctx, paths, args)
 	case "edit":
 		return editCommand(ctx, paths, args)
 	case "remove", "delete", "rm":
@@ -109,43 +117,121 @@ func run(ctx context.Context, args []string) error {
 	case "covers", "cover":
 		return coversCommand(ctx, paths, args)
 	case "settings", "config":
-		return settingsCommand(paths, args)
+		return settingsCommand(ctx, paths, args)
 	case "_sync-data":
-		return syncDataCommand(paths)
+		return syncDataCommand(ctx, paths)
 	default:
 		usage(os.Stderr)
 		return fmt.Errorf("unknown command %q", command)
 	}
 }
 
-func syncDataCommand(paths library.Paths) error {
-	books, err := library.Load(paths)
-	if err != nil {
-		return err
-	}
-	if problems := library.Validate(books); len(problems) > 0 {
-		for _, problem := range problems {
-			fmt.Fprintf(os.Stderr, "- %v\n", problem)
-		}
-		return fmt.Errorf("library synchronization failed with %d problem(s)", len(problems))
-	}
-	return library.SaveGenerated(paths, books)
-}
-
-func initializeCommand() error {
-	root := strings.TrimSpace(os.Getenv("BOOKSHELF_INSTALL_DIR"))
-	if root == "" {
-		home, err := os.UserHomeDir()
+func syncDataCommand(ctx context.Context, paths library.Paths) error {
+	return library.WithLibraryLock(ctx, paths, func() error {
+		books, err := library.Load(paths)
 		if err != nil {
 			return err
 		}
-		root = filepath.Join(home, ".local", "share", "bookshelf")
+		if problems := library.Validate(books); len(problems) > 0 {
+			for _, problem := range problems {
+				fmt.Fprintf(os.Stderr, "- %v\n", problem)
+			}
+			return fmt.Errorf("library synchronization failed with %d problem(s)", len(problems))
+		}
+		return library.SaveGenerated(paths, books)
+	})
+}
+
+func initializeCommand(ctx context.Context) error {
+	root, err := preferredInstallRoot()
+	if err != nil {
+		return err
 	}
 	paths := library.NewPaths(root)
 	if err := library.Initialize(paths); err != nil {
 		return err
 	}
-	return syncDataCommand(paths)
+	return syncDataCommand(ctx, paths)
+}
+
+func resolveLibraryRoot() (string, error) {
+	root, err := preferredInstallRoot()
+	if err != nil {
+		return "", err
+	}
+	return library.ResolveRootAt(root)
+}
+
+func preferredInstallRoot() (string, error) {
+	if configured := strings.TrimSpace(os.Getenv("BOOKSHELF_INSTALL_DIR")); configured != "" {
+		return filepath.Abs(configured)
+	}
+	hint, found, err := readInstallRootHint()
+	if err != nil {
+		return "", err
+	}
+	if found {
+		return filepath.Abs(hint)
+	}
+	return library.DefaultRootFor(defaultDataDirectory)
+}
+
+func installRootHintPath() (string, error) {
+	configHome := strings.TrimSpace(os.Getenv("XDG_CONFIG_HOME"))
+	if configHome == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", err
+		}
+		configHome = filepath.Join(home, ".config")
+	}
+	return filepath.Join(configHome, "bookshelf", "root"), nil
+}
+
+func readInstallRootHint() (string, bool, error) {
+	name, err := installRootHintPath()
+	if err != nil {
+		return "", false, err
+	}
+	raw, err := os.ReadFile(name)
+	if errors.Is(err, os.ErrNotExist) {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, err
+	}
+	root := strings.TrimSpace(string(raw))
+	if root == "" {
+		return "", false, fmt.Errorf("Bookshelf install-root file is empty: %s", name)
+	}
+	return root, true, nil
+}
+
+func removeInstallRootHint(installDir string) error {
+	name, err := installRootHintPath()
+	if err != nil {
+		return err
+	}
+	hint, found, err := readInstallRootHint()
+	if err != nil || !found {
+		return err
+	}
+	hint, err = filepath.Abs(hint)
+	if err != nil {
+		return err
+	}
+	installDir, err = filepath.Abs(installDir)
+	if err != nil {
+		return err
+	}
+	if hint != installDir {
+		return nil
+	}
+	if err := os.Remove(name); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	_ = os.Remove(filepath.Dir(name))
+	return nil
 }
 
 func usage(output io.Writer) {
@@ -154,12 +240,13 @@ func usage(output io.Writer) {
 Usage:
   bookshelf                         Show this help
   bookshelf list [--plain|--json]   Browse or print the library
+  bookshelf status [--json]         Summarize library and publishing state
   bookshelf add [fields]            Add a book
-  bookshelf import FILE [options]   Import books from JSON or CSV
-  bookshelf export FILE [options]   Export books as JSON or Excel-compatible CSV
+  bookshelf import FILE [options]   Import metadata or a complete backup
+  bookshelf export FILE [options]   Export metadata or a complete backup
   bookshelf edit --id-or-isbn ID    Edit an existing book
   bookshelf remove [IDs...]         Remove one or more books
-  bookshelf build [options]         Generate published data and covers
+  bookshelf build [options]         Generate the published website
   bookshelf preview [options]       Preview the generated website locally
   bookshelf covers [IDs...]         Fetch or apply book covers
   bookshelf validate                Validate source and published data
@@ -222,12 +309,14 @@ standard ZIP files containing books, settings, fetched covers, and manual
 covers. Existing files are not replaced unless --force is supplied.`)
 	case "list", "ls":
 		fmt.Fprintln(output, "Usage:\n  bookshelf list [--plain|--json]\n\nWithout an output flag, opens the paginated interactive library in a terminal.")
+	case "status":
+		fmt.Fprintln(output, "Usage:\n  bookshelf status [--json]\n\nSummarizes books, covers, publication state, the latest cover report, and data paths.")
 	case "build":
 		fmt.Fprintln(output, "Usage:\n  bookshelf build [--recompute-colors]")
 	case "preview", "serve":
 		fmt.Fprintln(output, "Usage:\n  bookshelf preview [--port PORT] [--no-open]\n\nServes the generated website on localhost and opens it in the default browser.\nPress Ctrl+C to stop the preview server.")
 	case "validate":
-		fmt.Fprintln(output, "Usage:\n  bookshelf validate")
+		fmt.Fprintln(output, "Usage:\n  bookshelf validate\n\nChecks structural correctness and publishing state, then reports non-fatal storage, cover, ISBN, and likely-duplicate warnings.")
 	case "settings", "config":
 		fmt.Fprintln(output, `Usage:
   bookshelf settings
@@ -237,6 +326,10 @@ Options:
   --permalink-style STYLE  formatted-isbn, compact-isbn, or title-slug
   --statistics VALUE      show or hide public library statistics
   --default-view VIEW     shelf, stack, or coverflow on desktop
+  --shelf-scroll-speed SPEED
+                          slow, normal, or fast
+  --coverflow-scroll-speed SPEED
+                          slow, normal, or fast
   --default-sort SORT     title, author, or year
   --sort-direction ORDER  ascending or descending
   --site-title TEXT       public website heading
@@ -259,13 +352,15 @@ Mobile visitors always use the stacks view.`)
   bookshelf covers [IDs...]                     Fetch covers for specific books
   bookshelf covers --all                        Fetch missing covers for every book
   bookshelf covers --missing                    Retry every book without a stored cover
+  bookshelf covers --attention                  Revisit unresolved books from the last run
   bookshelf covers --all --source goodreads     Choose a source non-interactively
 
 Options:
   --all                  Target every book
   --missing              Target only books without a stored cover
+  --attention            Target unresolved books from the latest cover report
   --source SOURCE        automatic, goodreads, openlibrary, google, manual, or url
-  --url URL              Custom image URL for exactly one book
+  --url URL              Custom image URL for exactly one book; replaces its stored cover
   --replace              Replace existing stored covers
   --recompute-colors     Recompute colors when applying manual covers
   --id-or-isbn ID        Target a book by ID or ISBN; repeatable`)
@@ -379,12 +474,30 @@ func openBrowser(url string) error {
 	return fmt.Errorf("no supported browser opener was found; open %s manually", url)
 }
 
-func validateCommand(paths library.Paths) error {
+func validateCommand(paths library.Paths, args []string) error {
+	flags := flag.NewFlagSet("validate", flag.ContinueOnError)
+	flags.SetOutput(os.Stderr)
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+	if flags.NArg() != 0 {
+		return fmt.Errorf("unexpected argument %q", flags.Arg(0))
+	}
 	books, err := library.Load(paths)
 	if err != nil {
 		return err
 	}
 	problems := library.Validate(books)
+	warnings, warningErr := library.ValidationWarnings(paths, books)
+	if warningErr != nil {
+		return warningErr
+	}
+	if len(warnings) > 0 {
+		fmt.Fprintf(os.Stderr, "Warnings (%d):\n", len(warnings))
+		for _, warning := range warnings {
+			fmt.Fprintf(os.Stderr, "- %s\n", warning)
+		}
+	}
 	if len(problems) > 0 {
 		for _, problem := range problems {
 			fmt.Fprintf(os.Stderr, "- %v\n", problem)
@@ -395,19 +508,104 @@ func validateCommand(paths library.Paths) error {
 	if err != nil {
 		return fmt.Errorf("source library is valid, but published data is missing or invalid: %w; run `bookshelf build`", err)
 	}
-	if !library.GeneratedMatches(books, generated) {
+	if !library.GeneratedMatches(paths, books, generated) {
 		return fmt.Errorf("source library is valid, but published data is stale; run `bookshelf build`")
 	}
-	fmt.Printf("Library is valid and published data is current. Books: %d\n", len(books))
+	fmt.Printf("Library is valid and published data is current. Books: %d. Warnings: %d.\n", len(books), len(warnings))
 	return nil
 }
 
-func settingsCommand(paths library.Paths, args []string) error {
+type statusOutput struct {
+	Books               int    `json:"books"`
+	Covers              int    `json:"covers"`
+	MissingCovers       int    `json:"missingCovers"`
+	Published           int    `json:"published"`
+	NotPublished        int    `json:"notPublished"`
+	ChangesNotPublished int    `json:"changesNotPublished"`
+	Website             string `json:"website"`
+	CoverAttention      int    `json:"coverAttention"`
+	DataDirectory       string `json:"dataDirectory"`
+	WebsiteDirectory    string `json:"websiteDirectory"`
+}
+
+func statusCommand(paths library.Paths, args []string) error {
+	flags := flag.NewFlagSet("status", flag.ContinueOnError)
+	flags.SetOutput(os.Stderr)
+	asJSON := flags.Bool("json", false, "print status as JSON")
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+	if flags.NArg() != 0 {
+		return fmt.Errorf("status does not accept positional arguments")
+	}
+	output, err := collectStatus(paths)
+	if err != nil {
+		return err
+	}
+	if *asJSON {
+		encoder := json.NewEncoder(os.Stdout)
+		encoder.SetIndent("", "  ")
+		return encoder.Encode(output)
+	}
+	fmt.Println("Bookshelf Status")
+	fmt.Printf("Books:              %d\n", output.Books)
+	fmt.Printf("Covers:             %d Has Cover · %d Cover Missing\n", output.Covers, output.MissingCovers)
+	fmt.Printf("Publication:        %d Published · %d Not Published · %d Changes Not Published\n",
+		output.Published, output.NotPublished, output.ChangesNotPublished)
+	fmt.Printf("Website:            %s\n", output.Website)
+	fmt.Printf("Cover Attention:    %d\n", output.CoverAttention)
+	fmt.Printf("Data:               %s\n", output.DataDirectory)
+	fmt.Printf("Published Website:  %s\n", output.WebsiteDirectory)
+	return nil
+}
+
+func collectStatus(paths library.Paths) (statusOutput, error) {
+	books, err := library.Load(paths)
+	if err != nil {
+		return statusOutput{}, err
+	}
+	output := statusOutput{Books: len(books), DataDirectory: paths.DataDir, WebsiteDirectory: paths.PublicDir}
+	statuses := library.PublicationStatuses(paths, books)
+	for _, book := range books {
+		if book.Cover == "" {
+			output.MissingCovers++
+		} else {
+			output.Covers++
+		}
+		switch statuses[book.ID] {
+		case library.PublicationPublished:
+			output.Published++
+		case library.PublicationChangesNotPublished:
+			output.ChangesNotPublished++
+		default:
+			output.NotPublished++
+		}
+	}
+	generated, generatedErr := library.LoadGenerated(paths)
+	switch {
+	case generatedErr != nil:
+		output.Website = "Not Built"
+	case !library.GeneratedMatches(paths, books, generated):
+		output.Website = "Needs Rebuilding"
+	default:
+		output.Website = "Current"
+	}
+	attention, err := library.CoverAttentionBooks(paths, books)
+	if err != nil {
+		return statusOutput{}, err
+	}
+	output.CoverAttention = len(attention)
+	return output, nil
+}
+
+func settingsCommand(ctx context.Context, paths library.Paths, args []string) error {
 	flags := flag.NewFlagSet("settings", flag.ContinueOnError)
 	flags.SetOutput(os.Stderr)
 	style := flags.String("permalink-style", "", "formatted-isbn, compact-isbn, or title-slug")
 	statistics := flags.String("statistics", "", "show or hide")
 	defaultView := flags.String("default-view", "", "shelf, stack, or coverflow")
+	shelfScrollSpeed := flags.String("shelf-scroll-speed", "", "slow, normal, or fast")
+	coverflowScrollSpeed := flags.String("coverflow-scroll-speed", "", "slow, normal, or fast")
 	defaultSort := flags.String("default-sort", "", "title, author, or year")
 	sortDirection := flags.String("sort-direction", "", "ascending or descending")
 	siteTitle := flags.String("site-title", "", "public website heading")
@@ -433,9 +631,12 @@ func settingsCommand(paths library.Paths, args []string) error {
 	if err != nil {
 		return err
 	}
+	originalConfig := config
+	changedFields := make(map[string]bool)
 	hasOptions := *style != "" || *statistics != "" || *defaultView != "" || *defaultSort != "" ||
 		*sortDirection != "" || *siteTitle != "" || *siteSubtitle != "" || *hideSubtitle ||
-		*randomButton != "" || *isbnLinks != "" || *footer != "" || *footerText != ""
+		*randomButton != "" || *shelfScrollSpeed != "" || *coverflowScrollSpeed != "" ||
+		*isbnLinks != "" || *footer != "" || *footerText != ""
 	if !hasOptions {
 		if !tui.IsTerminal() {
 			fmt.Printf("Website title: %s\n", config.SiteTitle)
@@ -443,6 +644,8 @@ func settingsCommand(paths library.Paths, args []string) error {
 			fmt.Printf("Statistics: %s\n", map[bool]string{true: "shown", false: "hidden"}[config.ShowStatistics])
 			fmt.Printf("Random book button: %s\n", map[bool]string{true: "shown", false: "hidden"}[config.ShowRandom])
 			fmt.Printf("Default desktop view: %s\n", config.DefaultView)
+			fmt.Printf("Shelf scroll speed: %s\n", config.ShelfScrollSpeed)
+			fmt.Printf("Coverflow scroll speed: %s\n", config.CoverflowSpeed)
 			fmt.Printf("Default sort: %s\n", config.DefaultSort)
 			fmt.Printf("Sort direction: %s\n", config.DefaultSortOrder)
 			fmt.Printf("ISBN link sources: %s\n", config.ISBNLinkSources)
@@ -459,84 +662,208 @@ func settingsCommand(paths library.Paths, args []string) error {
 			return nil
 		}
 		config = updated
+		changedFields = changedConfigFields(originalConfig, config)
 	} else if *style != "" {
 		parsed, err := library.ParsePermalinkStyle(*style)
 		if err != nil {
 			return err
 		}
 		config.PermalinkStyle = parsed
+		changedFields["permalink"] = true
 	}
 	if *statistics != "" {
 		config.ShowStatistics, err = parseVisibility(*statistics, "statistics")
 		if err != nil {
 			return err
 		}
+		changedFields["statistics"] = true
 	}
 	if *defaultView != "" {
 		config.DefaultView, err = library.ParseWebsiteView(*defaultView)
 		if err != nil {
 			return err
 		}
+		changedFields["view"] = true
+	}
+	if *shelfScrollSpeed != "" {
+		config.ShelfScrollSpeed, err = library.ParseScrollSpeed(*shelfScrollSpeed)
+		if err != nil {
+			return err
+		}
+		changedFields["shelf-speed"] = true
+	}
+	if *coverflowScrollSpeed != "" {
+		config.CoverflowSpeed, err = library.ParseScrollSpeed(*coverflowScrollSpeed)
+		if err != nil {
+			return err
+		}
+		changedFields["coverflow-speed"] = true
 	}
 	if *defaultSort != "" {
 		config.DefaultSort, err = library.ParseWebsiteSort(*defaultSort)
 		if err != nil {
 			return err
 		}
+		changedFields["sort"] = true
 	}
 	if *sortDirection != "" {
 		config.DefaultSortOrder, err = library.ParseSortDirection(*sortDirection)
 		if err != nil {
 			return err
 		}
+		changedFields["sort-direction"] = true
 	}
 	if *siteTitle != "" {
 		config.SiteTitle = *siteTitle
+		changedFields["title"] = true
 	}
 	if *hideSubtitle {
 		if *siteSubtitle != "" {
 			return fmt.Errorf("choose --site-subtitle or --hide-subtitle, not both")
 		}
 		config.SiteSubtitle = ""
+		changedFields["subtitle"] = true
 	} else if *siteSubtitle != "" {
 		config.SiteSubtitle = *siteSubtitle
+		changedFields["subtitle"] = true
 	}
 	if *randomButton != "" {
 		config.ShowRandom, err = parseVisibility(*randomButton, "random button")
 		if err != nil {
 			return err
 		}
+		changedFields["random"] = true
 	}
 	if *isbnLinks != "" {
 		config.ISBNLinkSources, err = library.ParseISBNLinkSources(*isbnLinks)
 		if err != nil {
 			return err
 		}
+		changedFields["isbn-links"] = true
 	}
 	if *footer != "" {
 		config.ShowFooter, err = parseVisibility(*footer, "footer")
 		if err != nil {
 			return err
 		}
+		changedFields["footer"] = true
 	}
 	if *footerText != "" {
 		config.FooterText = *footerText
+		changedFields["footer-text"] = true
 	}
-	books, err := library.Load(paths)
+	err = library.WithLibraryLock(ctx, paths, func() error {
+		currentConfig, loadErr := library.LoadConfig(paths)
+		if loadErr != nil {
+			return loadErr
+		}
+		applyConfigFields(&currentConfig, config, changedFields)
+		books, loadErr := library.Load(paths)
+		if loadErr != nil {
+			return loadErr
+		}
+		if problems := library.Validate(books); len(problems) > 0 {
+			return fmt.Errorf("cannot publish permalink setting: %v", problems[0])
+		}
+		if saveErr := library.SaveConfig(paths, currentConfig); saveErr != nil {
+			return saveErr
+		}
+		if buildErr := library.SaveGenerated(paths, books); buildErr != nil {
+			return fmt.Errorf("settings were saved, but the published website could not be updated; run `bookshelf build` to retry: %w", buildErr)
+		}
+		return nil
+	})
 	if err != nil {
-		return err
-	}
-	if problems := library.Validate(books); len(problems) > 0 {
-		return fmt.Errorf("cannot publish permalink setting: %v", problems[0])
-	}
-	if err := library.SaveConfig(paths, config); err != nil {
-		return err
-	}
-	if err := library.SaveGenerated(paths, books); err != nil {
 		return err
 	}
 	fmt.Println("Settings saved and published website data updated.")
 	return nil
+}
+
+func changedConfigFields(before, after library.Config) map[string]bool {
+	changed := make(map[string]bool)
+	if before.PermalinkStyle != after.PermalinkStyle {
+		changed["permalink"] = true
+	}
+	if before.ShowStatistics != after.ShowStatistics {
+		changed["statistics"] = true
+	}
+	if before.DefaultView != after.DefaultView {
+		changed["view"] = true
+	}
+	if before.ShelfScrollSpeed != after.ShelfScrollSpeed {
+		changed["shelf-speed"] = true
+	}
+	if before.CoverflowSpeed != after.CoverflowSpeed {
+		changed["coverflow-speed"] = true
+	}
+	if before.DefaultSort != after.DefaultSort {
+		changed["sort"] = true
+	}
+	if before.DefaultSortOrder != after.DefaultSortOrder {
+		changed["sort-direction"] = true
+	}
+	if before.SiteTitle != after.SiteTitle {
+		changed["title"] = true
+	}
+	if before.SiteSubtitle != after.SiteSubtitle {
+		changed["subtitle"] = true
+	}
+	if before.ShowRandom != after.ShowRandom {
+		changed["random"] = true
+	}
+	if before.ISBNLinkSources != after.ISBNLinkSources {
+		changed["isbn-links"] = true
+	}
+	if before.ShowFooter != after.ShowFooter {
+		changed["footer"] = true
+	}
+	if before.FooterText != after.FooterText {
+		changed["footer-text"] = true
+	}
+	return changed
+}
+
+func applyConfigFields(current *library.Config, desired library.Config, changed map[string]bool) {
+	if changed["permalink"] {
+		current.PermalinkStyle = desired.PermalinkStyle
+	}
+	if changed["statistics"] {
+		current.ShowStatistics = desired.ShowStatistics
+	}
+	if changed["view"] {
+		current.DefaultView = desired.DefaultView
+	}
+	if changed["shelf-speed"] {
+		current.ShelfScrollSpeed = desired.ShelfScrollSpeed
+	}
+	if changed["coverflow-speed"] {
+		current.CoverflowSpeed = desired.CoverflowSpeed
+	}
+	if changed["sort"] {
+		current.DefaultSort = desired.DefaultSort
+	}
+	if changed["sort-direction"] {
+		current.DefaultSortOrder = desired.DefaultSortOrder
+	}
+	if changed["title"] {
+		current.SiteTitle = desired.SiteTitle
+	}
+	if changed["subtitle"] {
+		current.SiteSubtitle = desired.SiteSubtitle
+	}
+	if changed["random"] {
+		current.ShowRandom = desired.ShowRandom
+	}
+	if changed["isbn-links"] {
+		current.ISBNLinkSources = desired.ISBNLinkSources
+	}
+	if changed["footer"] {
+		current.ShowFooter = desired.ShowFooter
+	}
+	if changed["footer-text"] {
+		current.FooterText = desired.FooterText
+	}
 }
 
 func parseVisibility(value, name string) (bool, error) {
@@ -580,6 +907,9 @@ func addCommand(ctx context.Context, paths library.Paths, args []string) error {
 		book = result.Book
 		*noBuild = !result.Build
 	} else {
+		if _, err := library.ParseYearInput(input.Published); err != nil {
+			return err
+		}
 		book = library.FromInput(*input)
 	}
 	added, stats, err := library.Add(ctx, paths, book, library.ChangeOptions{
@@ -642,7 +972,7 @@ func importCommand(ctx context.Context, paths library.Paths, args []string) erro
 	return runBatchImport(ctx, paths, options)
 }
 
-func exportCommand(paths library.Paths, args []string) error {
+func exportCommand(ctx context.Context, paths library.Paths, args []string) error {
 	flags := flag.NewFlagSet("export", flag.ContinueOnError)
 	flags.SetOutput(os.Stderr)
 	format := flags.String("format", "", "export format: json, csv, or bookshelf")
@@ -676,15 +1006,17 @@ func exportCommand(paths library.Paths, args []string) error {
 		return fmt.Errorf("unsupported export format %q; use json, csv, or bookshelf", selectedFormat)
 	}
 
-	books, err := library.Load(paths)
-	if err != nil {
-		return err
-	}
 	if destination == "-" {
 		if selectedFormat == "bookshelf" {
 			return fmt.Errorf("Bookshelf archives require a destination file")
 		}
-		return library.EncodeExport(os.Stdout, books, selectedFormat)
+		return library.WithLibraryLock(ctx, paths, func() error {
+			books, err := library.Load(paths)
+			if err != nil {
+				return err
+			}
+			return library.EncodeExport(os.Stdout, books, selectedFormat)
+		})
 	}
 	if !*force {
 		if _, err := os.Stat(destination); err == nil {
@@ -693,23 +1025,33 @@ func exportCommand(paths library.Paths, args []string) error {
 			return err
 		}
 	}
-	if selectedFormat == "bookshelf" {
-		result, err := writeArchiveFile(destination, paths, books)
-		if err != nil {
-			return err
+	var books []library.Book
+	var archiveResult library.ArchiveExportResult
+	err := library.WithLibraryLock(ctx, paths, func() error {
+		var loadErr error
+		books, loadErr = library.Load(paths)
+		if loadErr != nil {
+			return loadErr
 		}
-		fmt.Printf("Exported %d book(s), %d cover(s), and %d manual cover(s) to %s (BOOKSHELF).\n",
-			result.Books, result.Covers, result.ManualCovers, destination)
-		return nil
-	}
-	if err := writeExportFile(destination, books, selectedFormat); err != nil {
+		if selectedFormat == "bookshelf" {
+			archiveResult, loadErr = writeArchiveFile(destination, paths, books, *force)
+			return loadErr
+		}
+		return writeExportFile(destination, books, selectedFormat, *force)
+	})
+	if err != nil {
 		return err
+	}
+	if selectedFormat == "bookshelf" {
+		fmt.Printf("Exported %d book(s), %d cover(s), and %d manual cover(s) to %s (BOOKSHELF).\n",
+			archiveResult.Books, archiveResult.Covers, archiveResult.ManualCovers, destination)
+		return nil
 	}
 	fmt.Printf("Exported %d book(s) to %s (%s).\n", len(books), destination, strings.ToUpper(selectedFormat))
 	return nil
 }
 
-func writeExportFile(destination string, books []library.Book, format string) error {
+func writeExportFile(destination string, books []library.Book, format string, replace bool) error {
 	directory := filepath.Dir(destination)
 	temp, err := os.CreateTemp(directory, "."+filepath.Base(destination)+".tmp-*")
 	if err != nil {
@@ -728,10 +1070,10 @@ func writeExportFile(destination string, books []library.Book, format string) er
 	if err := temp.Close(); err != nil {
 		return err
 	}
-	return os.Rename(tempName, destination)
+	return commitExportFile(tempName, destination, replace)
 }
 
-func writeArchiveFile(destination string, paths library.Paths, books []library.Book) (library.ArchiveExportResult, error) {
+func writeArchiveFile(destination string, paths library.Paths, books []library.Book, replace bool) (library.ArchiveExportResult, error) {
 	var result library.ArchiveExportResult
 	directory := filepath.Dir(destination)
 	temp, err := os.CreateTemp(directory, "."+filepath.Base(destination)+".tmp-*")
@@ -752,7 +1094,20 @@ func writeArchiveFile(destination string, paths library.Paths, books []library.B
 	if err := temp.Close(); err != nil {
 		return result, err
 	}
-	return result, os.Rename(tempName, destination)
+	return result, commitExportFile(tempName, destination, replace)
+}
+
+func commitExportFile(tempName, destination string, replace bool) error {
+	if replace {
+		return os.Rename(tempName, destination)
+	}
+	if err := os.Link(tempName, destination); err != nil {
+		if errors.Is(err, os.ErrExist) {
+			return fmt.Errorf("%s already exists; use --force to replace it", destination)
+		}
+		return err
+	}
+	return os.Remove(tempName)
 }
 
 func runBatchImport(ctx context.Context, paths library.Paths, options *batchImportFlags) error {
@@ -783,7 +1138,7 @@ func runBatchImport(ctx context.Context, paths library.Paths, options *batchImpo
 		defer file.Close()
 		reader = file
 	}
-	books, err := library.DecodeImport(io.LimitReader(reader, 64<<20), format)
+	books, err := library.DecodeImport(reader, format)
 	if err != nil {
 		return err
 	}
@@ -816,6 +1171,10 @@ func runArchiveImport(ctx context.Context, paths library.Paths, options *batchIm
 	if options.noBuild {
 		return fmt.Errorf("Bookshelf archives always rebuild published data; --no-build is not supported")
 	}
+	info, err := library.InspectArchive(options.from)
+	if err != nil {
+		return err
+	}
 	existing, err := library.Load(paths)
 	if err != nil {
 		return err
@@ -830,7 +1189,7 @@ func runArchiveImport(ctx context.Context, paths library.Paths, options *batchIm
 		mode = library.ArchiveReplace
 	case tui.IsTerminal():
 		var confirmed bool
-		mode, confirmed, err = tui.ChooseArchiveImportMode(len(existing), options.from)
+		mode, confirmed, err = tui.ChooseArchiveImportMode(len(existing), options.from, info)
 		if err != nil || !confirmed {
 			return err
 		}
@@ -840,11 +1199,20 @@ func runArchiveImport(ctx context.Context, paths library.Paths, options *batchIm
 	if mode == library.ArchiveReplace && options.skipDuplicates {
 		return fmt.Errorf("--skip-duplicates can only be used with --merge")
 	}
-	result, err := library.ImportArchive(ctx, paths, options.from, library.ArchiveImportOptions{
+	importOptions := library.ArchiveImportOptions{
 		Mode:           mode,
 		SkipDuplicates: options.skipDuplicates,
 		DryRun:         options.dryRun,
-	})
+	}
+	if mode == library.ArchiveReplace && !options.dryRun {
+		importOptions.BeforeReplace = func(books []library.Book) (string, error) {
+			return writeSafetyArchive(paths, books)
+		}
+	}
+	result, err := library.ImportArchive(ctx, paths, options.from, importOptions)
+	if result.SafetyBackup != "" {
+		fmt.Printf("Safety backup: %s\n", result.SafetyBackup)
+	}
 	if err != nil {
 		return err
 	}
@@ -858,6 +1226,71 @@ func runArchiveImport(ctx context.Context, paths library.Paths, options *batchIm
 	}
 	fmt.Printf("%s Bookshelf archive (%s): %d book(s), %d cover(s), %d manual cover(s). Skipped: %d.\n",
 		verb, action, result.Imported, result.Covers, result.ManualCovers, result.Skipped)
+	return nil
+}
+
+func writeSafetyArchive(paths library.Paths, books []library.Book) (string, error) {
+	directory := filepath.Join(paths.Root, "backups")
+	if err := os.MkdirAll(directory, 0o755); err != nil {
+		return "", err
+	}
+	base := "before-replace-" + time.Now().Format("20060102-150405")
+	destination := filepath.Join(directory, base+".bookshelf")
+	for suffix := 2; ; suffix++ {
+		if _, err := os.Stat(destination); errors.Is(err, os.ErrNotExist) {
+			break
+		} else if err != nil {
+			return "", err
+		}
+		destination = filepath.Join(directory, fmt.Sprintf("%s-%d.bookshelf", base, suffix))
+	}
+	if _, err := writeArchiveFile(destination, paths, books, false); err != nil {
+		return "", err
+	}
+	if err := pruneSafetyArchives(directory, safetyBackupRetention); err != nil {
+		return destination, fmt.Errorf("prune old safety backups after creating %s: %w", destination, err)
+	}
+	return destination, nil
+}
+
+func pruneSafetyArchives(directory string, keep int) error {
+	entries, err := os.ReadDir(directory)
+	if err != nil {
+		return err
+	}
+	type safetyArchive struct {
+		name    string
+		modTime time.Time
+	}
+	archives := make([]safetyArchive, 0, len(entries))
+	for _, entry := range entries {
+		if entry.Type()&os.ModeSymlink != 0 ||
+			!strings.HasPrefix(entry.Name(), "before-replace-") ||
+			!strings.HasSuffix(entry.Name(), ".bookshelf") {
+			continue
+		}
+		info, err := entry.Info()
+		if err != nil {
+			return err
+		}
+		if info.Mode().IsRegular() {
+			archives = append(archives, safetyArchive{name: entry.Name(), modTime: info.ModTime()})
+		}
+	}
+	if keep < 0 {
+		keep = 0
+	}
+	sort.Slice(archives, func(left, right int) bool {
+		if archives[left].modTime.Equal(archives[right].modTime) {
+			return archives[left].name < archives[right].name
+		}
+		return archives[left].modTime.Before(archives[right].modTime)
+	})
+	for _, archive := range archives[:max(0, len(archives)-keep)] {
+		if err := os.Remove(filepath.Join(directory, archive.name)); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -983,7 +1416,7 @@ func removeCommand(ctx context.Context, paths library.Paths, args []string) erro
 	} else if !yes {
 		return fmt.Errorf("--yes is required for non-interactive removal")
 	}
-	removed, err := library.Remove(paths, ids, removeCovers)
+	removed, err := library.Remove(ctx, paths, ids, removeCovers)
 	if err != nil {
 		return err
 	}
@@ -1000,15 +1433,31 @@ func coversCommand(ctx context.Context, paths library.Paths, args []string) erro
 	if err != nil {
 		return err
 	}
+	attentionBooks := []library.Book(nil)
+	if options.attention {
+		attentionBooks, err = library.CoverAttentionBooks(paths, books)
+		if err != nil {
+			return err
+		}
+		if len(attentionBooks) == 0 {
+			fmt.Println("No unresolved cover-fetch results need attention.")
+			return nil
+		}
+	}
 	var selected []library.Book
-	interactiveSelection := !options.all && !options.missing && len(options.ids) == 0 && tui.IsTerminal()
-	if !options.all && !options.missing && len(options.ids) == 0 && !tui.IsTerminal() {
-		return fmt.Errorf("provide book IDs, --all, or --missing")
+	interactiveSelection := !options.all && !options.missing && !options.attention && len(options.ids) == 0 && tui.IsTerminal()
+	attentionWorkflow := options.attention && options.source == "" && tui.IsTerminal()
+	if !options.all && !options.missing && !options.attention && len(options.ids) == 0 && !tui.IsTerminal() {
+		return fmt.Errorf("provide book IDs, --all, --missing, or --attention")
 	}
 	source := options.source
-	startedInteractively := interactiveSelection
-	if interactiveSelection {
-		workflow, workflowErr := tui.RunCoverWorkflow(books, nil)
+	startedInteractively := interactiveSelection || attentionWorkflow
+	if interactiveSelection || attentionWorkflow {
+		workflowBooks := books
+		if attentionWorkflow {
+			workflowBooks = attentionBooks
+		}
+		workflow, workflowErr := tui.RunCoverWorkflow(workflowBooks, nil)
 		if workflowErr != nil {
 			return workflowErr
 		}
@@ -1037,6 +1486,8 @@ selectionLoop:
 			if err != nil {
 				return err
 			}
+		case options.attention:
+			selected = attentionBooks
 		default:
 			ids, confirmed, selectErr := tui.RunBookSelector(books, nil, previousSelection, "Bookshelf · Covers", true, true)
 			if selectErr != nil {
@@ -1089,7 +1540,7 @@ selectionLoop:
 		return nil
 	}
 
-	session, err := library.NewCoverFetchSession(paths, selected, options.replace)
+	session, err := library.NewCoverFetchSession(paths, selected, coverReplacementAllowed(source, options.replace))
 	if err != nil {
 		return err
 	}
@@ -1104,7 +1555,7 @@ selectionLoop:
 		}
 		session.SetCustomURL(options.url)
 	}
-	if tui.IsTerminal() {
+	if tui.IsTerminal() && !tui.AccessibleMode() {
 		summary, kept, back, progressErr := tui.RunCoverProgress(ctx, session, source)
 		if progressErr != nil {
 			return progressErr
@@ -1115,6 +1566,9 @@ selectionLoop:
 		}
 		if back {
 			if startedInteractively {
+				if options.attention {
+					return coversCommand(ctx, paths, []string{"--attention"})
+				}
 				return coversCommand(ctx, paths, nil)
 			}
 			return nil
@@ -1135,12 +1589,16 @@ selectionLoop:
 		fmt.Fprintf(os.Stderr, "[%d/%d] %s\n", index+1, len(selected), book.Title)
 		session.Record(session.Fetch(ctx, index, source))
 	}
-	summary, err := session.Commit()
+	summary, err := session.Commit(ctx)
 	if err != nil {
 		_ = session.Discard()
 		return err
 	}
 	return printCoverSummary(paths, session, summary)
+}
+
+func coverReplacementAllowed(source library.CoverSource, explicitlyRequested bool) bool {
+	return explicitlyRequested || source == library.CoverSourceURL
 }
 
 func booksMissingCovers(books []library.Book) []library.Book {
@@ -1289,6 +1747,7 @@ type coversOptions struct {
 	ids       []string
 	all       bool
 	missing   bool
+	attention bool
 	recompute bool
 	replace   bool
 	source    library.CoverSource
@@ -1305,6 +1764,8 @@ func parseCoversArgs(args []string) (coversOptions, error) {
 			options.all = true
 		case arg == "--missing":
 			options.missing = true
+		case arg == "--attention":
+			options.attention = true
 		case arg == "--recompute-colors":
 			options.recompute = true
 		case arg == "--replace":
@@ -1355,6 +1816,18 @@ func parseCoversArgs(args []string) (coversOptions, error) {
 	if options.missing && options.all {
 		return coversOptions{}, fmt.Errorf("--missing cannot be combined with --all")
 	}
+	if options.attention && options.all {
+		return coversOptions{}, fmt.Errorf("--attention cannot be combined with --all")
+	}
+	if options.attention && options.missing {
+		return coversOptions{}, fmt.Errorf("--attention cannot be combined with --missing")
+	}
+	if options.attention && len(options.ids) > 0 {
+		return coversOptions{}, fmt.Errorf("--attention cannot be combined with book IDs")
+	}
+	if options.attention && options.replace {
+		return coversOptions{}, fmt.Errorf("--attention cannot be combined with --replace")
+	}
 	if options.missing && len(options.ids) > 0 {
 		return coversOptions{}, fmt.Errorf("--missing cannot be combined with book IDs")
 	}
@@ -1364,10 +1837,13 @@ func parseCoversArgs(args []string) (coversOptions, error) {
 	if options.missing && (options.url != "" || options.source == library.CoverSourceURL) {
 		return coversOptions{}, fmt.Errorf("--missing cannot be combined with a custom URL")
 	}
+	if options.attention && (options.url != "" || options.source == library.CoverSourceURL) {
+		return coversOptions{}, fmt.Errorf("--attention cannot be combined with a custom URL")
+	}
 	if options.url != "" && options.source != library.CoverSourceURL {
 		return coversOptions{}, fmt.Errorf("--url cannot be combined with a different --source")
 	}
-	if options.url != "" && (options.all || len(options.ids) != 1) {
+	if options.url != "" && (options.all || options.missing || options.attention || len(options.ids) != 1) {
 		return coversOptions{}, fmt.Errorf("--url requires exactly one book ID")
 	}
 	return options, nil
@@ -1454,24 +1930,39 @@ func upgradeCommand(ctx context.Context, args []string) error {
 	if err := temp.Close(); err != nil {
 		return err
 	}
+	installRoot, err := preferredInstallRoot()
+	if err != nil {
+		return err
+	}
+	executable, err := os.Executable()
+	if err != nil {
+		return err
+	}
 	command := exec.CommandContext(ctx, "sh", name, "--upgrade")
 	command.Stdin = os.Stdin
 	command.Stdout = os.Stdout
 	command.Stderr = os.Stderr
-	command.Env = environmentWith("BOOKSHELF_VERSION", latest)
+	command.Env = environmentWith(map[string]string{
+		"BOOKSHELF_VERSION":     latest,
+		"BOOKSHELF_INSTALL_DIR": installRoot,
+		"BOOKSHELF_BIN_DIR":     filepath.Dir(executable),
+	})
 	return command.Run()
 }
 
-func environmentWith(name, value string) []string {
-	prefix := name + "="
+func environmentWith(values map[string]string) []string {
 	environment := os.Environ()
-	result := make([]string, 0, len(environment)+1)
+	result := make([]string, 0, len(environment)+len(values))
 	for _, entry := range environment {
-		if !strings.HasPrefix(entry, prefix) {
+		name, _, _ := strings.Cut(entry, "=")
+		if _, replaced := values[name]; !replaced {
 			result = append(result, entry)
 		}
 	}
-	return append(result, prefix+value)
+	for name, value := range values {
+		result = append(result, name+"="+value)
+	}
+	return result
 }
 
 func latestRelease(ctx context.Context) (string, error) {
@@ -1525,7 +2016,7 @@ func displayVersion(value string) string {
 	return value
 }
 
-func uninstallCommand(args []string) error {
+func uninstallCommand(ctx context.Context, args []string) error {
 	flags := flag.NewFlagSet("uninstall", flag.ContinueOnError)
 	flags.SetOutput(os.Stderr)
 	force := flags.Bool("force", false, "allow uninstall outside the installed binary")
@@ -1543,13 +2034,17 @@ func uninstallCommand(args []string) error {
 	if err != nil {
 		return err
 	}
-	installDir := os.Getenv("BOOKSHELF_INSTALL_DIR")
-	if installDir == "" {
-		installDir = filepath.Join(home, ".local", "share", "bookshelf")
+	installDir, err := preferredInstallRoot()
+	if err != nil {
+		return err
 	}
 	binPath := os.Getenv("BOOKSHELF_BIN_PATH")
 	if binPath == "" {
 		binPath = filepath.Join(home, ".local", "bin", "bookshelf")
+	}
+	installDir, installExists, err := validateInstallRootForRemoval(installDir, home, binPath)
+	if err != nil {
+		return err
 	}
 	executable, _ := os.Executable()
 	executable, _ = filepath.EvalSymlinks(executable)
@@ -1570,33 +2065,91 @@ func uninstallCommand(args []string) error {
 			return nil
 		}
 	}
-	if err := os.Remove(binPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+	rootRemoved := true
+	removeInstalledFiles := func() error {
+		if err := os.Remove(binPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+		if shouldPurge {
+			if installExists {
+				rootRemoved, err = removeBookshelfData(installDir)
+				return err
+			}
+			return nil
+		}
+		if installExists {
+			if err := os.RemoveAll(filepath.Join(installDir, "public")); err != nil {
+				return err
+			}
+			_ = os.Remove(installDir)
+		}
+		return nil
+	}
+	if installExists {
+		err = library.WithLibraryLock(ctx, library.NewPaths(installDir), removeInstalledFiles)
+	} else {
+		err = removeInstalledFiles()
+	}
+	if err != nil {
 		return err
 	}
-	for _, completionPath := range completionPaths(home) {
-		if err := os.Remove(completionPath); err != nil && !errors.Is(err, os.ErrNotExist) {
-			return err
-		}
-	}
+
 	if shouldPurge {
-		if err := os.RemoveAll(installDir); err != nil {
+		if err := removeInstallRootHint(installDir); err != nil {
 			return err
 		}
-		fmt.Printf("Removed Bookshelf command and all data:\n%s\n%s\n", binPath, installDir)
+		fmt.Printf("Removed Bookshelf command and all Bookshelf data:\n%s\n%s\n", binPath, installDir)
+		if !rootRemoved {
+			fmt.Println("Preserved unrelated files in the installation directory.")
+		}
 		return nil
 	}
 	publicDir := filepath.Join(installDir, "public")
-	if err := os.RemoveAll(publicDir); err != nil {
-		return err
-	}
-	_ = os.Remove(installDir)
 	fmt.Printf("Removed Bookshelf command and generated website:\n%s\n%s\n", binPath, publicDir)
-	fmt.Printf("Preserved books, covers, and settings in %s\n", filepath.Join(installDir, "data"))
+	fmt.Printf("Preserved books, covers, settings, and safety backups in %s\n", installDir)
 	fmt.Println("To delete them later, remove that directory or reinstall and run `bookshelf uninstall --purge`.")
 	return nil
 }
 
-func completionPaths(home string) []string {
+func validateInstallRootForRemoval(root, home, binPath string) (string, bool, error) {
+	root = strings.TrimSpace(root)
+	if root == "" {
+		return "", false, fmt.Errorf("refusing to uninstall with an empty Bookshelf data directory")
+	}
+	absolute, err := filepath.Abs(root)
+	if err != nil {
+		return "", false, err
+	}
+	info, err := os.Stat(absolute)
+	if errors.Is(err, os.ErrNotExist) {
+		return absolute, false, nil
+	}
+	if err != nil {
+		return "", false, err
+	}
+	if !info.IsDir() {
+		return "", false, fmt.Errorf("refusing to uninstall: Bookshelf data path is not a directory: %s", absolute)
+	}
+	canonical, err := filepath.EvalSymlinks(absolute)
+	if err != nil {
+		return "", false, err
+	}
+	canonical, err = filepath.Abs(canonical)
+	if err != nil {
+		return "", false, err
+	}
+	if canonical != absolute {
+		return "", false, fmt.Errorf("refusing to uninstall through a symbolic-link data directory: %s", absolute)
+	}
+
+	home, err = filepath.Abs(home)
+	if err != nil {
+		return "", false, err
+	}
+	binDir, err := filepath.Abs(filepath.Dir(binPath))
+	if err != nil {
+		return "", false, err
+	}
 	dataHome := strings.TrimSpace(os.Getenv("XDG_DATA_HOME"))
 	if dataHome == "" {
 		dataHome = filepath.Join(home, ".local", "share")
@@ -1605,9 +2158,81 @@ func completionPaths(home string) []string {
 	if configHome == "" {
 		configHome = filepath.Join(home, ".config")
 	}
-	return []string{
-		filepath.Join(dataHome, "bash-completion", "completions", "bookshelf"),
-		filepath.Join(dataHome, "zsh", "site-functions", "_bookshelf"),
-		filepath.Join(configHome, "fish", "completions", "bookshelf.fish"),
+	protected := []string{
+		string(filepath.Separator),
+		home,
+		filepath.Dir(home),
+		filepath.Join(home, ".local"),
+		filepath.Join(home, ".local", "share"),
+		dataHome,
+		configHome,
+		binDir,
 	}
+	for _, candidate := range protected {
+		candidate, err = filepath.Abs(candidate)
+		if err != nil {
+			return "", false, err
+		}
+		if canonical == candidate {
+			return "", false, fmt.Errorf("refusing to uninstall unsafe Bookshelf data directory: %s", canonical)
+		}
+	}
+	if filepath.Dir(canonical) == string(filepath.Separator) {
+		return "", false, fmt.Errorf("refusing to uninstall unsafe top-level directory: %s", canonical)
+	}
+	if _, err := os.Stat(filepath.Join(canonical, ".git")); err == nil {
+		return "", false, fmt.Errorf("refusing to uninstall a Git working tree: %s", canonical)
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return "", false, err
+	}
+	if !library.OwnsRoot(library.NewPaths(canonical)) {
+		return "", false, fmt.Errorf("refusing to uninstall unrecognized data directory %s: Bookshelf ownership marker is missing", canonical)
+	}
+	return canonical, true, nil
+}
+
+func removeBookshelfData(root string) (bool, error) {
+	for _, name := range []string{
+		"data",
+		"public",
+		"backups",
+		"data.previous",
+		"public.previous",
+		".bookshelf.lock",
+	} {
+		if err := os.RemoveAll(filepath.Join(root, name)); err != nil {
+			return false, err
+		}
+	}
+
+	entries, err := os.ReadDir(root)
+	if errors.Is(err, os.ErrNotExist) {
+		return true, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	for _, entry := range entries {
+		if strings.HasPrefix(entry.Name(), ".bookshelf-public-") ||
+			strings.HasPrefix(entry.Name(), ".bookshelf-import-") {
+			if err := os.RemoveAll(filepath.Join(root, entry.Name())); err != nil {
+				return false, err
+			}
+		}
+	}
+
+	entries, err = os.ReadDir(root)
+	if errors.Is(err, os.ErrNotExist) {
+		return true, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	if len(entries) != 0 {
+		return false, nil
+	}
+	if err := os.Remove(root); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return false, err
+	}
+	return true, nil
 }

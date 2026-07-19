@@ -84,6 +84,25 @@ func (m coverWorkflowModel) View() tea.View {
 }
 
 func RunCoverWorkflow(books []library.Book, initial []string) (CoverWorkflowResult, error) {
+	if AccessibleMode() {
+		p := newAccessiblePrompter()
+		ids := append([]string(nil), initial...)
+		if len(ids) == 0 {
+			var confirmed bool
+			var err error
+			ids, confirmed, err = p.pickBooks(books, true, "Bookshelf · Covers")
+			if err != nil || !confirmed {
+				return CoverWorkflowResult{}, err
+			}
+		}
+		source, err := p.coverSource(selectedBooks(books, ids))
+		if err != nil || !source.Confirmed {
+			return CoverWorkflowResult{}, err
+		}
+		return CoverWorkflowResult{
+			IDs: ids, Source: source.Source, URL: source.URL, Confirmed: true,
+		}, nil
+	}
 	final, err := tea.NewProgram(newCoverWorkflowModel(books, initial)).Run()
 	if err != nil {
 		return CoverWorkflowResult{}, err
@@ -181,6 +200,22 @@ func (m editWorkflowModel) View() tea.View {
 }
 
 func RunEditWorkflow(books []library.Book) (EditWorkflowResult, error) {
+	if AccessibleMode() {
+		p := newAccessiblePrompter()
+		ids, confirmed, err := p.pickBooks(books, false, "Bookshelf · Edit")
+		if err != nil || !confirmed {
+			return EditWorkflowResult{}, err
+		}
+		selected := selectedBooks(books, ids)
+		if len(selected) != 1 {
+			return EditWorkflowResult{}, nil
+		}
+		form, err := p.bookForm(&selected[0])
+		if err != nil || form.Cancelled {
+			return EditWorkflowResult{}, err
+		}
+		return EditWorkflowResult{Original: selected[0], Form: form, Confirmed: true}, nil
+	}
 	final, err := tea.NewProgram(newEditWorkflowModel(books)).Run()
 	if err != nil {
 		return EditWorkflowResult{}, err
@@ -273,6 +308,24 @@ func (m removeWorkflowModel) View() tea.View {
 }
 
 func RunRemoveWorkflow(books []library.Book) (RemoveWorkflowResult, error) {
+	if AccessibleMode() {
+		p := newAccessiblePrompter()
+		ids, confirmed, err := p.pickBooks(books, true, "Bookshelf · Remove")
+		if err != nil || !confirmed {
+			return RemoveWorkflowResult{}, err
+		}
+		value, err := p.choice(
+			fmt.Sprintf("Remove %d selected book(s)?", len(ids)),
+			[]string{"Books + Covers", "Books Only", "Cancel"},
+			"Cancel",
+		)
+		if err != nil || value == "Cancel" {
+			return RemoveWorkflowResult{}, err
+		}
+		return RemoveWorkflowResult{
+			IDs: ids, RemoveCovers: value == "Books + Covers", Confirmed: true,
+		}, nil
+	}
 	final, err := tea.NewProgram(newRemoveWorkflowModel(books)).Run()
 	if err != nil {
 		return RemoveWorkflowResult{}, err

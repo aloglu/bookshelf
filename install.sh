@@ -2,11 +2,37 @@
 set -eu
 
 REPO="${BOOKSHELF_REPO:-aloglu/bookshelf}"
-INSTALL_DIR="${BOOKSHELF_INSTALL_DIR:-$HOME/.local/share/bookshelf}"
 BIN_DIR="${BOOKSHELF_BIN_DIR:-$HOME/.local/bin}"
 BIN_PATH="$BIN_DIR/bookshelf"
 VERSION="${BOOKSHELF_VERSION:-latest}"
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+
+LOCAL_SOURCE=0
+case "$0" in
+  *install.sh)
+    if [ -f "$SCRIPT_DIR/go.mod" ] && [ -f "$SCRIPT_DIR/cmd/bookshelf/main.go" ]; then
+      LOCAL_SOURCE=1
+    fi
+    ;;
+esac
+
+config_home="${XDG_CONFIG_HOME:-$HOME/.config}"
+root_hint_dir="$config_home/bookshelf"
+root_hint_file="$root_hint_dir/root"
+
+if [ -n "${BOOKSHELF_INSTALL_DIR:-}" ]; then
+  INSTALL_DIR="$BOOKSHELF_INSTALL_DIR"
+elif [ "$LOCAL_SOURCE" -eq 1 ]; then
+  INSTALL_DIR="$HOME/.local/share/bookshelf-dev"
+elif [ -f "$root_hint_file" ]; then
+  INSTALL_DIR=$(sed -n '1p' "$root_hint_file")
+  if [ -z "$INSTALL_DIR" ]; then
+    echo "Bookshelf's remembered data location is empty: $root_hint_file" >&2
+    exit 1
+  fi
+else
+  INSTALL_DIR="$HOME/.local/share/bookshelf"
+fi
 
 TMP_DIR=""
 
@@ -111,7 +137,8 @@ prepare_local_checkout() {
   mkdir -p "$TMP_DIR/package"
   (
     cd "$SCRIPT_DIR"
-    CGO_ENABLED=0 go build -buildvcs=false -trimpath -ldflags "-s -w -X main.version=dev" \
+    CGO_ENABLED=0 go build -buildvcs=false -trimpath \
+      -ldflags "-s -w -X main.version=dev -X main.defaultDataDirectory=bookshelf-dev" \
       -o "$TMP_DIR/package/bookshelf" ./cmd/bookshelf
   )
 }
@@ -137,26 +164,7 @@ prepare_release() {
   tar -xzf "$archive" -C "$TMP_DIR/package"
 }
 
-remove_completions() {
-  data_home="${XDG_DATA_HOME:-$HOME/.local/share}"
-  config_home="${XDG_CONFIG_HOME:-$HOME/.config}"
-
-  rm -f \
-    "$data_home/bash-completion/completions/bookshelf" \
-    "$data_home/zsh/site-functions/_bookshelf" \
-    "$config_home/fish/completions/bookshelf.fish"
-}
-
 TMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/bookshelf-install.XXXXXX")
-
-LOCAL_SOURCE=0
-case "$0" in
-  *install.sh)
-    if [ -f "$SCRIPT_DIR/go.mod" ] && [ -f "$SCRIPT_DIR/cmd/bookshelf/main.go" ]; then
-      LOCAL_SOURCE=1
-    fi
-    ;;
-esac
 
 if [ "$LOCAL_SOURCE" -eq 1 ]; then
   prepare_local_checkout
@@ -170,10 +178,14 @@ if [ ! -x "$TMP_DIR/package/bookshelf" ]; then
 fi
 mkdir -p "$BIN_DIR"
 mkdir -p "$INSTALL_DIR"
+INSTALL_DIR=$(CDPATH= cd -- "$INSTALL_DIR" && pwd -P)
 install -m 0755 "$TMP_DIR/package/bookshelf" "$BIN_PATH"
-remove_completions
 
 BOOKSHELF_INSTALL_DIR="$INSTALL_DIR" BOOKSHELF_BIN_PATH="$BIN_PATH" "$BIN_PATH" _init
+mkdir -p "$root_hint_dir"
+root_hint_tmp="$root_hint_dir/root.tmp.$$"
+printf '%s\n' "$INSTALL_DIR" > "$root_hint_tmp"
+mv "$root_hint_tmp" "$root_hint_file"
 
 echo "Installed Bookshelf command: $BIN_PATH"
 echo "Installed Bookshelf files: $INSTALL_DIR"

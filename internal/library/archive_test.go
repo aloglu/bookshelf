@@ -4,13 +4,16 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	"fmt"
 	"image"
 	"image/color"
 	"image/jpeg"
 	"image/png"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 )
 
 func TestBookshelfArchiveReplaceRoundTripIncludesImagesAndSettings(t *testing.T) {
@@ -32,6 +35,13 @@ func TestBookshelfArchiveReplaceRoundTripIncludesImagesAndSettings(t *testing.T)
 	result := writeTestArchive(t, archive, source)
 	if result.Books != 1 || result.Covers != 1 || result.ManualCovers != 1 {
 		t.Fatalf("export result = %#v", result)
+	}
+	info, err := InspectArchive(archive)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Books != 1 || info.Covers != 1 || info.ManualCovers != 1 || info.SiteTitle != "Archive Library" {
+		t.Fatalf("archive info = %#v", info)
 	}
 	assertArchiveEntries(t, archive, []string{
 		"manifest.json",
@@ -76,6 +86,120 @@ func TestBookshelfArchiveReplaceRoundTripIncludesImagesAndSettings(t *testing.T)
 	}
 	if !fileExists(destination.BooksJS) {
 		t.Fatal("published website data was not rebuilt")
+	}
+}
+
+func TestArchiveExportRejectsImagesThatCannotBeImported(t *testing.T) {
+	t.Run("oversized", func(t *testing.T) {
+		paths := fixture(t)
+		name := filepath.Join(paths.ManualCoversDir, "oversized.png")
+		file, err := os.Create(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := file.Truncate(archiveMaxImage + 1); err != nil {
+			file.Close()
+			t.Fatal(err)
+		}
+		if err := file.Close(); err != nil {
+			t.Fatal(err)
+		}
+		var output bytes.Buffer
+		if _, err := EncodeArchive(&output, paths, nil); err == nil ||
+			!strings.Contains(err.Error(), "50 MiB") {
+			t.Fatalf("oversized archive export error = %v", err)
+		}
+	})
+
+	t.Run("dimensions", func(t *testing.T) {
+		paths := fixture(t)
+		name := filepath.Join(paths.ManualCoversDir, "too-wide.png")
+		output, err := os.Create(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		encodeErr := png.Encode(output, image.NewRGBA(image.Rect(0, 0, maxCoverDimension+1, 1)))
+		closeErr := output.Close()
+		if encodeErr != nil {
+			t.Fatal(encodeErr)
+		}
+		if closeErr != nil {
+			t.Fatal(closeErr)
+		}
+		var archive bytes.Buffer
+		if _, err := EncodeArchive(&archive, paths, nil); err == nil ||
+			!strings.Contains(err.Error(), "exceed the safety limit") {
+			t.Fatalf("oversized-dimension archive export error = %v", err)
+		}
+	})
+
+	t.Run("invalid image", func(t *testing.T) {
+		paths := fixture(t)
+		name := filepath.Join(paths.ManualCoversDir, "invalid.jpg")
+		if err := os.WriteFile(name, []byte("not an image"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		var output bytes.Buffer
+		if _, err := EncodeArchive(&output, paths, nil); err == nil ||
+			!strings.Contains(err.Error(), "validate") {
+			t.Fatalf("invalid-image archive export error = %v", err)
+		}
+	})
+}
+
+func TestArchiveReplacementCreatesBackupWhileHoldingLibraryLock(t *testing.T) {
+	source := fixture(t)
+	replacement := Normalize(Book{Title: "Replacement"})
+	if err := Save(source, []Book{replacement}); err != nil {
+		t.Fatal(err)
+	}
+	archive := filepath.Join(t.TempDir(), "replacement.bookshelf")
+	writeTestArchive(t, archive, source)
+
+	destination := fixture(t)
+	current := Normalize(Book{Title: "Current"})
+	if err := Save(destination, []Book{current}); err != nil {
+		t.Fatal(err)
+	}
+
+	lockAttempted := make(chan struct{})
+	lockResult := make(chan error, 1)
+	result, err := ImportArchive(context.Background(), destination, archive, ArchiveImportOptions{
+		Mode: ArchiveReplace,
+		BeforeReplace: func(books []Book) (string, error) {
+			if len(books) != 1 || books[0].ID != current.ID {
+				return "", fmt.Errorf("backup snapshot = %#v", books)
+			}
+			go func() {
+				close(lockAttempted)
+				unlock, lockErr := acquireLibraryLock(context.Background(), destination)
+				if lockErr == nil {
+					unlock()
+				}
+				lockResult <- lockErr
+			}()
+			<-lockAttempted
+			select {
+			case lockErr := <-lockResult:
+				return "", fmt.Errorf("replacement backup did not hold the library lock: %v", lockErr)
+			case <-time.After(75 * time.Millisecond):
+			}
+			return "locked-safety-backup.bookshelf", nil
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.SafetyBackup != "locked-safety-backup.bookshelf" {
+		t.Fatalf("safety backup = %q", result.SafetyBackup)
+	}
+	select {
+	case lockErr := <-lockResult:
+		if lockErr != nil {
+			t.Fatal(lockErr)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("library lock was not released after archive replacement")
 	}
 }
 

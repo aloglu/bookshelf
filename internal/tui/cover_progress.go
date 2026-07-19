@@ -68,6 +68,11 @@ func (m *coverProgressModel) startNext() tea.Cmd {
 	if m.index >= len(m.books) {
 		return m.finish(true)
 	}
+	if m.parent.Err() != nil {
+		m.interrupted = true
+		m.stopAction = "discard"
+		return m.finish(false)
+	}
 	requestContext, cancel := context.WithCancel(m.parent)
 	m.cancel = cancel
 	m.inFlight = true
@@ -82,7 +87,7 @@ func (m *coverProgressModel) finish(keep bool) tea.Cmd {
 	m.inFlight = true
 	return func() tea.Msg {
 		if keep {
-			summary, err := m.session.Commit()
+			summary, err := m.session.Commit(m.parent)
 			if err != nil {
 				return coverFinishedMsg{summary: summary, kept: true, err: err}
 			}
@@ -182,6 +187,10 @@ func (m *coverProgressModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case coverFetchedMsg:
 		m.inFlight = false
+		if msg.canceled && m.parent.Err() != nil {
+			m.interrupted = true
+			m.stopAction = "discard"
+		}
 		if !msg.canceled {
 			m.session.Record(msg.outcome)
 			m.index++

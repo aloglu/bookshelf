@@ -9,6 +9,11 @@
   const defaultSortOrder = ["ascending", "descending"].includes(configuredSortOrder)
     ? configuredSortOrder
     : "ascending";
+  const shelfSpeedFactors = Object.freeze({ slow: 0.65, normal: 1, fast: 1.6 });
+  const shelfKeyboardSpeedFactor =
+    shelfSpeedFactors[window.bookshelfConfig?.shelfScrollSpeed] || shelfSpeedFactors.normal;
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const preferredScrollBehavior = reduceMotion ? 'auto' : 'smooth';
   let viewableBooks = [...allBooks]; // Base list for current view (filtered or not)
   window.viewableBookCount = viewableBooks.length;
   let currentFilter = ""; // Search query
@@ -27,8 +32,23 @@
   const detailAuthor = detailCard ? detailCard.querySelector(".details-author") : null;
   const detailFields = document.querySelectorAll(".details [data-field]");
   const isbnTrigger = detailCard ? detailCard.querySelector(".isbn-trigger[data-field='isbn']") : null;
-  const isbnPopup = detailCard ? detailCard.querySelector("#isbn-popup") : null;
-  const isbnLinks = isbnPopup ? Array.from(isbnPopup.querySelectorAll(".isbn-link")) : null;
+  const isbnPopup = document.getElementById("isbn-popup");
+  const isbnLinks = isbnPopup ? Array.from(isbnPopup.querySelectorAll(".isbn-link")) : [];
+  let activeIsbnTrigger = null;
+
+  const appendTextElement = (parent, tagName, className, value) => {
+    const element = document.createElement(tagName);
+    if (className) element.className = className;
+    element.textContent = String(value);
+    parent.appendChild(element);
+    return element;
+  };
+
+  const safeAssetPath = (value) =>
+    String(value || "")
+      .split("/")
+      .map((part) => encodeURIComponent(part))
+      .join("/");
 
   const siteTitle = String(window.bookshelfConfig?.siteTitle || "Bookshelf").trim() || "Bookshelf";
   const siteSubtitle = String(
@@ -109,12 +129,10 @@
   const searchToggle = searchControl ? searchControl.querySelector(".search-toggle") : null;
   const searchInput = searchControl ? searchControl.querySelector(".search-input") : null;
 
-  if (!bookshelf || !allBooks.length) {
-    if (bookshelf) bookshelf.textContent = "No books were found.";
-    return;
-  }
+  if (!bookshelf) return;
 
   let bookElements = [];
+  window.bookshelfRenderVersion = 0;
   const detailsSection = document.getElementById("details");
   let activeId = null;
   window.activeId = null;
@@ -244,40 +262,68 @@
     return String(book.titleSlug || book.id || "").trim();
   };
 
-  const closeIsbnPopup = () => {
-    if (!isbnPopup || !isbnTrigger) return;
+  const closeIsbnPopup = (restoreFocus = false) => {
+    if (!isbnPopup) return;
+    const trigger = activeIsbnTrigger;
     isbnPopup.classList.remove("is-visible");
     isbnPopup.setAttribute("aria-hidden", "true");
-    isbnTrigger.setAttribute("aria-expanded", "false");
+    if (trigger) trigger.setAttribute("aria-expanded", "false");
+    activeIsbnTrigger = null;
+    if (restoreFocus && trigger) trigger.focus();
   };
+  window.closeIsbnPopup = closeIsbnPopup;
 
-  const openIsbnPopup = () => {
-    if (!isbnPopup || !isbnTrigger || isbnTrigger.disabled) return;
-
-    // Smart Positioning Logic
-    // Detect if the popup will be cut off by the bottom of the viewport
-    const rect = isbnTrigger.getBoundingClientRect();
-    const spaceBelow = window.innerHeight - rect.bottom;
-    const isMobile = window.innerWidth <= 720;
-
-    // If less than 180px space below, open upward (unless on mobile where layout is different)
-    if (spaceBelow < 180 && !isMobile) {
+  const positionIsbnPopup = (trigger) => {
+    if (!isbnPopup || !trigger) return;
+    const rect = trigger.getBoundingClientRect();
+    const gap = 7;
+    const popupHeight = isbnPopup.offsetHeight;
+    const popupWidth = isbnPopup.offsetWidth;
+    const opensUpward = window.innerHeight - rect.bottom < popupHeight + gap && rect.top > popupHeight + gap;
+    const top = opensUpward ? rect.top - popupHeight - gap : rect.bottom + gap;
+    const left = Math.max(8, Math.min(rect.left, window.innerWidth - popupWidth - 8));
+    isbnPopup.style.top = `${Math.max(8, top)}px`;
+    isbnPopup.style.left = `${left}px`;
+    if (opensUpward) {
       isbnPopup.classList.add("is-upward");
     } else {
       isbnPopup.classList.remove("is-upward");
     }
-
-    isbnPopup.classList.add("is-visible");
-    isbnPopup.setAttribute("aria-hidden", "false");
-    isbnTrigger.setAttribute("aria-expanded", "true");
   };
 
-  const toggleIsbnPopup = () => {
+  const updateIsbnLinks = (value) => {
+    const cleanIsbn = sanitizeIsbn(value);
+    isbnLinks.forEach((link) => {
+      const source = ISBN_SOURCES[link.dataset.source];
+      if (!source || !cleanIsbn) {
+        link.removeAttribute("href");
+        return;
+      }
+      link.href = source.buildUrl(cleanIsbn);
+    });
+    return cleanIsbn;
+  };
+
+  const openIsbnPopup = (trigger = isbnTrigger) => {
+    if (!isbnPopup || !trigger || trigger.disabled) return;
+    const cleanIsbn = updateIsbnLinks(trigger.dataset.isbn || trigger.textContent);
+    if (!cleanIsbn) return;
+    if (activeIsbnTrigger && activeIsbnTrigger !== trigger) {
+      activeIsbnTrigger.setAttribute("aria-expanded", "false");
+    }
+    activeIsbnTrigger = trigger;
+    isbnPopup.classList.add("is-visible");
+    isbnPopup.setAttribute("aria-hidden", "false");
+    trigger.setAttribute("aria-expanded", "true");
+    positionIsbnPopup(trigger);
+  };
+
+  const toggleIsbnPopup = (trigger = isbnTrigger) => {
     if (!isbnPopup) return;
-    if (isbnPopup.classList.contains("is-visible")) {
+    if (isbnPopup.classList.contains("is-visible") && activeIsbnTrigger === trigger) {
       closeIsbnPopup();
     } else {
-      openIsbnPopup();
+      openIsbnPopup(trigger);
     }
   };
 
@@ -299,57 +345,12 @@
       "aria-label",
       hasIsbn ? `Open ISBN links for ${cleanIsbn}` : "No ISBN available",
     );
-    closeIsbnPopup();
-    if (!hasIsbn) {
-      isbnLinks.forEach((link) => link.removeAttribute("href"));
-      return;
-    }
-    isbnLinks.forEach((link) => {
-      const source = ISBN_SOURCES[link.dataset.source];
-      if (!source) return;
-      link.href = source.buildUrl(cleanIsbn);
-    });
+    if (activeIsbnTrigger === isbnTrigger) closeIsbnPopup();
+    updateIsbnLinks(cleanIsbn);
   };
 
-  const titleCaseWords = new Set([
-    "a",
-    "an",
-    "and",
-    "as",
-    "at",
-    "but",
-    "by",
-    "for",
-    "in",
-    "of",
-    "on",
-    "or",
-    "the",
-    "to",
-    "vs",
-    "via",
-  ]);
-
-  const formatTitle = (title) => {
-    if (!title || typeof title !== "string") {
-      return "";
-    }
-    const words = title
-      .trim()
-      .split(/\s+/)
-      .map((word) => word.toLowerCase());
-
-    return words
-      .map((word, index) => {
-        if (!word) return "";
-        const isEdge = index === 0 || index === words.length - 1;
-        if (!isEdge && titleCaseWords.has(word)) {
-          return word;
-        }
-        return word.charAt(0).toUpperCase() + word.slice(1);
-      })
-      .join(" ");
-  };
+  const formatTitle = (title) =>
+    typeof title === "string" ? title.trim() : "";
 
   const cardHeight = (book) => {
     const title = typeof book.title === "string" ? book.title.trim() : "";
@@ -385,7 +386,7 @@
   const decorateBook = (book, index) => {
     const palette = pickPalette(book);
     const height = cardHeight(book);
-    const coverPath = normalizeCoverPath(book.cover);
+    const coverPath = normalizeCoverPath(book.thumbnail || book.cover);
     const coverHeight = clamp(Math.round(height * 0.35), 99, 135);
     const coverWidth = clamp(Math.round(coverHeight * 0.65), 63, 81);
     const cardWidth = clamp(coverWidth + 40, 94, 126);
@@ -457,8 +458,9 @@
     // Prepare Cover URL
     // CSS Variable needs to be relative to the CSS file (../data/...)
     // Inline styles need to be relative to the Document (data/...)
-    const cssCoverUrl = metrics.coverPath ? `url("../${metrics.coverPath}")` : "";
-    const docCoverUrl = metrics.coverPath ? `url("${metrics.coverPath}")` : "";
+    const encodedCoverPath = safeAssetPath(metrics.coverPath);
+    const cssCoverUrl = encodedCoverPath ? `url("../${encodedCoverPath}")` : "";
+    const docCoverUrl = encodedCoverPath ? `url("${encodedCoverPath}")` : "";
 
     if (metrics.coverPath) {
       el.classList.add("has-cover");
@@ -469,42 +471,48 @@
     }
 
     // --- Shelf View Elements (Direct children, no wrapper) ---
-    const shelfCover = `<span class="shelf-cover" aria-hidden="true"></span>`;
-    const shelfText = `
-        <div class="shelf-text">
-             ${book.author ? `<small class="author">${book.author}</small>` : ""}
-             <span class="title">${displayTitle}</span>
-         </div>
-      `;
+    const shelfCover = appendTextElement(el, "span", "shelf-cover", "");
+    shelfCover.setAttribute("aria-hidden", "true");
+    const shelfText = appendTextElement(el, "div", "shelf-text", "");
+    if (book.author) appendTextElement(shelfText, "small", "author", book.author);
+    appendTextElement(shelfText, "span", "title", displayTitle);
 
     // --- Stack View Content (Details Card Look) ---
-    const stackItems = [];
-    if (book.publisher) stackItems.push(`<div><dt>Publisher</dt><dd>${book.publisher}</dd></div>`);
-    if (book.published) stackItems.push(`<div><dt>Published</dt><dd>${book.published}</dd></div>`);
-    if (book.binding) stackItems.push(`<div><dt>Binding</dt><dd>${book.binding}</dd></div>`);
-    if (book.translator) stackItems.push(`<div><dt>Translator</dt><dd>${book.translator}</dd></div>`);
+    const stackContent = appendTextElement(el, "div", "stack-content", "");
+    const stackCover = appendTextElement(stackContent, "div", "stack-cover", "");
+    if (docCoverUrl) stackCover.style.backgroundImage = docCoverUrl;
+    const stackBody = appendTextElement(stackContent, "div", "stack-body", "");
+    const stackHeading = appendTextElement(stackBody, "div", "stack-heading", "");
+    appendTextElement(stackHeading, "p", "stack-title", displayTitle);
+    if (book.author) appendTextElement(stackHeading, "p", "stack-author", book.author);
+    const stackGrid = appendTextElement(stackBody, "dl", "stack-grid", "");
+    let stackItemCount = 0;
+    const appendStackItem = (label, value) => {
+      if (!value) return;
+      const row = appendTextElement(stackGrid, "div", "", "");
+      appendTextElement(row, "dt", "", label);
+      appendTextElement(row, "dd", "", value);
+      stackItemCount++;
+    };
+    appendStackItem("Publisher", book.publisher);
+    appendStackItem("Published", book.published);
+    appendStackItem("Binding", book.binding);
+    appendStackItem("Translator", book.translator);
     if (book.isbn) {
-      stackItems.push(`<div><dt>ISBN</dt><dd class="isbn-field">
-                        <span class="isbn-trigger stack-isbn-btn" role="button" tabindex="0" aria-label="Open ISBN links for ${book.isbn}" aria-haspopup="true" aria-expanded="false" data-isbn="${book.isbn}">${sanitizeIsbn(book.isbn)}</span>
-                    </dd></div>`);
+      const row = appendTextElement(stackGrid, "div", "", "");
+      appendTextElement(row, "dt", "", "ISBN");
+      const field = appendTextElement(row, "dd", "isbn-field", "");
+      const trigger = appendTextElement(field, "span", "isbn-trigger stack-isbn-btn", sanitizeIsbn(book.isbn));
+      trigger.setAttribute("role", "button");
+      trigger.tabIndex = 0;
+      trigger.setAttribute("aria-label", `Open ISBN links for ${book.isbn}`);
+      trigger.setAttribute("aria-haspopup", "true");
+      trigger.setAttribute("aria-controls", "isbn-popup");
+      trigger.setAttribute("aria-expanded", "false");
+      trigger.dataset.isbn = book.isbn;
+      stackItemCount++;
     }
-
-    const stackHtml = `
-        <div class="stack-content">
-            <div class="stack-cover" style='${docCoverUrl ? `background-image: ${docCoverUrl}` : ''}'></div>
-            <div class="stack-body">
-                <div class="stack-heading">
-                    <p class="stack-title">${displayTitle}</p>
-                    ${book.author ? `<p class="stack-author">${book.author}</p>` : ""}
-                </div>
-                <dl class="stack-grid" data-count="${stackItems.length}">
-                    ${stackItems.join("")}
-                </dl>
-            </div>
-        </div>
-      `;
-
-    el.innerHTML = shelfCover + shelfText + stackHtml;
+    stackGrid.dataset.count = String(stackItemCount);
 
     // Attach handler for Stack View ISBN trigger
     const stackTrigger = el.querySelector(".stack-content .isbn-trigger");
@@ -513,8 +521,7 @@
       const triggerAction = (e) => {
         e.stopPropagation();
         e.preventDefault();
-        updateIsbnField(stackTrigger.dataset.isbn);
-        openIsbnPopup();
+        toggleIsbnPopup(stackTrigger);
       };
 
       stackTrigger.addEventListener("click", triggerAction);
@@ -554,12 +561,10 @@
 
     bookElements = bookElements.concat(newItems);
     nextBookIndex += batch.length;
+    window.bookshelfRenderVersion += 1;
 
     if (!skipMeasure) {
       measureBookPositions();
-    }
-    if (typeof lenis !== 'undefined' && lenis) {
-      lenis.resize();
     }
   };
 
@@ -578,7 +583,7 @@
       || document.body.classList.contains("view-shelf");
     if (!isHorizontalShelf || nextBookIndex >= viewableBooks.length) return;
 
-    const currentScroll = lenis ? lenis.scroll : bookshelf.scrollLeft;
+    const currentScroll = bookshelf.scrollLeft;
     const remaining = bookshelf.scrollWidth - (currentScroll + bookshelf.clientWidth);
     if (remaining <= 400) {
       loadMoreBooks(batchObserver);
@@ -785,9 +790,7 @@
 
         // So randomIndex IS the index in the current coverflow.
         // We can just set the state target.
-        if (typeof cfState !== 'undefined') {
-          cfState.targetIndex = randomIndex;
-        }
+        if (window.seekCoverflow) window.seekCoverflow(randomIndex);
 
       } else {
         // Shelf / Stack: Just use standard setActive and Scroll
@@ -874,9 +877,6 @@
       }
     });
 
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") closeDropdown();
-    });
   };
 
   initSortDropdown();
@@ -886,9 +886,10 @@
       batchObserver.disconnect();
       batchObserver = null;
     }
-    bookshelf.innerHTML = "";
+    bookshelf.replaceChildren();
     bookElements = []; // Reset global
     nextBookIndex = 0; // Reset
+    window.bookshelfRenderVersion += 1;
 
     // Handle No Results
     if (viewableBooks.length === 0) {
@@ -905,35 +906,31 @@
 
     // Start observing for subsequent batches
     setTimeout(initObserver, 100);
+    window.dispatchEvent(new CustomEvent('bookshelf:rendered'));
   };
 
-  const setActive = (id, shouldCenter = false) => {
-    // If null passed, we are closing.
-
-    if (activeId === id && !shouldCenter && id !== null) return;
+  const setActive = (id, shouldCenter = false, historyMode = "push") => {
+    if (activeId === id && !shouldCenter) return;
     activeId = id;
     window.activeId = id; // Expose for other scopes
 
-    // Update URL without reloading
-    if (id) {
-      const activeBook = allBooks.find((book) => book.id === id);
-      const token = permalinkToken(activeBook) || id;
+    if (historyMode !== "none") {
+      const activeBook = id ? allBooks.find((book) => book.id === id) : null;
+      const token = id ? permalinkToken(activeBook) || id : "";
+      const destination = token
+        ? `#${encodeURIComponent(token)}`
+        : window.location.pathname + window.location.search;
       if (history.pushState) {
-        history.pushState(null, null, `#${encodeURIComponent(token)}`);
-      } else {
+        const method = historyMode === "replace" ? "replaceState" : "pushState";
+        history[method](null, "", destination);
+      } else if (historyMode !== "replace") {
         window.location.hash = token;
-      }
-    } else {
-      // Clear Hash
-      if (history.pushState) {
-        history.pushState("", document.title, window.location.pathname + window.location.search);
-      } else {
-        window.location.hash = "";
       }
     }
 
     // Toggle Elements
     if (!id) {
+      closeIsbnPopup();
       // Hide visually immediately but keep layout to allow smooth scroll
       if (detailsSection) {
         detailsSection.style.opacity = '0';
@@ -941,7 +938,7 @@
       }
 
       // Smooth Scroll back up to the very top
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      window.scrollTo({ top: 0, behavior: preferredScrollBehavior });
 
       // Remove from layout after scroll completes
       setTimeout(() => {
@@ -953,7 +950,7 @@
           }
           if (detailCard) detailCard.hidden = true;
         }
-      }, 800);
+      }, reduceMotion ? 0 : 800);
 
       bookElements.forEach(({ el }) => {
         el.classList.remove("is-active");
@@ -972,15 +969,15 @@
         // Auto-Scroll to Details Panel
         if (detailsSection) {
           setTimeout(() => {
-            detailsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }, 100);
+            detailsSection.scrollIntoView({ behavior: preferredScrollBehavior, block: 'start' });
+          }, reduceMotion ? 0 : 100);
         }
 
         // Center the book if requested logic (e.g. from click)
         if (shouldCenter) {
           if (document.body.classList.contains('view-stack') || bookshelf.classList.contains("force-stack")) {
             // Vertical Scroll for Stack View (Desktop or Mobile)
-            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.scrollIntoView({ behavior: preferredScrollBehavior, block: 'center' });
           } else {
             // Horizontal Scroll for Shelf View
             const containerWidth = bookshelf.clientWidth;
@@ -988,11 +985,7 @@
             const bookWidth = el.offsetWidth;
             const centerPos = bookLeft - (containerWidth / 2) + (bookWidth / 2);
 
-            if (lenis) {
-              lenis.scrollTo(centerPos, { smooth: true, duration: 1.2 });
-            } else {
-              bookshelf.scrollTo({ left: centerPos, behavior: 'smooth' });
-            }
+            bookshelf.scrollTo({ left: centerPos, behavior: preferredScrollBehavior });
           }
         }
       }
@@ -1007,10 +1000,10 @@
       navigator.clipboard.writeText(url).then(() => {
         // Subtle feedback: change icon briefly using unicode checkmark
         const icon = copyLinkBtn.querySelector('.copy-icon');
-        const originalIcon = icon.innerHTML;
-        icon.innerHTML = "&#x2713;&#xFE0E;"; // Unicode Checkmark (Text Version)
+        const originalIcon = icon.textContent;
+        icon.textContent = "\u2713\uFE0E"; // Unicode Checkmark (Text Version)
         setTimeout(() => {
-          icon.innerHTML = originalIcon;
+          icon.textContent = originalIcon;
         }, 1500);
       }).catch(err => {
         console.error('Failed to copy: ', err);
@@ -1127,7 +1120,7 @@
     if (!isbnTrigger || !isbnPopup) return;
     isbnTrigger.addEventListener("click", () => {
       if (isbnTrigger.disabled) return;
-      toggleIsbnPopup();
+      toggleIsbnPopup(isbnTrigger);
     });
 
     document.addEventListener("click", (event) => {
@@ -1135,8 +1128,8 @@
         return;
       }
       if (
-        event.target === isbnTrigger ||
-        isbnTrigger.contains(event.target) ||
+        event.target === activeIsbnTrigger ||
+        activeIsbnTrigger?.contains(event.target) ||
         isbnPopup.contains(event.target)
       ) {
         return;
@@ -1144,110 +1137,74 @@
       closeIsbnPopup();
     });
 
-    document.addEventListener("keydown", (event) => {
-      if (
-        event.key === "Escape" &&
-        isbnPopup.classList.contains("is-visible")
-      ) {
-        closeIsbnPopup();
-        isbnTrigger.focus();
-      }
-    });
-
     isbnLinks.forEach((link) => {
       link.addEventListener("click", () => {
         closeIsbnPopup();
       });
     });
+    window.addEventListener("resize", () => {
+      if (isbnPopup.classList.contains("is-visible") && activeIsbnTrigger) {
+        positionIsbnPopup(activeIsbnTrigger);
+      }
+    });
+    window.addEventListener("scroll", () => {
+      if (isbnPopup.classList.contains("is-visible") && activeIsbnTrigger) {
+        positionIsbnPopup(activeIsbnTrigger);
+      }
+    }, true);
   };
 
-  // --- Animation Setup & Lenis Management ---
-  let lenis;
+  // --- Shelf animation and responsive layout ---
   let currentTilt = 0;
   let targetTilt = 0;
   let lastScroll = -1;
 
-  // Shelf Physics State (Turtle -> Cheetah)
-  // Shelf Physics State (Turtle -> Cheetah)
-  window.shelfState = {
+  const shelfState = window.shelfState = {
     keyVelocity: 0,
-    wsBoost: 1, // Wheel Speed Boost
-    lastWheelTime: 0,
-    keys: { left: false, right: false }
+    keys: { left: false, right: false },
+    isAnimating: false,
+    animationFrame: 0,
   };
+  let shelfAnimationFrame = 0;
 
-  // Exponential Constants
-  // Time-Based Constants (Pixels Per Second)
-  const KEY_BASE_SPEED_PPS = 100; // Base crawl speed
-  const KEY_MAX_SPEED_PPS = 4000; // Max speed
-  const KEY_ACCEL_PPS = 2400; // Acceleration per second
+  const KEY_BASE_SPEED_PPS = 100 * shelfKeyboardSpeedFactor; // Base crawl speed
+  const KEY_MAX_SPEED_PPS = 4000 * shelfKeyboardSpeedFactor; // Max speed
+  const KEY_ACCEL_PPS = 2400 * shelfKeyboardSpeedFactor; // Acceleration per second
   const KEY_FRICTION_FACTOR = 8.0; // Damping (v -= v * f * dt)
-
-  const WHEEL_BASE_MULT = 0.3; // Dampen native scroll
-  window.WHEEL_MAX_MULT = 1.1; // Negligible boost
-  window.PHYS_WHEEL_FACTOR = 0.35; // Coverflow speed
 
   // Simple linear interpolation
   const lerp = (start, end, factor) => start + (end - start) * factor;
 
-  const manageLenis = () => {
+  const applyResponsiveLayout = () => {
     const isMobile = window.matchMedia("(max-width: 768px)").matches;
     const isStackView = document.body.classList.contains('view-stack');
     const isCoverflow = document.body.classList.contains('view-coverflow');
 
-    // 1. Destroy Lenis if we are NOT in Shelf View (Desktop)
-    // i.e. If Mobile, or Stack, or Coverflow
-    if (lenis && (isMobile || isStackView || isCoverflow)) {
-      lenis.destroy();
-      lenis = null;
-    }
-
-    // 2. Class Management
     bookshelf.classList.remove("force-stack", "force-shelf");
 
     if (isMobile) {
       bookshelf.classList.add("force-stack");
-      bookshelf.style.scrollBehavior = "smooth";
-    } else {
-      // Desktop
-      if (isStackView) {
-        // Native Scroll for Stack, but NO 'force-stack' class (preserves grid)
-        bookshelf.style.scrollBehavior = "smooth";
-      } else if (!isCoverflow) {
-        // Shelf View
-        bookshelf.classList.add("force-shelf");
-        if (typeof Lenis !== "undefined" && bookshelf && !lenis) {
-          lenis = new Lenis({
-            wrapper: bookshelf,
-            content: bookshelf,
-            orientation: "horizontal",
-            gestureOrientation: "both",
-            smoothWheel: true,
-            syncTouch: true,
-            wheelMultiplier: 1,
-            touchMultiplier: 2,
-          });
-        }
-      }
+      bookshelf.style.scrollBehavior = preferredScrollBehavior;
+    } else if (isStackView) {
+      bookshelf.style.scrollBehavior = preferredScrollBehavior;
+    } else if (!isCoverflow) {
+      bookshelf.classList.add("force-shelf");
     }
   };
 
   const initResponsiveLayout = () => {
-    // Watch for View Changes (Body Class)
     const bodyObserver = new MutationObserver(() => {
-      manageLenis();
+      applyResponsiveLayout();
     });
     bodyObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
 
-    // Initial check
-    manageLenis();
+    applyResponsiveLayout();
 
-    // Listen for resize to switch modes if crossing breakpoint
     let resizeTimer;
     window.addEventListener('resize', () => {
       clearTimeout(resizeTimer);
       resizeTimer = setTimeout(() => {
-        manageLenis(); // Re-evaluate layout
+        applyResponsiveLayout();
         measureBookPositions();
 
         // Correctly handle detail visibility on resize
@@ -1267,7 +1224,46 @@
 
 
 
-  const updateAnimation = (dtTime) => {
+  const shelfNeedsAnimation = () =>
+    shelfState.keys.left ||
+    shelfState.keys.right ||
+    Math.abs(shelfState.keyVelocity) >= 5 ||
+    Math.abs(currentTilt) >= 0.01 ||
+    Math.abs(targetTilt) >= 0.01;
+
+  const wakeShelfAnimation = () => {
+    if (shelfAnimationFrame !== 0 ||
+      bookshelf.classList.contains("force-stack") ||
+      document.body.classList.contains("view-coverflow")) {
+      return;
+    }
+    shelfState.isAnimating = true;
+    shelfAnimationFrame = requestAnimationFrame(updateAnimation);
+    shelfState.animationFrame = shelfAnimationFrame;
+  };
+  window.wakeShelfAnimation = wakeShelfAnimation;
+
+  const stopShelfAnimation = () => {
+    if (shelfAnimationFrame !== 0) cancelAnimationFrame(shelfAnimationFrame);
+    shelfAnimationFrame = 0;
+    shelfState.animationFrame = 0;
+    shelfState.isAnimating = false;
+    shelfState.lastFrameTime = 0;
+    shelfState.keyVelocity = 0;
+    shelfState.keys.left = false;
+    shelfState.keys.right = false;
+    currentTilt = 0;
+    targetTilt = 0;
+    lastScroll = bookshelf.scrollLeft;
+    bookElements.forEach((entry) => entry?.el?.style.setProperty("--tilt", "0deg"));
+  };
+  window.stopShelfAnimation = stopShelfAnimation;
+
+  function updateAnimation(dtTime) {
+    shelfAnimationFrame = 0;
+    shelfState.animationFrame = 0;
+    shelfState.isAnimating = false;
+
     // Delta Time Calculation
     const time = dtTime || performance.now();
 
@@ -1281,9 +1277,6 @@
 
     // 1. Handle Shelf Key Momentum (Manual Logic)
     if (!bookshelf.classList.contains('force-stack') && !document.body.classList.contains('view-coverflow')) {
-      let active = false;
-
-
       if (shelfState.keys.left) {
         if (shelfState.keyVelocity > -KEY_BASE_SPEED_PPS) {
           shelfState.keyVelocity = -KEY_BASE_SPEED_PPS;
@@ -1291,7 +1284,6 @@
           shelfState.keyVelocity -= KEY_ACCEL_PPS * dt;
         }
         if (shelfState.keyVelocity < -KEY_MAX_SPEED_PPS) shelfState.keyVelocity = -KEY_MAX_SPEED_PPS;
-        active = true;
       } else if (shelfState.keys.right) {
         if (shelfState.keyVelocity < KEY_BASE_SPEED_PPS) {
           shelfState.keyVelocity = KEY_BASE_SPEED_PPS;
@@ -1299,7 +1291,6 @@
           shelfState.keyVelocity += KEY_ACCEL_PPS * dt;
         }
         if (shelfState.keyVelocity > KEY_MAX_SPEED_PPS) shelfState.keyVelocity = KEY_MAX_SPEED_PPS;
-        active = true;
       } else {
         const damp = shelfState.keyVelocity * KEY_FRICTION_FACTOR * dt;
         shelfState.keyVelocity -= damp;
@@ -1308,35 +1299,11 @@
 
       if (Math.abs(shelfState.keyVelocity) > 0) {
         const moveAmount = shelfState.keyVelocity * dt;
-        const current = lenis ? lenis.scroll : bookshelf.scrollLeft;
-        const target = current + moveAmount;
-
-        if (lenis) {
-          lenis.scrollTo(target, { immediate: true });
-        } else {
-          bookshelf.scrollLeft = target;
-        }
+        bookshelf.scrollLeft += moveAmount;
       }
     }
 
-    if (lenis) {
-      // Dynamic Wheel Boost Application
-      // Decay excess boost smoothly back to 1
-      if (shelfState.wsBoost > 1) {
-        shelfState.wsBoost = 1 + (shelfState.wsBoost - 1) * 0.96;
-        if (shelfState.wsBoost < 1.001) shelfState.wsBoost = 1;
-      }
-
-
-      // Attempt to apply multiplier to Lenis instance
-      // Lenis v1 structure adaptation
-      if (lenis.options) lenis.options.wheelMultiplier = WHEEL_BASE_MULT * shelfState.wsBoost;
-
-      lenis.raf(time);
-    }
-
-    // Get reliable scroll position
-    const currentScroll = lenis ? lenis.scroll : bookshelf.scrollLeft;
+    const currentScroll = bookshelf.scrollLeft;
     maybeLoadMoreForShelf();
 
     // Initialize lastScroll to prevent jump
@@ -1359,10 +1326,13 @@
       targetTilt = clamp(targetRotation, -25, 25);
     }
 
-    // Time-Based Interpolation (Damping) for consistent 'weight'
-    // decay of 5.0 gives a heavy, smooth feel roughly equivalent to 0.08@60hz but consistent
-    const smoothFactor = 1 - Math.exp(-5.0 * dt);
-    currentTilt = lerp(currentTilt, targetTilt, smoothFactor);
+    if (reduceMotion) {
+      targetTilt = 0;
+      currentTilt = 0;
+    } else {
+      const smoothFactor = 1 - Math.exp(-5.0 * dt);
+      currentTilt = lerp(currentTilt, targetTilt, smoothFactor);
+    }
 
     const viewportLeft = currentScroll - ANIMATION_BUFFER;
     const containerWidth = window.shelfWidth || bookshelf.clientWidth; // Use cached width
@@ -1387,37 +1357,55 @@
       entry.el.style.setProperty("--tilt", `${currentTilt}deg`);
     });
 
-    requestAnimationFrame(updateAnimation);
-  };
+    if (shelfNeedsAnimation()) {
+      wakeShelfAnimation();
+    } else {
+      shelfState.lastFrameTime = 0;
+      currentTilt = 0;
+      targetTilt = 0;
+      bookElements.forEach((entry) => entry?.el?.style.setProperty("--tilt", "0deg"));
+    }
+  }
+
+  bookshelf.addEventListener("scroll", wakeShelfAnimation, { passive: true });
 
   const handleDeepLink = () => {
     const hash = window.location.hash.slice(1); // Remove '#'
-    if (!hash) return;
+    if (!hash) {
+      setActive(null, false, "none");
+      return;
+    }
 
-    // Decoding might be needed for some IDs
-    const rawHash = decodeURIComponent(hash);
+    // Decoding might be needed for some IDs. A malformed shared URL should
+    // not prevent the rest of the library from initializing.
+    let rawHash = hash;
+    try {
+      rawHash = decodeURIComponent(hash);
+    } catch (_) {
+      // Keep the literal hash as a best-effort lookup value.
+    }
 
     // Every permalink representation remains a valid alias regardless of
     // which representation is configured as the default.
-    let targetIndex = viewableBooks.findIndex(
-      (book) => book.slug && String(book.slug).toLowerCase() === rawHash.toLowerCase(),
-    );
+    let targetIndex = allBooks.findIndex((book) => book.id === rawHash);
+
+    if (targetIndex === -1) {
+      targetIndex = allBooks.findIndex(
+        (book) => book.slug && String(book.slug).toLowerCase() === rawHash.toLowerCase(),
+      );
+    }
 
     const hashIsbn = sanitizeIsbn(rawHash);
     if (targetIndex === -1 && hashIsbn) {
-      targetIndex = viewableBooks.findIndex(
+      targetIndex = allBooks.findIndex(
         (book) => book.isbn && sanitizeIsbn(book.isbn) === hashIsbn,
       );
     }
 
     if (targetIndex === -1) {
-      targetIndex = viewableBooks.findIndex(
+      targetIndex = allBooks.findIndex(
         (book) => book.titleSlug && String(book.titleSlug).toLowerCase() === rawHash.toLowerCase(),
       );
-    }
-
-    if (targetIndex === -1) {
-      targetIndex = viewableBooks.findIndex((book) => book.id === rawHash);
     }
 
     // Last-resort compatibility for older title-based links.
@@ -1425,7 +1413,7 @@
     // We check if title CONTAINS the dash-less query
     if (targetIndex === -1 && rawHash.length > 2) {
       const query = normalizeText(rawHash.replace(/-/g, " ")); // "great-gatsby" -> "great gatsby"
-      targetIndex = viewableBooks.findIndex(b => {
+      targetIndex = allBooks.findIndex(b => {
         const title = normalizeText(b.title || "");
         return title.includes(query);
       });
@@ -1438,7 +1426,18 @@
 
     // Found it! Get the ID for logic
     // Even if we found it via title, we must rely on the ID for setActive() to work
-    const targetId = viewableBooks[targetIndex].id;
+    const targetId = allBooks[targetIndex].id;
+
+    if (!viewableBooks.some((book) => book.id === targetId)) {
+      if (searchInput) searchInput.value = "";
+      viewableBooks = [...allBooks];
+      window.viewableBookCount = viewableBooks.length;
+      applySort();
+      renderBooks();
+      targetIndex = viewableBooks.findIndex((book) => book.id === targetId);
+    } else {
+      targetIndex = viewableBooks.findIndex((book) => book.id === targetId);
+    }
 
     // Ensure the book is loaded
     // Calculate required batch count (0-based index)
@@ -1453,7 +1452,7 @@
       const targetElement = bookElements.find(e => e.book.id === targetId);
 
       if (targetElement && targetElement.el) {
-        setActive(targetId);
+        setActive(targetId, false, "none");
 
         // Scroll to center
         const container = bookshelf;
@@ -1461,25 +1460,15 @@
 
         // Handle scrolling based on layout mode
         if (bookshelf.classList.contains("force-stack")) {
-          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          element.scrollIntoView({ behavior: preferredScrollBehavior, block: 'center' });
         } else {
-          if (lenis) {
-            // Lenis horizontal scroll
-            const containerWidth = container.clientWidth;
-            const targetLeft = element.offsetLeft;
-            const targetWidth = element.offsetWidth;
-            const centerPos = targetLeft - (containerWidth / 2) + (targetWidth / 2);
-            lenis.scrollTo(centerPos, { duration: 1.5 });
-          } else {
-            // Native horizontal scroll fallback
-            const containerWidth = container.clientWidth;
-            const targetLeft = element.offsetLeft;
-            const targetWidth = element.offsetWidth;
-            container.scrollTo({
-              left: targetLeft - (containerWidth / 2) + (targetWidth / 2),
-              behavior: 'smooth'
-            });
-          }
+          const containerWidth = container.clientWidth;
+          const targetLeft = element.offsetLeft;
+          const targetWidth = element.offsetWidth;
+          container.scrollTo({
+            left: targetLeft - (containerWidth / 2) + (targetWidth / 2),
+            behavior: preferredScrollBehavior
+          });
         }
       }
     });
@@ -1491,15 +1480,6 @@
   // --- Initialization ---
   initResponsiveLayout();
   initSearch();
-
-
-
-  // Global ESC to key to Close
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && activeId) {
-      setActive(null);
-    }
-  });
 
   applySort();
   renderBooks();
@@ -1514,7 +1494,7 @@
 
   setupObservers();
   initIsbnPopup();
-  requestAnimationFrame(updateAnimation);
+  wakeShelfAnimation();
 })();
 
 /* --- View Switching Logic --- */
@@ -1523,6 +1503,15 @@
   const defaultView = ['shelf', 'stack', 'coverflow'].includes(configuredView)
     ? configuredView
     : 'shelf';
+  const scrollSpeedFactors = Object.freeze({
+    slow: 0.65,
+    normal: 1,
+    fast: 1.6,
+  });
+  const configuredShelfScrollSpeed = window.bookshelfConfig?.shelfScrollSpeed;
+  const configuredCoverflowScrollSpeed = window.bookshelfConfig?.coverflowScrollSpeed;
+  const shelfScrollFactor = scrollSpeedFactors[configuredShelfScrollSpeed] || scrollSpeedFactors.normal;
+  const coverflowScrollFactor = scrollSpeedFactors[configuredCoverflowScrollSpeed] || scrollSpeedFactors.normal;
   let currentView = defaultView;
   let coverflowInitialized = false;
   let coverflowIndex = 0;
@@ -1532,7 +1521,8 @@
   let cfDetailsTimer = null;
   let cfSliderContainer = null;
   let cfSlider = null;
-  let cfBookCache = []; // Optimization cache
+  let cfBookCache = [];
+  let cfCacheVersion = -1;
   const CF_IDLE_TIME = 500; // 0.5s
 
   // Config
@@ -1544,6 +1534,40 @@
   // Elements
   const body = document.body;
   const bookshelf = document.getElementById('bookshelf');
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let shelfScrollTarget = bookshelf.scrollLeft;
+  let shelfScrollFrame = null;
+  let shelfScrollTime = 0;
+
+  const animateShelfScroll = (time) => {
+    const elapsed = shelfScrollTime ? Math.min((time - shelfScrollTime) / 1000, 0.05) : 0.016;
+    shelfScrollTime = time;
+    const distance = shelfScrollTarget - bookshelf.scrollLeft;
+    if (Math.abs(distance) < 0.5) {
+      bookshelf.scrollLeft = shelfScrollTarget;
+      shelfScrollFrame = null;
+      shelfScrollTime = 0;
+      return;
+    }
+    const progress = 1 - Math.exp(-14 * elapsed);
+    bookshelf.scrollLeft += distance * progress;
+    shelfScrollFrame = requestAnimationFrame(animateShelfScroll);
+  };
+
+  const scrollShelfBy = (distance) => {
+    if (shelfScrollFrame === null) {
+      shelfScrollTarget = bookshelf.scrollLeft;
+    }
+    const limit = Math.max(0, bookshelf.scrollWidth - bookshelf.clientWidth);
+    shelfScrollTarget = Math.max(0, Math.min(limit, shelfScrollTarget + distance * shelfScrollFactor));
+    if (reduceMotion) {
+      bookshelf.scrollLeft = shelfScrollTarget;
+      return;
+    }
+    if (shelfScrollFrame === null) {
+      shelfScrollFrame = requestAnimationFrame(animateShelfScroll);
+    }
+  };
 
   // Custom Select Elements for View (Initialized in initView)
   let viewControl = null;
@@ -1640,29 +1664,6 @@
         }
       });
     });
-
-    // Attach handler for Stack View ISBN trigger
-
-    const stackTrigger = document.querySelector(".stack-content .isbn-trigger");
-    if (stackTrigger) {
-      // Shared logic
-      const triggerAction = (e) => {
-        e.stopPropagation();
-        e.preventDefault();
-        updateIsbnField(stackTrigger.dataset.isbn);
-        openIsbnPopup();
-      };
-
-      stackTrigger.addEventListener("click", triggerAction);
-      stackTrigger.addEventListener("keydown", (e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          triggerAction(e);
-        }
-      });
-    }
-
-
-
     initBackToTop();
     initAutoHideControls();
   }
@@ -1732,7 +1733,7 @@
     window.addEventListener('resize', checkScroll);
 
     btn.addEventListener('click', () => {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
       setActive(null);
     });
   }
@@ -1751,8 +1752,10 @@
     const shelfContainer = document.getElementById('bookshelf');
     if (shelfContainer) {
       shelfContainer.classList.remove('view-animate');
-      void shelfContainer.offsetWidth;
-      shelfContainer.classList.add('view-animate');
+      if (!reduceMotion) {
+        void shelfContainer.offsetWidth;
+        shelfContainer.classList.add('view-animate');
+      }
     }
 
     // Toggle Instruction Text
@@ -1777,6 +1780,11 @@
     // Update Body Classes
     body.classList.remove('view-shelf', 'view-stack', 'view-coverflow');
     body.classList.add('view-' + view);
+    if (view === 'shelf') {
+      requestAnimationFrame(() => window.wakeShelfAnimation?.());
+    } else {
+      window.stopShelfAnimation?.();
+    }
 
     if (view === 'coverflow') {
       // 1. Hide immediately to prevent visual artifacts
@@ -1811,9 +1819,6 @@
 
       // Ensure layout is recalculated since we un-hid books
       measureBookPositions();
-      if (typeof lenis !== 'undefined' && lenis) {
-        lenis.resize();
-      }
 
       // Sync Scroll Position
       if (!skipSync) {
@@ -1837,12 +1842,7 @@
               // Shelf View
               const container = document.getElementById('bookshelf');
               const centerPos = targetBook.offsetLeft - (container.clientWidth / 2) + (targetBook.offsetWidth / 2);
-
-              if (typeof lenis !== 'undefined' && lenis) {
-                lenis.scrollTo(centerPos, { immediate: true });
-              } else {
-                container.scrollTo({ left: centerPos, behavior: 'auto' });
-              }
+              container.scrollTo({ left: centerPos, behavior: 'auto' });
             }
           });
         }
@@ -1879,6 +1879,8 @@
     velocity: 0,     // Current speed
     lastTime: 0,
     isActive: false,  // Is the loop running
+    isAnimating: false,
+    cacheVersion: -1,
     keys: { left: false, right: false },
     targetIndex: null // Target for auto-scrolling
   };
@@ -1890,7 +1892,7 @@
   const PHYS_SNAP_STRENGTH = 0.02; // Reduced from 0.04 for smoother settling
   const PHYS_MAX_VEL = 0.35;
   const PHYS_WHEEL_FACTOR = 0.0008;
-  const PHYS_KEY_ACCEL = 0.002;
+  const PHYS_KEY_ACCEL = 0.002 * coverflowScrollFactor;
 
   function initCoverflow() {
     if (!coverflowInitialized) {
@@ -1922,13 +1924,10 @@
 
         // Lazy Load Catch-up
         // If we are dragging to an index that isn't loaded yet, force load
-        const currentLoaded = document.querySelectorAll('.book').length;
+        const currentLoaded = refreshCoverflowCache().length;
         if (val > currentLoaded - 5) { // buffer
-          // We need to load more
-          while (document.querySelectorAll('.book').length <= val + 5) {
-            // Check if we reached the absolute end
-            if (document.querySelectorAll('.book').length >= (window.viewableBookCount || 0)) break;
-
+          while (refreshCoverflowCache().length <= val + 5) {
+            if (refreshCoverflowCache().length >= (window.viewableBookCount || 0)) break;
             if (window.loadMoreBooks) window.loadMoreBooks(true);
             else break;
           }
@@ -1942,6 +1941,7 @@
         // Hide details while scrubbing
         if (cfDetails) cfDetails.classList.remove('visible');
         clearTimeout(cfDetailsTimer);
+        cfDetailsTimer = null;
       });
 
       // Prevent other interactions
@@ -1955,16 +1955,14 @@
       // Reset timer on stop
       cfSlider.addEventListener('change', () => {
         clearTimeout(cfDetailsTimer);
-        cfDetailsTimer = setTimeout(() => {
-          showCoverflowDetails();
-        }, CF_IDLE_TIME);
+        cfDetailsTimer = null;
+        scheduleCoverflowDetails();
       });
 
       coverflowInitialized = true;
     }
 
-    const books = Array.from(document.querySelectorAll('.book'));
-    cfBookCache = books; // Update cache
+    const books = refreshCoverflowCache();
 
     if (cfState.index >= books.length) cfState.index = 0;
 
@@ -1974,152 +1972,179 @@
   }
 
   function startCoverflowLoop() {
-    if (cfState.isActive) return;
     cfState.isActive = true;
 
     if (cfSliderContainer) cfSliderContainer.classList.add('visible');
-    // Ensure accurate max on start
     if (cfSlider) {
       cfSlider.max = Math.max(0, (window.viewableBookCount || document.querySelectorAll('.book').length) - 1);
     }
-
-    const loop = () => {
-      if (!cfState.isActive) return;
-
-      // 0. Auto-Scroll Logic
-      if (cfState.targetIndex !== null) {
-        const diff = cfState.targetIndex - cfState.index;
-        // Snap when very close (reduced from 0.05 to 0.005 to prevent jump)
-        if (Math.abs(diff) < 0.005) {
-          cfState.index = cfState.targetIndex;
-          cfState.velocity = 0;
-          cfState.targetIndex = null;
-        } else {
-          // Proportional control for smooth seek
-          // Use a higher max velocity for seeking if needed, or stick to PHYS_MAX_VEL
-          const pGain = 0.06;
-          const desired = diff * pGain;
-          cfState.velocity = Math.max(Math.min(desired, PHYS_MAX_VEL), -PHYS_MAX_VEL);
-        }
-      } else {
-        // Normal Friction
-        cfState.velocity *= PHYS_FRICTION;
-      }
-
-      // 1. Input Acceleration (Continuous for held keys)
-      if (cfState.keys.left) {
-        cfState.velocity -= PHYS_KEY_ACCEL;
-        cfState.targetIndex = null;
-      }
-      if (cfState.keys.right) {
-        cfState.velocity += PHYS_KEY_ACCEL;
-        cfState.targetIndex = null;
-      }
-
-      // 2. Friction (Moved to else block of auto-scroll)
-      // cfState.velocity *= PHYS_FRICTION;
-
-      // 3. Update Position
-      const clampedVel = Math.max(Math.min(cfState.velocity, PHYS_MAX_VEL), -PHYS_MAX_VEL);
-      cfState.index += clampedVel;
-
-      // 4. Boundaries (Bounce logic or hard clamp?) -> Hard clamp + zero vel for now
-      const maxIdx = document.querySelectorAll('.book').length - 1;
-      if (cfState.index < 0) {
-        cfState.index = 0;
-        cfState.velocity = 0;
-      }
-      if (cfState.index > maxIdx) {
-        cfState.index = maxIdx;
-        cfState.velocity = 0;
-      }
-
-      // 5. Snapping (when slow and not pressing keys)
-      const isKeyHeld = cfState.keys.left || cfState.keys.right;
-      if (!isKeyHeld && Math.abs(cfState.velocity) < 0.01) {
-        const target = Math.round(cfState.index);
-        const diff = target - cfState.index;
-        if (Math.abs(diff) > 0.001) cfState.index += diff * PHYS_SNAP_STRENGTH;
-        else cfState.index = target;
-      }
-
-      // Idle Timer Logic
-      // If moving, clear timer and hide details
-      if (Math.abs(cfState.velocity) > 0.001 || isKeyHeld) {
-        clearTimeout(cfDetailsTimer);
-        cfDetailsTimer = null;
-        if (cfDetails && cfDetails.classList.contains('visible')) {
-          cfDetails.classList.remove('visible');
-        }
-      } else {
-        // If stopped and no timer, start one
-        if (!cfDetailsTimer && cfDetails && !cfDetails.classList.contains('visible')) {
-          cfDetailsTimer = setTimeout(() => {
-            // Double check we are still stopped
-            if (Math.abs(cfState.velocity) < 0.001) {
-              showCoverflowDetails();
-            }
-          }, CF_IDLE_TIME);
-        }
-      }
-
-      // 6. Output to valid index for legacy checks
-      coverflowIndex = Math.round(cfState.index);
-
-      updateCoverflow();
-      cfReqId = requestAnimationFrame(loop);
-    };
-    cfReqId = requestAnimationFrame(loop);
+    updateCoverflow();
+    scheduleCoverflowDetails();
+    if (coverflowNeedsAnimation()) wakeCoverflow();
   }
+
+  function wakeCoverflow() {
+    if (!cfState.isActive || cfReqId !== 0) return;
+    cfState.isAnimating = true;
+    cfReqId = requestAnimationFrame(runCoverflowFrame);
+  }
+  window.wakeCoverflow = wakeCoverflow;
+
+  function runCoverflowFrame() {
+    cfReqId = 0;
+    cfState.isAnimating = false;
+    if (!cfState.isActive) return;
+
+    if (cfState.targetIndex !== null) {
+      const diff = cfState.targetIndex - cfState.index;
+      if (Math.abs(diff) < 0.005) {
+        cfState.index = cfState.targetIndex;
+        cfState.velocity = 0;
+        cfState.targetIndex = null;
+      } else {
+        const desired = diff * 0.06;
+        cfState.velocity = Math.max(Math.min(desired, PHYS_MAX_VEL), -PHYS_MAX_VEL);
+      }
+    } else {
+      cfState.velocity *= PHYS_FRICTION;
+    }
+
+    if (cfState.keys.left) {
+      cfState.velocity -= PHYS_KEY_ACCEL;
+      cfState.targetIndex = null;
+    }
+    if (cfState.keys.right) {
+      cfState.velocity += PHYS_KEY_ACCEL;
+      cfState.targetIndex = null;
+    }
+
+    const clampedVel = Math.max(Math.min(cfState.velocity, PHYS_MAX_VEL), -PHYS_MAX_VEL);
+    cfState.index += clampedVel;
+
+    const maxIdx = Math.max(0, refreshCoverflowCache().length - 1);
+    if (cfState.index < 0) {
+      cfState.index = 0;
+      cfState.velocity = 0;
+    }
+    if (cfState.index > maxIdx) {
+      cfState.index = maxIdx;
+      cfState.velocity = 0;
+    }
+
+    const isKeyHeld = cfState.keys.left || cfState.keys.right;
+    if (!isKeyHeld && cfState.targetIndex === null && Math.abs(cfState.velocity) < 0.01) {
+      const target = Math.round(cfState.index);
+      const diff = target - cfState.index;
+      if (Math.abs(diff) > 0.001) cfState.index += diff * PHYS_SNAP_STRENGTH;
+      else cfState.index = target;
+    }
+
+    const moving = coverflowNeedsAnimation();
+    if (moving) {
+      clearTimeout(cfDetailsTimer);
+      cfDetailsTimer = null;
+      if (cfDetails) cfDetails.classList.remove('visible');
+    }
+
+    coverflowIndex = Math.round(cfState.index);
+    updateCoverflow();
+
+    if (moving) wakeCoverflow();
+    else scheduleCoverflowDetails();
+  }
+
+  function coverflowNeedsAnimation() {
+    return cfState.targetIndex !== null ||
+      cfState.keys.left ||
+      cfState.keys.right ||
+      Math.abs(cfState.velocity) > 0.001 ||
+      Math.abs(Math.round(cfState.index) - cfState.index) > 0.001;
+  }
+
+  function scheduleCoverflowDetails() {
+    if (cfDetailsTimer || !cfDetails || cfDetails.classList.contains('visible')) return;
+    cfDetailsTimer = setTimeout(() => {
+      cfDetailsTimer = null;
+      if (cfState.isActive && !coverflowNeedsAnimation()) showCoverflowDetails();
+    }, CF_IDLE_TIME);
+  }
+
+  function setCoverflowIndexImmediately(index) {
+    const target = Math.max(0, Math.min(
+      Math.round(index),
+      Math.max(0, (window.viewableBookCount || 1) - 1),
+    ));
+    while (refreshCoverflowCache().length <= target) {
+      const before = refreshCoverflowCache().length;
+      if (window.loadMoreBooks) window.loadMoreBooks(true);
+      if (refreshCoverflowCache().length === before) break;
+    }
+    cfState.targetIndex = null;
+    cfState.velocity = 0;
+    cfState.index = Math.min(target, Math.max(0, refreshCoverflowCache().length - 1));
+    coverflowIndex = Math.round(cfState.index);
+    clearTimeout(cfDetailsTimer);
+    cfDetailsTimer = null;
+    if (cfDetails) cfDetails.classList.remove('visible');
+    updateCoverflow();
+    scheduleCoverflowDetails();
+  }
+
+  function seekCoverflow(index) {
+    if (reduceMotion) {
+      setCoverflowIndexImmediately(index);
+      return;
+    }
+    cfState.targetIndex = index;
+    wakeCoverflow();
+  }
+  window.seekCoverflow = seekCoverflow;
 
   function showCoverflowDetails() {
     if (!cfDetails) return;
-    const books = Array.from(document.querySelectorAll('.book'));
+    const books = refreshCoverflowCache();
     const activeBook = books[coverflowIndex];
     if (!activeBook) return;
 
     const data = activeBook.bookData || (window.booksData && window.booksData.find(b => b.id == activeBook.dataset.id));
     if (!data) return;
 
-    const translatorHTML = data.translator ? `<span class="cf-trans">(${data.translator})</span>` : '';
-
-    const metaItems = [];
-    if (data.published) metaItems.push(`<span>${data.published}</span>`);
-    if (data.publisher) metaItems.push(`<span>${data.publisher}</span>`);
-    if (data.binding) metaItems.push(`<span>${data.binding}</span>`);
-    if (data.isbn) metaItems.push(`<span>${data.isbn}</span>`);
-
-    cfDetails.innerHTML = `
-        <div class="cf-author">${data.author || ''} ${translatorHTML}</div>
-        <div class="cf-meta-row">
-            ${metaItems.join('')}
-        </div>
-      `;
+    cfDetails.replaceChildren();
+    const author = appendTextElement(cfDetails, "div", "cf-author", data.author || "");
+    if (data.translator) {
+      author.appendChild(document.createTextNode(" "));
+      appendTextElement(author, "span", "cf-trans", `(${data.translator})`);
+    }
+    const metaRow = appendTextElement(cfDetails, "div", "cf-meta-row", "");
+    [data.published, data.publisher, data.binding, data.isbn].forEach((value) => {
+      if (value) appendTextElement(metaRow, "span", "", value);
+    });
     cfDetails.classList.add('visible');
   }
 
   function stopCoverflowLoop() {
     cfState.isActive = false;
-    cancelAnimationFrame(cfReqId);
+    if (cfReqId !== 0) cancelAnimationFrame(cfReqId);
+    cfReqId = 0;
+    cfState.isAnimating = false;
     clearTimeout(cfDetailsTimer);
+    cfDetailsTimer = null;
     if (cfDetails) cfDetails.classList.remove('visible');
     if (cfSliderContainer) cfSliderContainer.classList.remove('visible');
   }
 
   // Refactored Update Function (Handles Float)
   function updateCoverflow() {
-    // Optimization: Refresh cache if mismatched (lazy load happened)
-    // Fast check: current simple cache vs global count
-    if (cfBookCache.length !== (window.bookElements?.length || 0)) {
-      cfBookCache = Array.from(document.querySelectorAll('.book'));
-    }
-    const books = cfBookCache;
+    let books = refreshCoverflowCache();
 
     if (!books.length) return;
 
-    // LAZY LOAD TRIGGER
     if (books.length - cfState.index < 30) {
+      const previousVersion = cfCacheVersion;
       if (window.loadMoreBooks) window.loadMoreBooks(true);
+      if (previousVersion !== (window.bookshelfRenderVersion || 0)) {
+        books = refreshCoverflowCache();
+      }
     }
 
     const idx = cfState.index; // Float index
@@ -2210,8 +2235,8 @@
       el.onclick = (e) => {
         if (currentView === 'coverflow') {
           e.stopPropagation();
-          if (i !== intIdx) {
-            cfState.targetIndex = i; // Trigger auto-scroll
+          if (i !== Math.round(cfState.index)) {
+            seekCoverflow(i);
           }
           return;
         }
@@ -2223,48 +2248,129 @@
     }
   }
 
+  function refreshCoverflowCache() {
+    const version = window.bookshelfRenderVersion || 0;
+    if (cfCacheVersion !== version) {
+      cfBookCache = Array.from(document.querySelectorAll('.book'));
+      cfCacheVersion = version;
+      cfState.cacheVersion = version;
+    }
+    return cfBookCache;
+  }
+
+  window.addEventListener('bookshelf:rendered', () => {
+    cfCacheVersion = -1;
+    if (!cfState.isActive) return;
+    const books = refreshCoverflowCache();
+    const maxIndex = Math.max(0, books.length - 1);
+    cfState.index = Math.min(cfState.index, maxIndex);
+    updateCoverflow();
+    if (coverflowNeedsAnimation()) wakeCoverflow();
+    else scheduleCoverflowDetails();
+  });
+
   // Input Handlers
+  const keyboardEventBelongsToControl = (event) => {
+    if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return true;
+    if (!document.querySelector("#stats-overlay")?.hidden ||
+      document.querySelector("#isbn-popup")?.classList.contains("is-visible") ||
+      document.querySelector('.select-trigger[aria-expanded="true"]')) {
+      return true;
+    }
+    const control = event.target instanceof Element
+      ? event.target.closest("input, textarea, select, button, a, [contenteditable], [role='option']")
+      : null;
+    return Boolean(control && !control.classList.contains("book"));
+  };
+
   window.addEventListener('keydown', (e) => {
+    if (keyboardEventBelongsToControl(e)) return;
     if (currentView === 'coverflow') {
-      if (e.key === 'ArrowLeft') { cfState.keys.left = true; cfState.targetIndex = null; }
-      if (e.key === 'ArrowRight') { cfState.keys.right = true; cfState.targetIndex = null; }
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        if (reduceMotion) {
+          setCoverflowIndexImmediately(cfState.index - 1);
+          return;
+        }
+        cfState.keys.left = true;
+        cfState.targetIndex = null;
+        wakeCoverflow();
+      }
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        if (reduceMotion) {
+          setCoverflowIndexImmediately(cfState.index + 1);
+          return;
+        }
+        cfState.keys.right = true;
+        cfState.targetIndex = null;
+        wakeCoverflow();
+      }
     } else if (currentView === 'shelf') {
-      if (e.key === 'ArrowLeft') shelfState.keys.left = true;
-      if (e.key === 'ArrowRight') shelfState.keys.right = true;
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        shelfState.keys.left = true;
+        window.wakeShelfAnimation?.();
+      }
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        shelfState.keys.right = true;
+        window.wakeShelfAnimation?.();
+      }
     }
   });
 
   window.addEventListener('keyup', (e) => {
     if (currentView === 'coverflow') {
-      if (e.key === 'ArrowLeft') cfState.keys.left = false;
-      if (e.key === 'ArrowRight') cfState.keys.right = false;
+      if (reduceMotion) return;
+      if (e.key === 'ArrowLeft') {
+        const wasHeld = cfState.keys.left;
+        cfState.keys.left = false;
+        if (wasHeld) wakeCoverflow();
+      }
+      if (e.key === 'ArrowRight') {
+        const wasHeld = cfState.keys.right;
+        cfState.keys.right = false;
+        if (wasHeld) wakeCoverflow();
+      }
     } else if (currentView === 'shelf') {
-      if (e.key === 'ArrowLeft') shelfState.keys.left = false;
-      if (e.key === 'ArrowRight') shelfState.keys.right = false;
+      if (e.key === 'ArrowLeft') {
+        const wasHeld = shelfState.keys.left;
+        shelfState.keys.left = false;
+        if (wasHeld) window.wakeShelfAnimation?.();
+      }
+      if (e.key === 'ArrowRight') {
+        const wasHeld = shelfState.keys.right;
+        shelfState.keys.right = false;
+        if (wasHeld) window.wakeShelfAnimation?.();
+      }
     }
   });
 
   window.addEventListener('wheel', (e) => {
     if (currentView === 'coverflow') {
       e.preventDefault();
-      cfState.targetIndex = null;
       const delta = e.deltaY || e.deltaX;
-      cfState.velocity += delta * PHYS_WHEEL_FACTOR;
-    } else if (currentView === 'shelf') {
-      // Shelf "Cheetah" Wheel Logic
-      // Detect frequency
-      const now = performance.now();
-      const dt = now - shelfState.lastWheelTime;
-      shelfState.lastWheelTime = now;
-
-      // If scrolling fast (less than 120ms between events), boost up
-      if (dt < 120) {
-        shelfState.wsBoost = Math.min(shelfState.wsBoost + 0.005, WHEEL_MAX_MULT);
-      } else if (dt > 500) {
-        // Reset if paused
-        shelfState.wsBoost = 1;
+      if (reduceMotion) {
+        if (delta !== 0) setCoverflowIndexImmediately(cfState.index + Math.sign(delta));
+        return;
       }
-      // Lenis will read shelfState.wsBoost in the loop
+      cfState.targetIndex = null;
+      cfState.velocity += delta * PHYS_WHEEL_FACTOR * coverflowScrollFactor;
+      wakeCoverflow();
+    } else if (currentView === 'shelf') {
+      if (bookshelf.classList.contains('force-shelf') && bookshelf.contains(e.target)) {
+        const delta = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+        if (delta !== 0) {
+          e.preventDefault();
+          const unit = e.deltaMode === WheelEvent.DOM_DELTA_LINE
+            ? 24
+            : e.deltaMode === WheelEvent.DOM_DELTA_PAGE
+              ? bookshelf.clientWidth
+              : 1;
+          scrollShelfBy(delta * unit);
+        }
+      }
     }
   }, { passive: false });
 
@@ -2346,8 +2452,8 @@
     // 2. Binding Composition (Segment Bar)
     const bindingBar = document.querySelector('#binding-bar');
     const bindingLegend = document.querySelector('#binding-legend');
-    bindingBar.innerHTML = '';
-    bindingLegend.innerHTML = '';
+    bindingBar.replaceChildren();
+    bindingLegend.replaceChildren();
 
     const bindingColors = ['#A5C9FF', '#FFC4C4', '#B2EBD6', '#FCF1B6', '#E0CFFF'];
     const sortedBindings = Object.entries(bindings).sort((a, b) => b[1] - a[1]);
@@ -2368,10 +2474,9 @@
       // Legend Item
       const legendItem = document.createElement('div');
       legendItem.className = 'legend-item';
-      legendItem.innerHTML = `
-        <span class="legend-dot" style="background-color: ${color}"></span>
-        <span>${type} (${Math.round(percentage)}%)</span>
-      `;
+      const legendDot = appendTextElement(legendItem, "span", "legend-dot", "");
+      legendDot.style.backgroundColor = color;
+      appendTextElement(legendItem, "span", "", `${type} (${Math.round(percentage)}%)`);
       bindingLegend.appendChild(legendItem);
     });
 
@@ -2398,18 +2503,17 @@
     const sortedDecades = Object.entries(decades).sort((a, b) => b[0] - a[0]);
     const maxCount = Math.max(...Object.values(decades));
 
-    decadeChart.innerHTML = '';
+    decadeChart.replaceChildren();
     sortedDecades.forEach(([decade, count]) => {
       const percentage = (count / maxCount) * 100;
       const row = document.createElement('div');
       row.className = 'chart-row';
-      row.innerHTML = `
-        <span class="chart-label">${decade}s</span>
-        <div class="chart-bar-wrapper">
-          <div class="chart-bar" style="width: 0%" data-width="${percentage}%"></div>
-        </div>
-        <span class="chart-count">${count}</span>
-      `;
+      appendTextElement(row, "span", "chart-label", `${decade}s`);
+      const wrapper = appendTextElement(row, "div", "chart-bar-wrapper", "");
+      const bar = appendTextElement(wrapper, "div", "chart-bar", "");
+      bar.style.width = "0%";
+      bar.dataset.width = `${percentage}%`;
+      appendTextElement(row, "span", "chart-count", count);
       decadeChart.appendChild(row);
     });
   };
@@ -2442,7 +2546,58 @@
     if (e.target === statsOverlay) closeStats();
   });
 
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && !statsOverlay.hidden) closeStats();
+})();
+
+// Close exactly one active interface layer per Escape press.
+(function () {
+  document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape') return;
+
+    let handled = false;
+    const statsOverlay = document.querySelector("#stats-overlay");
+    const statsToggle = document.querySelector(".stats-toggle");
+    if (statsOverlay && !statsOverlay.hidden) {
+      statsOverlay.hidden = true;
+      statsToggle?.focus();
+      handled = true;
+    } else {
+      const isbnPopup = document.querySelector("#isbn-popup");
+      if (isbnPopup?.classList.contains("is-visible")) {
+        window.closeIsbnPopup?.(true);
+        handled = true;
+      }
+    }
+
+    if (!handled) {
+      const expanded = document.querySelector('.select-trigger[aria-expanded="true"]');
+      if (expanded) {
+        expanded.setAttribute("aria-expanded", "false");
+        const list = expanded.closest(".custom-select")?.querySelector(".select-options");
+        if (list) list.hidden = true;
+        expanded.focus();
+        handled = true;
+      }
+    }
+
+    if (!handled) {
+      const searchControl = document.querySelector("#search-control.is-active");
+      if (searchControl) {
+        searchControl.classList.remove("is-active");
+        const searchToggle = searchControl.querySelector(".search-toggle");
+        searchToggle?.setAttribute("aria-expanded", "false");
+        searchToggle?.focus();
+        handled = true;
+      }
+    }
+
+    if (!handled && window.activeId) {
+      window.setActive?.(null);
+      handled = true;
+    }
+
+    if (handled) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
   });
 })();

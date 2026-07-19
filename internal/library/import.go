@@ -22,19 +22,82 @@ type ImportResult struct {
 	Build    BuildStats
 }
 
+const maxMetadataImportBytes int64 = 64 << 20
+
 func DecodeImport(reader io.Reader, format string) ([]Book, error) {
+	return decodeImportWithLimit(reader, format, maxMetadataImportBytes)
+}
+
+func decodeImportWithLimit(reader io.Reader, format string, limit int64) ([]Book, error) {
+	bounded := &importLimitReader{
+		reader:    reader,
+		remaining: limit,
+		limit:     limit,
+	}
+	var (
+		books []Book
+		err   error
+	)
 	switch strings.ToLower(strings.TrimPrefix(strings.TrimSpace(format), ".")) {
 	case "json":
-		return decodeJSONImport(reader)
+		books, err = decodeJSONImport(bounded)
 	case "csv":
-		return decodeCSVImport(reader)
+		books, err = decodeCSVImport(bounded)
 	default:
 		return nil, fmt.Errorf("unsupported import format %q; use json or csv", format)
 	}
+	if bounded.exceeded {
+		return nil, importSizeError(limit)
+	}
+	return books, err
+}
+
+type importLimitReader struct {
+	reader    io.Reader
+	remaining int64
+	limit     int64
+	exceeded  bool
+}
+
+func (reader *importLimitReader) Read(buffer []byte) (int, error) {
+	if len(buffer) == 0 {
+		return 0, nil
+	}
+	if reader.remaining > 0 {
+		if int64(len(buffer)) > reader.remaining {
+			buffer = buffer[:reader.remaining]
+		}
+		read, err := reader.reader.Read(buffer)
+		reader.remaining -= int64(read)
+		return read, err
+	}
+
+	var extra [1]byte
+	read, err := reader.reader.Read(extra[:])
+	if read > 0 {
+		reader.exceeded = true
+		return 0, importSizeError(reader.limit)
+	}
+	return 0, err
+}
+
+type importSizeError int64
+
+func (limit importSizeError) Error() string {
+	bytes := int64(limit)
+	if bytes > 0 && bytes%(1<<20) == 0 {
+		return fmt.Sprintf("import metadata exceeds the %d MiB size limit", bytes/(1<<20))
+	}
+	return fmt.Sprintf("import metadata exceeds the %d-byte size limit", bytes)
 }
 
 func Import(ctx context.Context, paths Paths, candidates []Book, options ImportOptions) (ImportResult, error) {
 	var result ImportResult
+	unlock, err := acquireLibraryLock(ctx, paths)
+	if err != nil {
+		return result, err
+	}
+	defer unlock()
 	existing, err := Load(paths)
 	if err != nil {
 		return result, err
@@ -88,6 +151,7 @@ func Import(ctx context.Context, paths Paths, candidates []Book, options ImportO
 	if !options.Build {
 		return result, nil
 	}
+	unlock()
 	only := make(map[string]bool, len(result.Books))
 	for _, book := range result.Books {
 		only[book.Key()] = true
@@ -96,7 +160,7 @@ func Import(ctx context.Context, paths Paths, candidates []Book, options ImportO
 		ProcessOnly: only,
 	})
 	result.Build = stats
-	return result, err
+	return result, savedButUnpublished("imported books", err)
 }
 
 func decodeJSONImport(reader io.Reader) ([]Book, error) {
@@ -157,6 +221,7 @@ func decodeCSVImport(reader io.Reader) ([]Book, error) {
 			if column >= len(headers) {
 				continue
 			}
+			value = restoreProtectedSpreadsheetCell(value)
 			switch headers[column] {
 			case "id":
 				id = value
@@ -184,6 +249,9 @@ func decodeCSVImport(reader io.Reader) ([]Book, error) {
 				spineTextColor = value
 			}
 		}
+		if _, err := ParseYearInput(input.Published); err != nil {
+			return nil, fmt.Errorf("CSV row %d: %w", rowIndex+2, err)
+		}
 		book := FromInput(input)
 		book.CoverFile = strings.TrimSpace(coverFile)
 		book.SpineColor = strings.TrimSpace(spineColor)
@@ -198,6 +266,13 @@ func decodeCSVImport(reader io.Reader) ([]Book, error) {
 		books = append(books, book)
 	}
 	return books, nil
+}
+
+func restoreProtectedSpreadsheetCell(value string) string {
+	if len(value) < 2 || value[0] != '\'' || !strings.ContainsRune("=+-@\t\r", rune(value[1])) {
+		return value
+	}
+	return value[1:]
 }
 
 func normalizeHeader(value string) string {

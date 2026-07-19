@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"image"
 	"image/color"
@@ -14,6 +15,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -27,6 +29,181 @@ func fixture(t *testing.T) Paths {
 	return paths
 }
 
+func TestResolveRootRecoversInterruptedDataReplacement(t *testing.T) {
+	paths := fixture(t)
+	book := Normalize(Book{Title: "Recovered Book"})
+	if err := Save(paths, []Book{book}); err != nil {
+		t.Fatal(err)
+	}
+	staleStage := filepath.Join(paths.Root, ".bookshelf-import-abandoned")
+	if err := os.MkdirAll(staleStage, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	previous := paths.DataDir + ".previous"
+	if err := os.Rename(paths.DataDir, previous); err != nil {
+		t.Fatal(err)
+	}
+
+	root, err := ResolveRootAt(paths.Root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if root != paths.Root {
+		t.Fatalf("resolved root = %q, want %q", root, paths.Root)
+	}
+	books, err := Load(paths)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(books) != 1 || books[0].Title != book.Title {
+		t.Fatalf("recovered books = %#v", books)
+	}
+	if _, err := os.Stat(previous); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("previous data survived recovery: %v", err)
+	}
+	if _, err := os.Stat(staleStage); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("stale import stage survived recovery: %v", err)
+	}
+}
+
+func TestInitializeRecoversBeforeCreatingFreshData(t *testing.T) {
+	paths := fixture(t)
+	book := Normalize(Book{Title: "Do Not Replace"})
+	if err := Save(paths, []Book{book}); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(paths.DataDir, paths.DataDir+".previous"); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := Initialize(paths); err != nil {
+		t.Fatal(err)
+	}
+	books, err := Load(paths)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(books) != 1 || books[0].Title != book.Title {
+		t.Fatalf("initialize replaced recovered books: %#v", books)
+	}
+}
+
+func TestRecoveryRefusesAmbiguousIncompleteCurrentData(t *testing.T) {
+	paths := fixture(t)
+	previousPaths := withDataDirectory(paths, paths.DataDir+".previous")
+	if err := Initialize(previousPaths); err != nil {
+		t.Fatal(err)
+	}
+	if err := Save(previousPaths, []Book{Normalize(Book{Title: "Previous Book"})}); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(paths.BooksJSON); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := ResolveRootAt(paths.Root)
+	if err == nil || !strings.Contains(err.Error(), "both") || !strings.Contains(err.Error(), "incomplete") {
+		t.Fatalf("recovery error = %v", err)
+	}
+	if _, err := os.Stat(paths.DataDir); err != nil {
+		t.Fatalf("current data was removed: %v", err)
+	}
+	if _, err := os.Stat(previousPaths.DataDir); err != nil {
+		t.Fatalf("previous data was removed: %v", err)
+	}
+}
+
+func TestResolveRootNeverUsesCurrentDirectoryData(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("BOOKSHELF_INSTALL_DIR", "")
+
+	installedRoot := filepath.Join(home, ".local", "share", "bookshelf")
+	if err := Initialize(NewPaths(installedRoot)); err != nil {
+		t.Fatal(err)
+	}
+	repositoryRoot := t.TempDir()
+	if err := Initialize(NewPaths(repositoryRoot)); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(repositoryRoot)
+
+	root, err := ResolveRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if root != installedRoot {
+		t.Fatalf("resolved root = %q, want installed root %q", root, installedRoot)
+	}
+}
+
+func TestResolveRootHonorsExplicitInstallDirectory(t *testing.T) {
+	explicitRoot := t.TempDir()
+	t.Setenv("BOOKSHELF_INSTALL_DIR", explicitRoot)
+	if err := Initialize(NewPaths(explicitRoot)); err != nil {
+		t.Fatal(err)
+	}
+
+	root, err := ResolveRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if root != explicitRoot {
+		t.Fatalf("resolved root = %q, want explicit root %q", root, explicitRoot)
+	}
+}
+
+func TestResolveRootAtRejectsEmptyDirectory(t *testing.T) {
+	if _, err := ResolveRootAt(""); err == nil {
+		t.Fatal("accepted an empty data directory")
+	}
+}
+
+func TestResolveRootUsesSelectedDataProfile(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("BOOKSHELF_INSTALL_DIR", "")
+
+	productionRoot := filepath.Join(home, ".local", "share", "bookshelf")
+	developmentRoot := filepath.Join(home, ".local", "share", "bookshelf-dev")
+	if err := Initialize(NewPaths(productionRoot)); err != nil {
+		t.Fatal(err)
+	}
+	if err := Initialize(NewPaths(developmentRoot)); err != nil {
+		t.Fatal(err)
+	}
+
+	root, err := ResolveRootFor("bookshelf-dev")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if root != developmentRoot {
+		t.Fatalf("resolved development root = %q, want %q", root, developmentRoot)
+	}
+}
+
+func TestDefaultRootRejectsPathAsProfileName(t *testing.T) {
+	if _, err := DefaultRootFor("../bookshelf"); err == nil {
+		t.Fatal("accepted a path as a data-directory profile")
+	}
+}
+
+func TestGeneratedLibraryPreservesTitleCapitalization(t *testing.T) {
+	paths := fixture(t)
+	title := "NASA and iPhone · İstanbul"
+	book := Normalize(Book{Title: title, Author: "e.e. cummings"})
+	if err := SaveGenerated(paths, []Book{book}); err != nil {
+		t.Fatal(err)
+	}
+	generated, err := LoadGenerated(paths)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(generated) != 1 || generated[0].Title != title {
+		t.Fatalf("generated title = %q, want %q", generated[0].Title, title)
+	}
+}
+
 func TestNormalizeAndCleanISBN(t *testing.T) {
 	book := Normalize(Book{
 		Title:  "  Dune  ",
@@ -38,6 +215,65 @@ func TestNormalizeAndCleanISBN(t *testing.T) {
 	}
 	if book.Title != "Dune" || book.Author != "Frank Herbert" {
 		t.Fatalf("book was not trimmed: %#v", book)
+	}
+}
+
+func TestParseYearRejectsEmbeddedAndMalformedDigits(t *testing.T) {
+	for _, input := range []string{"1965", " 1965 "} {
+		year, err := ParseYearInput(input)
+		if err != nil || year == nil || *year != 1965 {
+			t.Fatalf("ParseYearInput(%q) = %v, %v", input, year, err)
+		}
+	}
+	for _, input := range []string{
+		"Published in 1965",
+		"edition-1965",
+		"19650",
+		"9780441172719",
+		"nineteen sixty-five",
+	} {
+		if year, err := ParseYearInput(input); err == nil || year != nil {
+			t.Fatalf("ParseYearInput(%q) = %v, %v; want an error", input, year, err)
+		}
+	}
+	if year, err := ParseYearInput(" "); err != nil || year != nil {
+		t.Fatalf("blank year = %v, %v", year, err)
+	}
+}
+
+func TestInvalidPublishedYearDoesNotClearExistingValue(t *testing.T) {
+	paths := fixture(t)
+	ctx := context.Background()
+	year := 1965
+	book := Normalize(Book{ID: "dune", Title: "Dune", Published: &year})
+	if err := Save(paths, []Book{book}); err != nil {
+		t.Fatal(err)
+	}
+	invalid := "edition-2024"
+	if _, _, err := Update(ctx, paths, book.ID, BookPatch{
+		Published: &invalid,
+	}, ChangeOptions{}); err == nil {
+		t.Fatal("invalid update year was accepted")
+	}
+	books, err := Load(paths)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(books) != 1 || books[0].Published == nil || *books[0].Published != year {
+		t.Fatalf("invalid update changed stored year: %#v", books)
+	}
+}
+
+func TestFindIndexPrefersExactIDOverEarlierISBNAlias(t *testing.T) {
+	books := []Book{
+		{ID: "first-book", Title: "ISBN Owner", ISBN: "978-0-441-17271-9"},
+		{ID: "9780441172719", Title: "Exact ID Owner"},
+	}
+	if index := FindIndex(books, "9780441172719"); index != 1 {
+		t.Fatalf("compact exact ID resolved to index %d, want 1", index)
+	}
+	if index := FindIndex(books, "978-0-441-17271-9"); index != 0 {
+		t.Fatalf("formatted ISBN alias resolved to index %d, want 0", index)
 	}
 }
 
@@ -82,7 +318,7 @@ func TestGoodreadsCoverIsStagedUntilCommit(t *testing.T) {
 		t.Fatal("cover was published before commit")
 	}
 	session.Record(outcome)
-	summary, err := session.Commit()
+	summary, err := session.Commit(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -96,12 +332,7 @@ func TestGeneratedSiteIsRebuiltFromTemplatesAndDurableCovers(t *testing.T) {
 	book := Normalize(Book{Title: "Dune", ISBN: "978-0-441-17271-9"})
 	book.CoverFile = preferredCoverFilename(book)
 	durable := filepath.Join(paths.CoversDir, book.CoverFile)
-	if err := os.MkdirAll(filepath.Dir(durable), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(durable, []byte("durable cover"), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	writeTestJPEG(t, durable)
 	if err := os.MkdirAll(paths.PublicDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -122,13 +353,43 @@ func TestGeneratedSiteIsRebuiltFromTemplatesAndDurableCovers(t *testing.T) {
 	if !fileExists(paths.IndexHTML) {
 		t.Fatal("website template was not published")
 	}
+	indexHTML, err := os.ReadFile(paths.IndexHTML)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Contains(indexHTML, []byte(`<script src="http`)) {
+		t.Fatal("published website depends on an externally hosted runtime script")
+	}
 	for _, asset := range []string{"css/bookshelf.css", "js/bookshelf.js", "fonts/peachi.woff2"} {
 		if !fileExists(filepath.Join(paths.PublicDir, filepath.FromSlash(asset))) {
 			t.Fatalf("embedded website asset %q was not published", asset)
 		}
 	}
-	if !fileExists(filepath.Join(paths.PublicDir, "data", "covers", book.CoverFile)) {
-		t.Fatal("durable cover was not published")
+	script, err := os.ReadFile(filepath.Join(paths.PublicDir, "js", "bookshelf.js"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Contains(script, []byte("innerHTML")) {
+		t.Fatal("published website uses innerHTML; book metadata must be rendered through safe DOM APIs")
+	}
+	webFilename := generatedWebCoverFilename(book.CoverFile)
+	if !fileExists(filepath.Join(paths.PublicDir, "data", "covers", webFilename)) {
+		t.Fatal("detail cover was not generated")
+	}
+	if !fileExists(filepath.Join(paths.PublicDir, "data", "thumbnails", webFilename)) {
+		t.Fatal("website thumbnail was not generated")
+	}
+	if fileExists(filepath.Join(paths.PublicDir, "data", "covers", book.CoverFile)) {
+		t.Fatal("full-resolution durable cover was copied into the generated website")
+	}
+	generated, err := LoadGenerated(paths)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(generated) != 1 ||
+		generated[0].Cover != "data/covers/"+webFilename ||
+		generated[0].Thumbnail != "data/thumbnails/"+webFilename {
+		t.Fatalf("generated cover paths = %#v", generated)
 	}
 	source, err := Load(paths)
 	if err != nil {
@@ -159,6 +420,40 @@ func TestSourceLibraryDoesNotPersistPublishedCoverPaths(t *testing.T) {
 	}
 	if !strings.Contains(string(raw), `"coverFile": "9780441172719.jpg"`) {
 		t.Fatalf("source library does not contain its durable cover reference:\n%s", raw)
+	}
+}
+
+func TestGeneratedCoverManifestReusesOnlyVerifiedAssets(t *testing.T) {
+	paths := fixture(t)
+	book := Normalize(Book{Title: "Dune", ISBN: "978-0-441-17271-9"})
+	book.CoverFile = preferredCoverFilename(book)
+	writeTestJPEG(t, filepath.Join(paths.CoversDir, book.CoverFile))
+	if err := Save(paths, []Book{book}); err != nil {
+		t.Fatal(err)
+	}
+	if err := SaveGenerated(paths, []Book{book}); err != nil {
+		t.Fatal(err)
+	}
+
+	manifest := loadGeneratedCoverManifest(paths)
+	record, ok := manifest.Covers[book.CoverFile]
+	if !ok || record.SHA256 == "" || record.CoverSHA256 == "" || record.ThumbnailSHA256 == "" {
+		t.Fatalf("generated cover manifest record = %#v", record)
+	}
+	stage := t.TempDir()
+	if _, reused := reuseGeneratedCover(paths, stage, record, record.SHA256); !reused {
+		t.Fatal("unchanged generated cover was not reusable")
+	}
+	if !fileExists(filepath.Join(stage, filepath.FromSlash(record.Cover))) ||
+		!fileExists(filepath.Join(stage, filepath.FromSlash(record.Thumbnail))) {
+		t.Fatal("reused generated cover variants were not copied into the stage")
+	}
+
+	if err := os.WriteFile(filepath.Join(paths.PublicDir, filepath.FromSlash(record.Thumbnail)), []byte("tampered"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, reused := reuseGeneratedCover(paths, t.TempDir(), record, record.SHA256); reused {
+		t.Fatal("tampered generated cover was reused")
 	}
 }
 
@@ -395,6 +690,34 @@ func TestCoverReportListsEveryUnresolvedBook(t *testing.T) {
 	}
 }
 
+func TestCoverAttentionBooksFiltersResolvedAndRemovedEntries(t *testing.T) {
+	paths := fixture(t)
+	books := []Book{
+		{ID: "missing", Title: "Missing"},
+		{ID: "resolved", Title: "Resolved", CoverFile: "resolved.jpg", Cover: "data/covers/resolved.jpg"},
+	}
+	report := []CoverReportEntry{
+		{ID: "missing", Title: "Missing", Status: CoverFetchNotFound},
+		{ID: "resolved", Title: "Resolved", Status: CoverFetchFailed},
+		{ID: "removed", Title: "Removed", Status: CoverFetchFailed},
+		{ID: "missing", Title: "Duplicate", Status: CoverFetchSkipped},
+	}
+	raw, err := json.Marshal(report)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(paths.CoverReportJSON, raw, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	attention, err := CoverAttentionBooks(paths, books)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(attention) != 1 || attention[0].ID != "missing" {
+		t.Fatalf("attention = %#v", attention)
+	}
+}
+
 func testCoverJPEG(t *testing.T) []byte {
 	t.Helper()
 	img := image.NewRGBA(image.Rect(0, 0, 300, 500))
@@ -434,6 +757,20 @@ func TestSlugifyTransliteratesMultipleWritingSystems(t *testing.T) {
 	}
 }
 
+func TestSlugifyFallbackIsDeterministic(t *testing.T) {
+	const title = "📚✨"
+	const want = "book-96d58a79dd2c"
+	for attempt := 0; attempt < 5; attempt++ {
+		if got := Slugify(title); got != want {
+			t.Fatalf("Slugify(%q) = %q, want %q", title, got, want)
+		}
+	}
+	book := Normalize(Book{Title: title})
+	if book.ID != want || book.TitleSlug != want {
+		t.Fatalf("normalized fallback identifiers = ID %q, title slug %q", book.ID, book.TitleSlug)
+	}
+}
+
 func TestCustomSlugIsNormalizedAndUnique(t *testing.T) {
 	paths := fixture(t)
 	ctx := context.Background()
@@ -447,6 +784,54 @@ func TestCustomSlugIsNormalizedAndUnique(t *testing.T) {
 	if _, _, err := Add(ctx, paths, Book{Title: "Dune Messiah", Slug: "MY DUNE COPY"}, ChangeOptions{}); err == nil {
 		t.Fatal("duplicate URL slug was accepted")
 	}
+}
+
+func TestSlugIdentifierConflictsDoNotChangeSourceLibrary(t *testing.T) {
+	paths := fixture(t)
+	ctx := context.Background()
+	books := []Book{
+		Normalize(Book{ID: "isbn-owner", Title: "ISBN Owner", ISBN: "978-0-441-17271-9"}),
+		Normalize(Book{ID: "editable", Title: "Editable Book"}),
+	}
+	if err := Save(paths, books); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.ReadFile(paths.BooksJSON)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertUnchanged := func() {
+		t.Helper()
+		after, err := os.ReadFile(paths.BooksJSON)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(after, before) {
+			t.Fatalf("rejected slug conflict changed source library:\n%s", after)
+		}
+	}
+	conflictingSlug := "9780441172719"
+
+	if _, _, err := Add(ctx, paths, Book{
+		ID: "new-book", Title: "New Book", Slug: conflictingSlug,
+	}, ChangeOptions{Build: true}); err == nil || !strings.Contains(err.Error(), "conflicts with book") {
+		t.Fatalf("add conflict error = %v", err)
+	}
+	assertUnchanged()
+
+	if _, _, err := Update(ctx, paths, "editable", BookPatch{
+		Slug: &conflictingSlug,
+	}, ChangeOptions{Build: true}); err == nil || !strings.Contains(err.Error(), "conflicts with book") {
+		t.Fatalf("update conflict error = %v", err)
+	}
+	assertUnchanged()
+
+	if _, _, err := Replace(ctx, paths, "editable", Book{
+		Title: "Replacement", Slug: conflictingSlug,
+	}, ChangeOptions{Build: true}); err == nil || !strings.Contains(err.Error(), "conflicts with book") {
+		t.Fatalf("replace conflict error = %v", err)
+	}
+	assertUnchanged()
 }
 
 func TestISBNLessCustomSlugBecomesStableID(t *testing.T) {
@@ -598,7 +983,7 @@ func TestGeneratedComparisonDetectsSameLengthStaleness(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if GeneratedMatches(source, generated) {
+	if GeneratedMatches(paths, source, generated) {
 		t.Fatal("same-length but different generated data was treated as current")
 	}
 	if got := PublicationStatuses(paths, source)["dune"]; got != PublicationNotPublished {
@@ -625,6 +1010,43 @@ func TestPublicationStatusesDistinguishUnpublishedChanges(t *testing.T) {
 	}
 }
 
+func TestPublicationStatusDetectsChangedDurableCoverContents(t *testing.T) {
+	paths := fixture(t)
+	book := Normalize(Book{Title: "Dune", ISBN: "978-0-441-17271-9"})
+	book.CoverFile = preferredCoverFilename(book)
+	coverPath := filepath.Join(paths.CoversDir, book.CoverFile)
+	writeTestJPEG(t, coverPath)
+	if err := Save(paths, []Book{book}); err != nil {
+		t.Fatal(err)
+	}
+	if err := SaveGenerated(paths, []Book{book}); err != nil {
+		t.Fatal(err)
+	}
+	source, err := Load(paths)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := PublicationStatuses(paths, source)[book.ID]; got != PublicationPublished {
+		t.Fatalf("initial publication status = %q", got)
+	}
+
+	writeTestPNG(t, coverPath)
+	source, err = Load(paths)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := PublicationStatuses(paths, source)[book.ID]; got != PublicationChangesNotPublished {
+		t.Fatalf("changed-cover publication status = %q", got)
+	}
+	generated, err := LoadGenerated(paths)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if GeneratedMatches(paths, source, generated) {
+		t.Fatal("changed durable cover was treated as published")
+	}
+}
+
 func TestAddBuildAndBatchRemove(t *testing.T) {
 	paths := fixture(t)
 	ctx := context.Background()
@@ -643,7 +1065,7 @@ func TestAddBuildAndBatchRemove(t *testing.T) {
 	if len(generated) != 2 {
 		t.Fatalf("generated books = %d", len(generated))
 	}
-	removed, err := Remove(paths, []string{first.ID, second.ID}, false)
+	removed, err := Remove(context.Background(), paths, []string{first.ID, second.ID}, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -656,6 +1078,72 @@ func TestAddBuildAndBatchRemove(t *testing.T) {
 	}
 	if len(remaining) != 0 {
 		t.Fatalf("remaining = %d", len(remaining))
+	}
+}
+
+func TestRemoveRollsBackMetadataAndCoverWhenPublishingFails(t *testing.T) {
+	paths := fixture(t)
+	book := Normalize(Book{Title: "Dune", ISBN: "978-0-441-17271-9"})
+	book.CoverFile = preferredCoverFilename(book)
+	coverPath := filepath.Join(paths.CoversDir, book.CoverFile)
+	writeTestJPEG(t, coverPath)
+	if err := Save(paths, []Book{book}); err != nil {
+		t.Fatal(err)
+	}
+	if err := SaveGenerated(paths, []Book{book}); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(paths.Root, 0o555); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(paths.Root, 0o755) })
+
+	if _, err := Remove(context.Background(), paths, []string{book.ID}, true); err == nil {
+		t.Fatal("remove succeeded despite an unwritable publication directory")
+	}
+	remaining, err := Load(paths)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(remaining) != 1 || remaining[0].ID != book.ID {
+		t.Fatalf("library was not rolled back: %#v", remaining)
+	}
+	if !fileExists(coverPath) {
+		t.Fatal("durable cover was not restored")
+	}
+}
+
+func TestBuildRestoresDurableCoverWhenPublishingFails(t *testing.T) {
+	paths := fixture(t)
+	book := Normalize(Book{Title: "Dune", ISBN: "978-0-441-17271-9"})
+	book.CoverFile = preferredCoverFilename(book)
+	coverPath := filepath.Join(paths.CoversDir, book.CoverFile)
+	writeTestJPEG(t, coverPath)
+	originalCover, err := os.ReadFile(coverPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := Save(paths, []Book{book}); err != nil {
+		t.Fatal(err)
+	}
+	if err := SaveGenerated(paths, []Book{book}); err != nil {
+		t.Fatal(err)
+	}
+	writeTestPNG(t, filepath.Join(paths.ManualCoversDir, "978-0-441-17271-9.png"))
+	if err := os.Chmod(paths.Root, 0o555); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(paths.Root, 0o755) })
+
+	if _, err := Build(context.Background(), paths, BuildOptions{RecomputeColors: true}); err == nil {
+		t.Fatal("build succeeded despite an unwritable publication directory")
+	}
+	restoredCover, err := os.ReadFile(coverPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(restoredCover, originalCover) {
+		t.Fatal("durable cover contents were not rolled back")
 	}
 }
 
@@ -715,6 +1203,9 @@ func TestLegacyStringAndNumericFieldsLoad(t *testing.T) {
 	if books[0].Published == nil || *books[0].Published != 1965 {
 		t.Fatalf("published = %v", books[0].Published)
 	}
+	if err := json.Unmarshal([]byte(`[{"title":"Invalid","published":"edition-1965"}]`), &books); err == nil {
+		t.Fatal("invalid embedded JSON year was accepted")
+	}
 }
 
 func TestDecodeImportJSONAndCSV(t *testing.T) {
@@ -732,6 +1223,25 @@ func TestDecodeImportJSONAndCSV(t *testing.T) {
 	}
 	if len(csvBooks) != 1 || csvBooks[0].ISBN != "9780553293357" || csvBooks[0].Year() != "1951" {
 		t.Fatalf("CSV books = %#v", csvBooks)
+	}
+	if _, err := DecodeImport(strings.NewReader("Title,Published Year\nBad Year,edition-1951\n"), "csv"); err == nil {
+		t.Fatal("invalid CSV year was accepted")
+	}
+}
+
+func TestDecodeImportReportsMetadataSizeLimit(t *testing.T) {
+	if _, err := decodeImportWithLimit(strings.NewReader("[]"), "json", 2); err != nil {
+		t.Fatalf("exact-limit import failed: %v", err)
+	}
+
+	_, err := decodeImportWithLimit(strings.NewReader("[] "), "json", 2)
+	if err == nil || err.Error() != "import metadata exceeds the 2-byte size limit" {
+		t.Fatalf("oversized import error = %v", err)
+	}
+
+	_, err = decodeImportWithLimit(strings.NewReader("Title\nBook\n"), "csv", 6)
+	if err == nil || err.Error() != "import metadata exceeds the 6-byte size limit" {
+		t.Fatalf("oversized CSV import error = %v", err)
 	}
 }
 
@@ -773,5 +1283,106 @@ func TestBatchImportDryRunAndSkipDuplicates(t *testing.T) {
 	}
 	if len(books) != 2 {
 		t.Fatalf("books after import = %d", len(books))
+	}
+}
+
+func TestConcurrentAddsDoNotLoseBooks(t *testing.T) {
+	paths := fixture(t)
+	const total = 30
+	start := make(chan struct{})
+	errors := make(chan error, total)
+	var workers sync.WaitGroup
+	for index := 0; index < total; index++ {
+		index := index
+		workers.Add(1)
+		go func() {
+			defer workers.Done()
+			<-start
+			_, _, err := Add(
+				context.Background(),
+				paths,
+				Book{Title: fmt.Sprintf("Concurrent Book %02d", index)},
+				ChangeOptions{},
+			)
+			errors <- err
+		}()
+	}
+	close(start)
+	workers.Wait()
+	close(errors)
+	for err := range errors {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	books, err := Load(paths)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(books) != total {
+		t.Fatalf("stored %d books after %d concurrent adds", len(books), total)
+	}
+}
+
+func TestSavedChangesReportPublishingFailureAsPartialSuccess(t *testing.T) {
+	paths := fixture(t)
+	ctx := context.Background()
+	if err := os.WriteFile(paths.ConfigJSON, []byte("{invalid"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	assertPartialSuccess := func(err error, subject string) {
+		t.Helper()
+		var partial *SavedButUnpublishedError
+		if !errors.As(err, &partial) {
+			t.Fatalf("error type = %T, want SavedButUnpublishedError: %v", err, err)
+		}
+		if partial.Subject != subject || !strings.Contains(err.Error(), "`bookshelf build`") {
+			t.Fatalf("partial-success error = %v", err)
+		}
+	}
+
+	added, _, err := Add(ctx, paths, Book{Title: "Added Book"}, ChangeOptions{Build: true})
+	assertPartialSuccess(err, "book")
+	books, err := Load(paths)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(books) != 1 || books[0].Title != "Added Book" {
+		t.Fatalf("add was not saved: %#v", books)
+	}
+
+	updatedTitle := "Updated Book"
+	updated, _, err := Update(ctx, paths, added.ID, BookPatch{Title: &updatedTitle}, ChangeOptions{Build: true})
+	assertPartialSuccess(err, "book")
+	books, err = Load(paths)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if books[0].Title != updated.Title {
+		t.Fatalf("update was not saved: %#v", books)
+	}
+
+	replaced, _, err := Replace(ctx, paths, updated.ID, Book{Title: "Replaced Book"}, ChangeOptions{Build: true})
+	assertPartialSuccess(err, "book")
+	books, err = Load(paths)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if books[0].Title != replaced.Title {
+		t.Fatalf("replacement was not saved: %#v", books)
+	}
+
+	result, err := Import(ctx, paths, []Book{{Title: "Imported Book"}}, ImportOptions{Build: true})
+	assertPartialSuccess(err, "imported books")
+	if result.Imported != 1 {
+		t.Fatalf("import result = %#v", result)
+	}
+	books, err = Load(paths)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(books) != 2 {
+		t.Fatalf("import was not saved: %#v", books)
 	}
 }

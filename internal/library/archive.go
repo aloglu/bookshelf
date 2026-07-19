@@ -2,6 +2,7 @@ package library
 
 import (
 	"archive/zip"
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/json"
@@ -36,10 +37,18 @@ type ArchiveExportResult struct {
 	ManualCovers int
 }
 
+type ArchiveInfo struct {
+	Books        int
+	Covers       int
+	ManualCovers int
+	SiteTitle    string
+}
+
 type ArchiveImportOptions struct {
 	Mode           ArchiveImportMode
 	SkipDuplicates bool
 	DryRun         bool
+	BeforeReplace  func([]Book) (string, error)
 }
 
 type ArchiveImportResult struct {
@@ -48,6 +57,7 @@ type ArchiveImportResult struct {
 	Covers       int
 	ManualCovers int
 	Replaced     bool
+	SafetyBackup string
 }
 
 type archiveManifest struct {
@@ -65,6 +75,22 @@ type extractedArchive struct {
 	manualCovers map[string]string
 }
 
+// InspectArchive fully validates an archive before the caller asks the user
+// whether it should be merged or used as a replacement.
+func InspectArchive(filename string) (ArchiveInfo, error) {
+	archive, err := extractArchive(filename)
+	if err != nil {
+		return ArchiveInfo{}, err
+	}
+	defer os.RemoveAll(archive.root)
+	return ArchiveInfo{
+		Books:        len(archive.books),
+		Covers:       len(archive.covers),
+		ManualCovers: len(archive.manualCovers),
+		SiteTitle:    archive.config.SiteTitle,
+	}, nil
+}
+
 func EncodeArchive(writer io.Writer, paths Paths, books []Book) (ArchiveExportResult, error) {
 	var result ArchiveExportResult
 	config, err := LoadConfig(paths)
@@ -77,22 +103,43 @@ func EncodeArchive(writer io.Writer, paths Paths, books []Book) (ArchiveExportRe
 		Books:    "books.json",
 		Settings: "settings.json",
 	}
-	zipWriter := zip.NewWriter(writer)
-	closeWithError := func(inputErr error) (ArchiveExportResult, error) {
-		closeErr := zipWriter.Close()
-		if inputErr != nil {
-			return result, inputErr
+	manifestJSON, err := encodeArchiveJSON(manifest, archiveMaxMetadata)
+	if err != nil {
+		return result, fmt.Errorf("encode archive manifest: %w", err)
+	}
+	booksJSON, err := encodeArchiveJSON(exportBooks(books), archiveMaxMetadata)
+	if err != nil {
+		return result, fmt.Errorf("encode archive books: %w", err)
+	}
+	settingsJSON, err := encodeArchiveJSON(config, archiveMaxMetadata)
+	if err != nil {
+		return result, fmt.Errorf("encode archive settings: %w", err)
+	}
+
+	type archiveImage struct {
+		name   string
+		source string
+	}
+	images := make([]archiveImage, 0)
+	totalSize := uint64(len(manifestJSON) + len(booksJSON) + len(settingsJSON))
+	addImage := func(name, source string, requireJPEG bool) error {
+		info, err := os.Stat(source)
+		if err != nil {
+			return err
 		}
-		return result, closeErr
-	}
-	if err := writeArchiveJSON(zipWriter, "manifest.json", manifest); err != nil {
-		return closeWithError(err)
-	}
-	if err := writeArchiveJSON(zipWriter, manifest.Books, exportBooks(books)); err != nil {
-		return closeWithError(err)
-	}
-	if err := writeArchiveJSON(zipWriter, manifest.Settings, config); err != nil {
-		return closeWithError(err)
+		if info.Size() > archiveMaxImage {
+			return fmt.Errorf("%s exceeds the %d MiB archive image limit", source, archiveMaxImage>>20)
+		}
+		if err := validateArchiveImage(source, requireJPEG); err != nil {
+			return fmt.Errorf("validate %s for archive export: %w", source, err)
+		}
+		size := uint64(info.Size())
+		if totalSize > archiveMaxUncompressed-size {
+			return fmt.Errorf("archive expands beyond the %d GiB safety limit", archiveMaxUncompressed>>30)
+		}
+		totalSize += size
+		images = append(images, archiveImage{name: name, source: source})
+		return nil
 	}
 
 	coverNames := make(map[string]bool)
@@ -102,23 +149,46 @@ func EncodeArchive(writer io.Writer, paths Paths, books []Book) (ArchiveExportRe
 		}
 	}
 	for _, filename := range sortedNames(coverNames) {
-		if err := writeArchiveFile(zipWriter, "covers/"+filename, filepath.Join(paths.CoversDir, filename)); err != nil {
-			return closeWithError(err)
+		if err := addImage("covers/"+filename, filepath.Join(paths.CoversDir, filename), true); err != nil {
+			return result, err
 		}
 		result.Covers++
 	}
 	manualNames, err := regularFileNames(paths.ManualCoversDir)
 	if err != nil {
-		return closeWithError(err)
+		return result, err
 	}
 	for _, filename := range manualNames {
 		if !validManualCoverName(filename) {
 			continue
 		}
-		if err := writeArchiveFile(zipWriter, "manual-covers/"+filename, filepath.Join(paths.ManualCoversDir, filename)); err != nil {
-			return closeWithError(err)
+		if err := addImage("manual-covers/"+filename, filepath.Join(paths.ManualCoversDir, filename), false); err != nil {
+			return result, err
 		}
 		result.ManualCovers++
+	}
+
+	zipWriter := zip.NewWriter(writer)
+	closeWithError := func(inputErr error) (ArchiveExportResult, error) {
+		closeErr := zipWriter.Close()
+		if inputErr != nil {
+			return result, inputErr
+		}
+		return result, closeErr
+	}
+	if err := writeArchiveBytes(zipWriter, "manifest.json", manifestJSON); err != nil {
+		return closeWithError(err)
+	}
+	if err := writeArchiveBytes(zipWriter, manifest.Books, booksJSON); err != nil {
+		return closeWithError(err)
+	}
+	if err := writeArchiveBytes(zipWriter, manifest.Settings, settingsJSON); err != nil {
+		return closeWithError(err)
+	}
+	for _, image := range images {
+		if err := writeArchiveFile(zipWriter, image.name, image.source); err != nil {
+			return closeWithError(err)
+		}
 	}
 	result.Books = len(books)
 	return closeWithError(nil)
@@ -126,6 +196,11 @@ func EncodeArchive(writer io.Writer, paths Paths, books []Book) (ArchiveExportRe
 
 func ImportArchive(ctx context.Context, paths Paths, filename string, options ArchiveImportOptions) (ArchiveImportResult, error) {
 	var result ArchiveImportResult
+	unlock, err := acquireLibraryLock(ctx, paths)
+	if err != nil {
+		return result, err
+	}
+	defer unlock()
 	if options.Mode != ArchiveMerge && options.Mode != ArchiveReplace {
 		return result, fmt.Errorf("archive import mode must be merge or replace")
 	}
@@ -163,6 +238,12 @@ func ImportArchive(ctx context.Context, paths Paths, filename string, options Ar
 	}
 	if err := ctx.Err(); err != nil {
 		return result, err
+	}
+	if options.Mode == ArchiveReplace && len(existing) > 0 && options.BeforeReplace != nil {
+		result.SafetyBackup, err = options.BeforeReplace(existing)
+		if err != nil {
+			return result, fmt.Errorf("create safety backup before replacement: %w", err)
+		}
 	}
 
 	stageRoot, err := os.MkdirTemp(filepath.Dir(paths.DataDir), ".bookshelf-import-")
@@ -210,17 +291,29 @@ func ImportArchive(ctx context.Context, paths Paths, filename string, options Ar
 	return result, nil
 }
 
-func writeArchiveJSON(zipWriter *zip.Writer, name string, value any) error {
+func encodeArchiveJSON(value any, limit int64) ([]byte, error) {
+	var output bytes.Buffer
+	encoder := json.NewEncoder(&output)
+	encoder.SetIndent("", "    ")
+	encoder.SetEscapeHTML(false)
+	if err := encoder.Encode(value); err != nil {
+		return nil, err
+	}
+	if int64(output.Len()) > limit {
+		return nil, fmt.Errorf("metadata exceeds the %d MiB safety limit", limit>>20)
+	}
+	return output.Bytes(), nil
+}
+
+func writeArchiveBytes(zipWriter *zip.Writer, name string, value []byte) error {
 	header := &zip.FileHeader{Name: name, Method: zip.Deflate}
 	header.SetMode(0o644)
 	output, err := zipWriter.CreateHeader(header)
 	if err != nil {
 		return err
 	}
-	encoder := json.NewEncoder(output)
-	encoder.SetIndent("", "    ")
-	encoder.SetEscapeHTML(false)
-	return encoder.Encode(value)
+	_, err = output.Write(value)
+	return err
 }
 
 func writeArchiveFile(zipWriter *zip.Writer, name, source string) error {
@@ -283,6 +376,7 @@ func extractArchive(filename string) (*extractedArchive, error) {
 	for index := range books {
 		books[index] = Normalize(books[index])
 		books[index].Cover = ""
+		books[index].Thumbnail = ""
 		books[index].TitleSlug = ""
 		books[index].Permalink = ""
 		if books[index].CoverFile != "" && coverFilename(books[index]) == "" {
@@ -424,8 +518,11 @@ func validateArchiveImage(filename string, requireJPEG bool) error {
 		return err
 	}
 	defer input.Close()
-	_, format, err := image.DecodeConfig(input)
+	config, format, err := image.DecodeConfig(input)
 	if err != nil {
+		return err
+	}
+	if err := validateCoverDimensions(config); err != nil {
 		return err
 	}
 	if requireJPEG && format != "jpeg" {

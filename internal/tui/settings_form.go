@@ -50,6 +50,22 @@ var settingsRows = []settingRow{
 		},
 	},
 	{
+		section: "Browsing", label: "Shelf scroll speed",
+		options: []settingOption{
+			{label: "Slow", value: string(library.ScrollSpeedSlow)},
+			{label: "Normal", value: string(library.ScrollSpeedNormal)},
+			{label: "Fast", value: string(library.ScrollSpeedFast)},
+		},
+	},
+	{
+		section: "Browsing", label: "Coverflow scroll speed",
+		options: []settingOption{
+			{label: "Slow", value: string(library.ScrollSpeedSlow)},
+			{label: "Normal", value: string(library.ScrollSpeedNormal)},
+			{label: "Fast", value: string(library.ScrollSpeedFast)},
+		},
+	},
+	{
 		section: "Browsing", label: "Default sort",
 		options: []settingOption{
 			{label: "Title", value: string(library.WebsiteSortTitle)},
@@ -113,12 +129,12 @@ func newSettingsModel(config library.Config) settingsModel {
 	values := map[int]string{
 		0:  config.SiteTitle,
 		1:  config.SiteSubtitle,
-		10: config.FooterText,
+		12: config.FooterText,
 	}
 	placeholders := map[int]string{
 		0:  "Bookshelf",
 		1:  "Leave blank to hide",
-		10: "Markdown; blank uses the built-in attribution",
+		12: "Markdown; blank uses the built-in attribution",
 	}
 	for row := range settingsRows {
 		if settingsRows[row].kind == settingText {
@@ -158,14 +174,18 @@ func (m settingsModel) selectedValue(row int) string {
 	case 4:
 		return string(m.config.DefaultView)
 	case 5:
-		return string(m.config.DefaultSort)
+		return string(m.config.ShelfScrollSpeed)
 	case 6:
-		return string(m.config.DefaultSortOrder)
+		return string(m.config.CoverflowSpeed)
 	case 7:
-		return string(m.config.ISBNLinkSources)
+		return string(m.config.DefaultSort)
 	case 8:
-		return string(m.config.PermalinkStyle)
+		return string(m.config.DefaultSortOrder)
 	case 9:
+		return string(m.config.ISBNLinkSources)
+	case 10:
+		return string(m.config.PermalinkStyle)
+	case 11:
 		if m.config.ShowFooter {
 			return "show"
 		}
@@ -198,14 +218,18 @@ func (m *settingsModel) selectCandidate() {
 	case 4:
 		m.config.DefaultView = library.WebsiteView(value)
 	case 5:
-		m.config.DefaultSort = library.WebsiteSort(value)
+		m.config.ShelfScrollSpeed = library.ScrollSpeed(value)
 	case 6:
-		m.config.DefaultSortOrder = library.SortDirection(value)
+		m.config.CoverflowSpeed = library.ScrollSpeed(value)
 	case 7:
-		m.config.ISBNLinkSources = library.ISBNLinkSources(value)
+		m.config.DefaultSort = library.WebsiteSort(value)
 	case 8:
-		m.config.PermalinkStyle = library.PermalinkStyle(value)
+		m.config.DefaultSortOrder = library.SortDirection(value)
 	case 9:
+		m.config.ISBNLinkSources = library.ISBNLinkSources(value)
+	case 10:
+		m.config.PermalinkStyle = library.PermalinkStyle(value)
+	case 11:
 		m.config.ShowFooter = value == "show"
 	}
 	m.validation = ""
@@ -218,7 +242,7 @@ func (m *settingsModel) syncText(row int) {
 		m.config.SiteTitle = input.Value()
 	case 1:
 		m.config.SiteSubtitle = input.Value()
-	case 10:
+	case 12:
 		m.config.FooterText = input.Value()
 	}
 	m.validation = ""
@@ -490,6 +514,9 @@ func (m settingsModel) View() tea.View {
 }
 
 func RunSettingsForm(config library.Config) (library.Config, bool, error) {
+	if AccessibleMode() {
+		return runAccessibleSettingsForm(config)
+	}
 	final, err := tea.NewProgram(newSettingsModel(config)).Run()
 	if err != nil {
 		return library.Config{}, false, err

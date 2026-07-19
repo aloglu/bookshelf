@@ -159,6 +159,9 @@ func (m coverSourceModel) View() tea.View {
 }
 
 func ChooseCoverSource(books []library.Book) (CoverSourceResult, error) {
+	if AccessibleMode() {
+		return newAccessiblePrompter().coverSource(books)
+	}
 	final, err := tea.NewProgram(newCoverSourceModel(books)).Run()
 	if err != nil {
 		return CoverSourceResult{}, err

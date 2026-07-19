@@ -1,12 +1,14 @@
 module github.com/aloglu/bookshelf
 
-go 1.25.8
+go 1.26.4
 
 require (
 	charm.land/bubbles/v2 v2.1.0
 	charm.land/bubbletea/v2 v2.0.3
 	charm.land/lipgloss/v2 v2.0.2
+	github.com/charmbracelet/x/term v0.2.2
 	github.com/gosimple/slug v1.15.0
+	github.com/linzeyan/webp-go v0.1.2
 	golang.org/x/image v0.44.0
 )
 
@@ -15,7 +17,6 @@ require (
 	github.com/charmbracelet/colorprofile v0.4.3 // indirect
 	github.com/charmbracelet/ultraviolet v0.0.0-20260413133134-73592393e1ad // indirect
 	github.com/charmbracelet/x/ansi v0.11.6 // indirect
-	github.com/charmbracelet/x/term v0.2.2 // indirect
 	github.com/charmbracelet/x/termios v0.1.1 // indirect
 	github.com/charmbracelet/x/windows v0.2.2 // indirect
 	github.com/clipperhouse/displaywidth v0.11.0 // indirect

@@ -612,23 +612,6 @@ body {
         0 0 25px -5px color-mix(in srgb, var(--bg), transparent 30%);
 }
 
-/* Texture Overlay */
-.book::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    z-index: 0;
-    /* Behind text */
-    background-image: url("../img/texture.png");
-    background-size: 150px;
-    background-repeat: repeat;
-    opacity: 0.12;
-    /* Subtle effect */
-    mix-blend-mode: overlay;
-    pointer-events: none;
-    filter: contrast(120%);
-}
-
 /* Optimization: Only apply cover background in Coverflow view */
 .view-coverflow .book {
     background-image: var(--cover-image, none);
@@ -773,21 +756,6 @@ body {
     opacity: 1;
 }
 
-.details-card::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    z-index: 0;
-    background-image: url("../img/texture.png");
-    background-size: 150px;
-    background-repeat: repeat;
-    opacity: 0.12;
-    mix-blend-mode: overlay;
-    pointer-events: none;
-    filter: contrast(120%);
-    border-radius: inherit;
-}
-
 .details-card[hidden] {
     display: none;
 }
@@ -903,8 +871,9 @@ body {
 }
 
 .isbn-popup {
-    position: absolute;
+    position: fixed;
     left: 0;
+    top: 0;
     min-width: 220px;
     padding: 0.75rem;
     border-radius: 0.65rem;
@@ -917,17 +886,15 @@ body {
     gap: 0.35rem;
     opacity: 0;
     pointer-events: none;
-    z-index: 4;
+    z-index: 1200;
     transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
 .isbn-popup:not(.is-upward) {
-    top: calc(100% + 0.45rem);
     transform: translateY(-6px);
 }
 
 .isbn-popup.is-upward {
-    bottom: calc(100% + 0.45rem);
     transform: translateY(6px);
 }
 
@@ -1425,6 +1392,15 @@ body.view-coverflow .book.is-3d-active {
     box-shadow: 0 15px 40px rgba(0, 0, 0, 0.5);
 }
 
+body.view-coverflow .book:not(.is-3d-active),
+body.view-coverflow .book:not(.is-3d-active):hover,
+body.view-coverflow .book:not(.is-3d-active):focus,
+body.view-coverflow .book:not(.is-3d-active):focus-visible {
+    box-shadow: none !important;
+    filter: none;
+    outline: none;
+}
+
 body.view-coverflow .book.dimmed::before {
     /* Don't hide reflection, just dim it further */
     opacity: 0.5;
@@ -1555,6 +1531,49 @@ body.view-coverflow .coverflow-title.visible {
     }
 }
 
+@media (prefers-reduced-motion: reduce) {
+    html,
+    body,
+    .bookshelf {
+        scroll-behavior: auto !important;
+    }
+
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        transition-delay: 0s !important;
+    }
+
+    .view-animate {
+        animation: none !important;
+    }
+
+    [data-tooltip]:hover::after,
+    .theme-toggle[data-tooltip]:hover::after {
+        animation: none !important;
+        opacity: 1;
+    }
+
+    body:not(.view-coverflow) .book:hover,
+    body:not(.view-coverflow) .book.is-active,
+    body:not(.view-coverflow) .book.is-active:hover {
+        transform: rotate(var(--tilt, 0deg));
+    }
+
+    .random-toggle:hover .random-icon {
+        transform: none;
+    }
+
+    .book,
+    body.view-coverflow .book,
+    body.view-coverflow .book::before {
+        will-change: auto;
+    }
+}
+
 /* Background Blur */
 .coverflow-bg {
     position: fixed;
@@ -1671,21 +1690,6 @@ body.view-stack .book .stack-content {
     overflow: hidden;
 }
 
-/* Texture for Stack Content */
-body.view-stack .book .stack-content::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    z-index: 0;
-    background-image: url("data/texture.png");
-    background-size: 150px;
-    background-repeat: repeat;
-    opacity: 0.12;
-    mix-blend-mode: overlay;
-    pointer-events: none;
-    filter: contrast(120%);
-}
-
 /* Remove hover elevation/shadow from the content */
 body.view-stack .book:hover .stack-content {
     transform: none;
@@ -1795,7 +1799,7 @@ body.view-stack .book:hover {
     font-weight: inherit;
     color: inherit;
     text-decoration: none;
-    cursor: text;
+    cursor: pointer;
     opacity: 1;
 }
 
@@ -1805,7 +1809,7 @@ body.view-stack .book:hover {
     opacity: 1;
     color: inherit;
     text-decoration: none;
-    cursor: text !important;
+    cursor: pointer !important;
 }
 
 
@@ -2058,20 +2062,6 @@ body.view-stack .book:hover {
 
 .stats-overlay:not([hidden]) .stats-card {
     transform: translateY(0);
-}
-
-.stats-card::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    z-index: 0;
-    background-image: url("../img/texture.png");
-    background-size: 150px;
-    background-repeat: repeat;
-    opacity: 0.08;
-    mix-blend-mode: overlay;
-    pointer-events: none;
-    border-radius: inherit;
 }
 
 .stats-close {

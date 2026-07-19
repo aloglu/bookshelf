@@ -19,8 +19,12 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Test
-        run: go test ./...
+      - name: Verify
+        run: |
+          test -z "$(gofmt -l .)"
+          go vet ./...
+          go test -race ./...
+          sh -n install.sh
 
       - name: Build release archives
         env:
@@ -43,7 +47,46 @@ jobs:
           (
             cd dist
             sha256sum bookshelf_linux_*.tar.gz > checksums.txt
+            sha256sum -c checksums.txt
           )
+
+      - name: Smoke-test release and installer
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          set -eu
+          smoke_dir=$(mktemp -d)
+          trap 'rm -rf "$smoke_dir"' EXIT
+          tar -xzf dist/bookshelf_linux_amd64.tar.gz -C "$smoke_dir"
+          "$smoke_dir/bookshelf" version | grep -F "$VERSION"
+
+          mkdir -p "$smoke_dir/home"
+          cp install.sh "$smoke_dir/install-release.sh"
+          HOME="$smoke_dir/home" \
+          BOOKSHELF_INSTALL_DIR="$smoke_dir/install" \
+          BOOKSHELF_BIN_DIR="$smoke_dir/bin" \
+          BOOKSHELF_RELEASE_BASE_URL="file://$GITHUB_WORKSPACE/dist" \
+            sh "$smoke_dir/install-release.sh"
+          "$smoke_dir/bin/bookshelf" version | grep -F "$VERSION"
+          test -f "$smoke_dir/install/data/books.json"
+          test -f "$smoke_dir/install/public/index.html"
+          HOME="$smoke_dir/home" "$smoke_dir/bin/bookshelf" status --json \
+            | grep -F "\"dataDirectory\": \"$smoke_dir/install/data\""
+
+          HOME="$smoke_dir/home" \
+          BOOKSHELF_BIN_PATH="$smoke_dir/bin/bookshelf" \
+            "$smoke_dir/bin/bookshelf" uninstall --yes
+          test -f "$smoke_dir/install/data/books.json"
+          test -f "$smoke_dir/home/.config/bookshelf/root"
+          test ! -e "$smoke_dir/bin/bookshelf"
+
+          HOME="$smoke_dir/home" \
+          BOOKSHELF_BIN_DIR="$smoke_dir/bin" \
+          BOOKSHELF_RELEASE_BASE_URL="file://$GITHUB_WORKSPACE/dist" \
+            sh "$smoke_dir/install-release.sh"
+          test -f "$smoke_dir/install/data/books.json"
+          HOME="$smoke_dir/home" "$smoke_dir/bin/bookshelf" status --json \
+            | grep -F "\"dataDirectory\": \"$smoke_dir/install/data\""
 
       - name: Publish GitHub release
         env:

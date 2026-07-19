@@ -2,6 +2,7 @@ package library
 
 import (
 	"bytes"
+	"encoding/csv"
 	"strings"
 	"testing"
 )
@@ -48,6 +49,47 @@ func TestCSVExportIsExcelCompatibleAndImportable(t *testing.T) {
 		got.SpineColor != book.SpineColor ||
 		got.SpineTextColor != book.SpineTextColor {
 		t.Fatalf("CSV round trip = %#v", got)
+	}
+}
+
+func TestCSVExportProtectsSpreadsheetFormulaCellsAndRoundTrips(t *testing.T) {
+	book := Normalize(Book{
+		Title:      `=HYPERLINK("https://example.test","Read")`,
+		Author:     "+SUM(1,1)",
+		Translator: "-2+3",
+		Publisher:  "@malicious",
+	})
+	var output bytes.Buffer
+	if err := EncodeExport(&output, []Book{book}, "csv"); err != nil {
+		t.Fatal(err)
+	}
+
+	reader := csv.NewReader(bytes.NewReader(bytes.TrimPrefix(output.Bytes(), []byte{0xef, 0xbb, 0xbf})))
+	records, err := reader.ReadAll()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for column, want := range map[int]string{
+		1: "'" + book.Title,
+		2: "'" + book.Author,
+		5: "'" + book.Translator,
+		6: "'" + book.Publisher,
+	} {
+		if got := records[1][column]; got != want {
+			t.Fatalf("protected column %d = %q, want %q", column, got, want)
+		}
+	}
+
+	decoded, err := DecodeImport(bytes.NewReader(output.Bytes()), "csv")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(decoded) != 1 ||
+		decoded[0].Title != book.Title ||
+		decoded[0].Author != book.Author ||
+		decoded[0].Translator != book.Translator ||
+		decoded[0].Publisher != book.Publisher {
+		t.Fatalf("protected CSV round trip = %#v", decoded)
 	}
 }
 

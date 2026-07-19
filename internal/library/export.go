@@ -60,7 +60,7 @@ func encodeCSVExport(writer io.Writer, books []Book) error {
 		if book.Published != nil {
 			published = strconv.Itoa(*book.Published)
 		}
-		if err := csvWriter.Write([]string{
+		record := []string{
 			book.ID,
 			book.Title,
 			book.Author,
@@ -73,7 +73,11 @@ func encodeCSVExport(writer io.Writer, books []Book) error {
 			book.CoverFile,
 			book.SpineColor,
 			book.SpineTextColor,
-		}); err != nil {
+		}
+		for index := range record {
+			record[index] = protectSpreadsheetCell(record[index])
+		}
+		if err := csvWriter.Write(record); err != nil {
 			return fmt.Errorf("encode CSV export: %w", err)
 		}
 	}
@@ -84,12 +88,20 @@ func encodeCSVExport(writer io.Writer, books []Book) error {
 	return nil
 }
 
+func protectSpreadsheetCell(value string) string {
+	if value == "" || !strings.ContainsRune("=+-@\t\r", rune(value[0])) {
+		return value
+	}
+	return "'" + value
+}
+
 func exportBooks(books []Book) []Book {
 	exported := append([]Book(nil), books...)
 	for index := range exported {
 		exported[index].TitleSlug = ""
 		exported[index].Permalink = ""
 		exported[index].Cover = ""
+		exported[index].Thumbnail = ""
 	}
 	return exported
 }

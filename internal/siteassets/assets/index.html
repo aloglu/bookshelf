@@ -108,25 +108,26 @@
                                     aria-controls="isbn-popup" aria-expanded="false">
                                     -
                                 </button>
-                                <div class="isbn-popup" id="isbn-popup" role="menu" aria-hidden="true">
-                                    <p class="isbn-popup-label">
-                                        Open ISBN in
-                                    </p>
-                                    <a class="isbn-link" data-source="wikipedia" target="_blank"
-                                        rel="noopener noreferrer" role="menuitem">
-                                        Wikipedia Book Sources
-                                    </a>
-                                    <a class="isbn-link" data-source="goodreads" target="_blank"
-                                        rel="noopener noreferrer" role="menuitem">
-                                        Goodreads
-                                    </a>
-                                </div>
                             </dd>
                         </div>
                     </dl>
                 </div>
             </div>
         </section>
+
+        <div class="isbn-popup" id="isbn-popup" role="menu" aria-hidden="true">
+            <p class="isbn-popup-label">
+                Open ISBN in
+            </p>
+            <a class="isbn-link" data-source="wikipedia" target="_blank"
+                rel="noopener noreferrer" role="menuitem">
+                Wikipedia Book Sources
+            </a>
+            <a class="isbn-link" data-source="goodreads" target="_blank"
+                rel="noopener noreferrer" role="menuitem">
+                Goodreads
+            </a>
+        </div>
 
         <section class="stats-overlay" id="stats-overlay" hidden>
             <div class="stats-card">
@@ -213,7 +214,6 @@
     </button>
 
     <script src="data/books.js"></script>
-    <script src="https://unpkg.com/lenis@1.1.20/dist/lenis.min.js"></script>
     <script src="js/bookshelf.js" defer></script>
 </body>
 

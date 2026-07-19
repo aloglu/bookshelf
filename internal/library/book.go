@@ -2,10 +2,10 @@ package library
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"hash/fnv"
-	"math/rand/v2"
 	"regexp"
 	"strconv"
 	"strings"
@@ -13,7 +13,8 @@ import (
 	goslug "github.com/gosimple/slug"
 )
 
-var yearPattern = regexp.MustCompile(`\d{4}`)
+var strictYearPattern = regexp.MustCompile(`^\d{4}$`)
+var legacyYearPattern = regexp.MustCompile(`(?i)^published(?:\s+in)?\s+(\d{4})$`)
 
 type Book struct {
 	ID             string `json:"id"`
@@ -29,6 +30,7 @@ type Book struct {
 	Published      *int   `json:"published,omitempty"`
 	CoverFile      string `json:"coverFile,omitempty"`
 	Cover          string `json:"cover,omitempty"`
+	Thumbnail      string `json:"thumbnail,omitempty"`
 	SpineColor     string `json:"spineColor,omitempty"`
 	SpineTextColor string `json:"spineTextColor,omitempty"`
 }
@@ -70,12 +72,17 @@ func (b *Book) UnmarshalJSON(data []byte) error {
 		Published      json.RawMessage `json:"published"`
 		CoverFile      json.RawMessage `json:"coverFile"`
 		Cover          json.RawMessage `json:"cover"`
+		Thumbnail      json.RawMessage `json:"thumbnail"`
 		SpineColor     json.RawMessage `json:"spineColor"`
 		SpineTextColor json.RawMessage `json:"spineTextColor"`
 	}
 	var wire wireBook
 	if err := json.Unmarshal(data, &wire); err != nil {
 		return err
+	}
+	published, err := flexibleYear(wire.Published)
+	if err != nil {
+		return fmt.Errorf("invalid published year: %w", err)
 	}
 	*b = Book{
 		ID:             flexibleString(wire.ID),
@@ -88,9 +95,10 @@ func (b *Book) UnmarshalJSON(data []byte) error {
 		Translator:     flexibleString(wire.Translator),
 		Publisher:      flexibleString(wire.Publisher),
 		Binding:        flexibleString(wire.Binding),
-		Published:      flexibleYear(wire.Published),
+		Published:      published,
 		CoverFile:      flexibleString(wire.CoverFile),
 		Cover:          flexibleString(wire.Cover),
+		Thumbnail:      flexibleString(wire.Thumbnail),
 		SpineColor:     flexibleString(wire.SpineColor),
 		SpineTextColor: flexibleString(wire.SpineTextColor),
 	}
@@ -113,16 +121,26 @@ func flexibleString(raw json.RawMessage) string {
 	return ""
 }
 
-func flexibleYear(raw json.RawMessage) *int {
+func flexibleYear(raw json.RawMessage) (*int, error) {
+	raw = bytes.TrimSpace(raw)
+	if len(raw) == 0 || bytes.Equal(raw, []byte("null")) {
+		return nil, nil
+	}
 	value := flexibleString(raw)
 	if value != "" {
-		return ParseYear(value)
+		if year, err := ParseYearInput(value); err == nil {
+			return year, nil
+		}
+		if match := legacyYearPattern.FindStringSubmatch(strings.TrimSpace(value)); len(match) == 2 {
+			return ParseYearInput(match[1])
+		}
+		return nil, fmt.Errorf("%q must be a four-digit year", value)
 	}
-	var year int
-	if err := json.Unmarshal(raw, &year); err == nil {
-		return &year
+	var text string
+	if err := json.Unmarshal(raw, &text); err == nil && strings.TrimSpace(text) == "" {
+		return nil, nil
 	}
-	return nil
+	return nil, fmt.Errorf("must be a four-digit year")
 }
 
 func CleanISBN(value string) string {
@@ -148,21 +166,30 @@ func Slugify(value string) string {
 		}
 	}
 	if slug == "" {
-		return fmt.Sprintf("book-%012x", rand.Uint64()&0xffffffffffff)
+		digest := sha256.Sum256([]byte(value))
+		return fmt.Sprintf("book-%x", digest[:6])
 	}
 	return slug
 }
 
 func ParseYear(value string) *int {
-	match := yearPattern.FindString(strings.TrimSpace(value))
-	if match == "" {
-		return nil
+	year, _ := ParseYearInput(value)
+	return year
+}
+
+func ParseYearInput(value string) (*int, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return nil, nil
 	}
-	year, err := strconv.Atoi(match)
+	if !strictYearPattern.MatchString(value) {
+		return nil, fmt.Errorf("published year must be exactly four digits")
+	}
+	year, err := strconv.Atoi(value)
 	if err != nil {
-		return nil
+		return nil, fmt.Errorf("parse published year: %w", err)
 	}
-	return &year
+	return &year, nil
 }
 
 func Normalize(input Book) Book {
@@ -176,6 +203,7 @@ func Normalize(input Book) Book {
 	input.Binding = NormalizeTypography(strings.TrimSpace(input.Binding))
 	input.CoverFile = strings.TrimSpace(input.CoverFile)
 	input.Cover = strings.TrimSpace(input.Cover)
+	input.Thumbnail = strings.TrimSpace(input.Thumbnail)
 	input.SpineColor = strings.TrimSpace(input.SpineColor)
 	input.SpineTextColor = strings.TrimSpace(input.SpineTextColor)
 	input.Permalink = strings.TrimSpace(input.Permalink)
@@ -190,7 +218,11 @@ func Normalize(input Book) Book {
 		input.ID = input.Slug
 	}
 	if input.ID == "" {
-		input.ID = Slugify(input.Title + "-" + input.Author)
+		identity := input.Title
+		if input.Author != "" {
+			identity += "-" + input.Author
+		}
+		input.ID = Slugify(identity)
 	}
 	return input
 }

@@ -4,12 +4,7 @@ tea_debug.log
 *.test
 CHANGELOG.md
 
-# Local user data
-/data/*
-!/data/covers/
-!/data/covers/.gitkeep
-!/data/manual-covers/
-!/data/manual-covers/.gitkeep
-
-# Generated website
+# Runtime data and generated output
+/data/
 /public/
+/backups/

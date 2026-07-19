@@ -191,6 +191,9 @@ func RunDecision(request DecisionRequest) (choice string, chosen bool, err error
 	if len(request.Options) == 0 {
 		return "", false, fmt.Errorf("decision requires at least one option")
 	}
+	if AccessibleMode() {
+		return runAccessibleDecision(request)
+	}
 	final, err := tea.NewProgram(newDecisionModel(request)).Run()
 	if err != nil {
 		return "", false, err

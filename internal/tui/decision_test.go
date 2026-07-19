@@ -1,6 +1,9 @@
 package tui
 
 import (
+	"bytes"
+	"context"
+	"os"
 	"strings"
 	"testing"
 
@@ -23,6 +26,32 @@ func TestDecisionEscapeDismissesWithoutChoosing(t *testing.T) {
 	choice, done, dismissed := model.handleKey("esc")
 	if !done || !dismissed || choice != "" {
 		t.Fatalf("choice = %q, done = %v, dismissed = %v", choice, done, dismissed)
+	}
+}
+
+func TestAccessibleBookFormUsesLinePromptsWithoutStartingBubbleTea(t *testing.T) {
+	t.Setenv("BOOKSHELF_ACCESSIBLE", "1")
+	previousInput, previousOutput := accessibleInput, accessibleOutput
+	accessibleInput = strings.NewReader("Dune\nFrank Herbert\n978-0-441-17271-9\n\n\nAce\nPaperback\nedition-1965\n1965\ny\n")
+	var output bytes.Buffer
+	accessibleOutput = &output
+	t.Cleanup(func() {
+		accessibleInput = previousInput
+		accessibleOutput = previousOutput
+	})
+
+	result, err := RunBookForm(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Book.Title != "Dune" || result.Book.Author != "Frank Herbert" ||
+		result.Book.ISBN != "978-0-441-17271-9" || !result.Build {
+		t.Fatalf("accessible form result = %#v", result)
+	}
+	if !strings.Contains(output.String(), "Title:") ||
+		!strings.Contains(output.String(), "Published year must be exactly four digits.") ||
+		!strings.Contains(output.String(), "Update published website") {
+		t.Fatalf("accessible prompts were not written: %q", output.String())
 	}
 }
 
@@ -67,6 +96,70 @@ func TestCoverProgressCancelDecisionIsBorderless(t *testing.T) {
 	}
 }
 
+func TestCoverProgressStopsWhenParentContextIsCancelled(t *testing.T) {
+	paths := library.NewPaths(t.TempDir())
+	if err := library.Initialize(paths); err != nil {
+		t.Fatal(err)
+	}
+	book := library.Normalize(library.Book{Title: "Dune"})
+	session, err := library.NewCoverFetchSession(paths, []library.Book{book}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	model := newCoverProgressModel(ctx, session, library.CoverSourceAutomatic)
+	model.inFlight = true
+	cancel()
+
+	updated, command := model.Update(coverFetchedMsg{canceled: true})
+	got := updated.(*coverProgressModel)
+	if !got.interrupted || got.stopAction != "discard" || command == nil {
+		t.Fatalf("cancelled model = interrupted:%v action:%q command:%v", got.interrupted, got.stopAction, command)
+	}
+	finished := command()
+	updated, quit := got.Update(finished)
+	got = updated.(*coverProgressModel)
+	if !got.completed || got.kept || quit == nil {
+		t.Fatalf("finished cancelled model = completed:%v kept:%v quit:%v", got.completed, got.kept, quit)
+	}
+}
+
+func TestTerminalDetectionRequiresInputAndOutputTerminals(t *testing.T) {
+	input, err := os.CreateTemp(t.TempDir(), "input")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer input.Close()
+	output, err := os.CreateTemp(t.TempDir(), "output")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer output.Close()
+
+	for _, test := range []struct {
+		name      string
+		inputTTY  bool
+		outputTTY bool
+		want      bool
+	}{
+		{name: "both", inputTTY: true, outputTTY: true, want: true},
+		{name: "input only", inputTTY: true, outputTTY: false},
+		{name: "output only", inputTTY: false, outputTTY: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			got := isTerminalPair(input, output, func(fd uintptr) bool {
+				if fd == input.Fd() {
+					return test.inputTTY
+				}
+				return test.outputTTY
+			})
+			if got != test.want {
+				t.Fatalf("isTerminalPair() = %v, want %v", got, test.want)
+			}
+		})
+	}
+}
+
 func TestDecisionUsesSafeDefault(t *testing.T) {
 	model := newDecisionModel(DecisionRequest{
 		Title: "Delete everything?",
@@ -96,8 +189,8 @@ func TestSettingsEscapeWithoutChangesExitsImmediately(t *testing.T) {
 
 func TestSettingsSelectsOnlyOnSpace(t *testing.T) {
 	model := newSettingsModel(library.DefaultConfig())
-	model.cursor = 8
-	model.candidates[8] = 2
+	model.cursor = 10
+	model.candidates[10] = 2
 	updated, _ := model.Update(tea.KeyPressMsg{Code: tea.KeySpace, Text: " "})
 	model = updated.(settingsModel)
 	if model.config.PermalinkStyle != library.PermalinkTitleSlug {
@@ -107,8 +200,8 @@ func TestSettingsSelectsOnlyOnSpace(t *testing.T) {
 
 func TestSettingsSaveDoesNotCommitHighlightedCandidate(t *testing.T) {
 	model := newSettingsModel(library.DefaultConfig())
-	model.cursor = 8
-	model.candidates[8] = 2
+	model.cursor = 10
+	model.candidates[10] = 2
 	model.moveCursor(len(settingsRows))
 	updated, command := model.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	model = updated.(settingsModel)
@@ -117,6 +210,24 @@ func TestSettingsSaveDoesNotCommitHighlightedCandidate(t *testing.T) {
 	}
 	if model.config.PermalinkStyle != library.PermalinkFormattedISBN {
 		t.Fatalf("highlighted but unselected style was saved: %q", model.config.PermalinkStyle)
+	}
+}
+
+func TestSettingsSelectsIndependentScrollSpeeds(t *testing.T) {
+	model := newSettingsModel(library.DefaultConfig())
+	model.cursor = 5
+	model.candidates[5] = 0
+	updated, _ := model.Update(tea.KeyPressMsg{Code: tea.KeySpace, Text: " "})
+	model = updated.(settingsModel)
+	model.cursor = 6
+	model.candidates[6] = 2
+	updated, _ = model.Update(tea.KeyPressMsg{Code: tea.KeySpace, Text: " "})
+	model = updated.(settingsModel)
+	if model.config.ShelfScrollSpeed != library.ScrollSpeedSlow {
+		t.Fatalf("shelf scroll speed = %q", model.config.ShelfScrollSpeed)
+	}
+	if model.config.CoverflowSpeed != library.ScrollSpeedFast {
+		t.Fatalf("Coverflow scroll speed = %q", model.config.CoverflowSpeed)
 	}
 }
 
@@ -286,6 +397,28 @@ func TestFilteredListsLeaveOneBlankHeaderLine(t *testing.T) {
 	}
 	if got := browserHeaderGap(list.Unfiltered); got != "\n" {
 		t.Fatalf("unfiltered header gap = %q", got)
+	}
+}
+
+func TestSelectAllOnlySelectsVisibleFilteredBooks(t *testing.T) {
+	books := []library.Book{
+		library.Normalize(library.Book{Title: "Dune"}),
+		library.Normalize(library.Book{Title: "Neuromancer"}),
+		library.Normalize(library.Book{Title: "The Left Hand of Darkness"}),
+	}
+	model := newBookSelectorModel(books, nil, nil, "Bookshelf · Remove", true, false)
+	model.list.SetFilterText("dune")
+	model.list.SetFilterState(list.FilterApplied)
+
+	updated, _ := model.Update(tea.KeyPressMsg{Code: 'a', Text: "a"})
+	model = updated.(browserModel)
+	if len(model.selected) != 1 || !model.selected[books[0].ID] {
+		t.Fatalf("select all selected %#v instead of only the visible filtered book", model.selected)
+	}
+	updated, _ = model.Update(tea.KeyPressMsg{Code: 'a', Text: "a"})
+	model = updated.(browserModel)
+	if len(model.selected) != 0 {
+		t.Fatalf("second select-all toggle did not clear the visible selection: %#v", model.selected)
 	}
 }
 

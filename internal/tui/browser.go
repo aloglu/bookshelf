@@ -11,6 +11,7 @@ import (
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/term"
 
 	"github.com/aloglu/bookshelf/internal/library"
 )
@@ -178,9 +179,21 @@ func (m browserModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m, nil
 				case "a":
 					if m.multi {
-						for _, item := range m.list.Items() {
+						visible := m.list.VisibleItems()
+						allSelected := len(visible) > 0
+						for _, item := range visible {
+							if book, ok := item.(bookItem); ok && !m.selected[book.book.ID] {
+								allSelected = false
+								break
+							}
+						}
+						for _, item := range visible {
 							if book, ok := item.(bookItem); ok {
-								m.selected[book.book.ID] = true
+								if allSelected {
+									delete(m.selected, book.book.ID)
+								} else {
+									m.selected[book.book.ID] = true
+								}
 							}
 						}
 					}
@@ -378,6 +391,20 @@ func (m browserModel) selectedIDs() []string {
 }
 
 func RunBrowser(books []library.Book, statuses map[string]string) (BrowserResult, error) {
+	if AccessibleMode() {
+		for index, book := range books {
+			description := book.Author
+			if description != "" {
+				description = " — " + description
+			}
+			status := statuses[book.ID]
+			if status != "" {
+				status = " — " + status
+			}
+			fmt.Fprintf(os.Stdout, "%d. %s%s%s\n", index+1, book.Title, description, status)
+		}
+		return BrowserResult{Action: ActionQuit}, nil
+	}
 	final, err := tea.NewProgram(newBrowserModel(books, statuses)).Run()
 	if err != nil {
 		return BrowserResult{}, err
@@ -396,6 +423,9 @@ func RunBookSelector(books []library.Book, statuses map[string]string, initial [
 	if len(books) == 0 {
 		return nil, false, nil
 	}
+	if AccessibleMode() {
+		return newAccessiblePrompter().pickBooks(books, multi, title)
+	}
 	final, err := tea.NewProgram(newBookSelectorModel(books, statuses, initial, title, multi, showCoverStatus)).Run()
 	if err != nil {
 		return nil, false, err
@@ -411,6 +441,9 @@ func RunBookSelector(books []library.Book, statuses map[string]string, initial [
 }
 
 func IsTerminal() bool {
-	info, err := os.Stdout.Stat()
-	return err == nil && info.Mode()&os.ModeCharDevice != 0
+	return isTerminalPair(os.Stdin, os.Stdout, term.IsTerminal)
+}
+
+func isTerminalPair(input, output *os.File, check func(uintptr) bool) bool {
+	return input != nil && output != nil && check(input.Fd()) && check(output.Fd())
 }
