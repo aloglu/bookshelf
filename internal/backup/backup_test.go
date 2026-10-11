@@ -103,7 +103,7 @@ func TestBackupAndRestoreKeepEverything(t *testing.T) {
 	if hp, _ := snap.Book(p.ID); !hp.Hidden {
 		t.Fatal("hidden was lost")
 	}
-	cur, ok := snap.Current()
+	cur, ok := snap.InProgress(a.ID)
 	if !ok || cur.Page() != 112 {
 		t.Fatalf("reading in progress: %+v", cur)
 	}
@@ -201,8 +201,8 @@ func TestImportAnArchiveFromAnotherLibrary(t *testing.T) {
 		t.Fatalf("archive import: %d %d %v", added, skipped, err)
 	}
 	snap := st.Snapshot()
-	if c, _ := snap.Current(); c.ID != cur.ID {
-		t.Fatal("an imported reading took over the one in progress")
+	if c, _ := snap.InProgress(cur.BookID); c.ID != cur.ID {
+		t.Fatal("an import changed the reading in progress")
 	}
 	var aus store.Book
 	for _, bk := range snap.Books {
@@ -213,7 +213,7 @@ func TestImportAnArchiveFromAnotherLibrary(t *testing.T) {
 	if aus.Cover == "" || !fileExists(filepath.Join(b.CoversDir, aus.Cover)) {
 		t.Fatal("the imported book's cover is missing")
 	}
-	if rs := snap.Readings[aus.ID]; len(rs) != 1 || rs[0].Outcome != store.OutcomeSetAside || rs[0].Page() != 112 {
+	if rs := snap.Readings[aus.ID]; len(rs) != 1 || rs[0].Outcome != store.OutcomeReading || rs[0].Page() != 112 {
 		t.Fatalf("imported reading: %+v", rs)
 	}
 	if snap.Settings.Name != "Bookshelf" {

@@ -34,9 +34,18 @@ type bookView struct {
 	Spine      spineView  `json:"spine"`
 	AddedAt    time.Time  `json:"addedAt"`
 
+	// The notes the owner made public, newest first: only the note and when
+	// the book was finished, never the rest of the reading.
+	Notes []noteView `json:"notes,omitempty"`
+
 	// Owner only.
 	Hidden    bool `json:"hidden,omitempty"`
 	ReadCount int  `json:"readCount,omitempty"`
+}
+
+type noteView struct {
+	Text     string     `json:"text"`
+	Finished store.When `json:"finished"`
 }
 
 type coverView struct {
@@ -62,7 +71,7 @@ type libraryView struct {
 	User     string       `json:"user,omitempty"`
 	Settings any          `json:"settings"`
 	Books    []bookView   `json:"books"`
-	Reading  *readingView `json:"reading"`
+	Reading  []readingView `json:"reading"` // books being read now, the most recently started first
 
 	covers map[string]bool // cover and thumbnail files this audience may fetch
 }
@@ -162,6 +171,12 @@ func build(snap *store.Snapshot, owner bool) *libraryView {
 			c := clothColors[h.Sum32()%uint32(len(clothColors))]
 			bv.Spine = spineView{Color: c, Text: covers.TextFor(c)}
 		}
+		rs := snap.Readings[b.ID]
+		for i := len(rs) - 1; i >= 0; i-- { // readings are kept oldest first
+			if r := rs[i]; r.Outcome == store.OutcomeFinished && r.Note != nil && r.Note.Public {
+				bv.Notes = append(bv.Notes, noteView{Text: r.Note.Text, Finished: r.Ended})
+			}
+		}
 		if owner {
 			bv.Hidden = b.Hidden
 			for _, r := range snap.Readings[b.ID] {
@@ -172,9 +187,10 @@ func build(snap *store.Snapshot, owner bool) *libraryView {
 		}
 		v.Books = append(v.Books, bv)
 	}
-	if cur, ok := snap.Current(); ok {
+	v.Reading = []readingView{}
+	for _, cur := range snap.NowReading() {
 		if b, ok := snap.Book(cur.BookID); ok && (owner || !b.Hidden) {
-			v.Reading = &readingView{ID: cur.ID, BookID: cur.BookID, Started: cur.Started, Page: cur.Page()}
+			v.Reading = append(v.Reading, readingView{ID: cur.ID, BookID: cur.BookID, Started: cur.Started, Page: cur.Page()})
 		}
 	}
 	return v

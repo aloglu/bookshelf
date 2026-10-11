@@ -257,7 +257,7 @@ func TestReadingsThroughTheAPI(t *testing.T) {
 		t.Fatal("page")
 	}
 	_, lib := e.do(e.visitor, "GET", "/api/library", nil)
-	if r := lib["reading"].(map[string]any); r["page"] != 112.0 || r["bookId"] != id {
+	if r := lib["reading"].([]any)[0].(map[string]any); r["page"] != 112.0 || r["bookId"] != id {
 		t.Fatalf("visitors see the current reading: %v", r)
 	}
 	if code, _ := e.do(e.owner, "PATCH", "/api/readings/"+rid, map[string]any{"end": "finished"}); code != 200 {
@@ -274,8 +274,19 @@ func TestReadingsThroughTheAPI(t *testing.T) {
 		t.Fatalf("read count %v", n)
 	}
 	_, theirs := e.do(e.visitor, "GET", "/api/library", nil)
-	if _, ok := theirs["books"].([]any)[0].(map[string]any)["readCount"]; ok || theirs["reading"] != nil {
+	if _, ok := theirs["books"].([]any)[0].(map[string]any)["readCount"]; ok || len(theirs["reading"].([]any)) != 0 {
 		t.Fatalf("visitors see the reading history: %v", theirs["books"])
+	}
+	if _, ok := theirs["books"].([]any)[0].(map[string]any)["notes"]; ok {
+		t.Fatal("visitors see a private note")
+	}
+
+	// A public note is shown to visitors, with only when the book was finished.
+	e.do(e.owner, "PUT", "/api/readings/"+rid+"/note", map[string]any{"text": "Haunting.", "public": true})
+	_, theirs = e.do(e.visitor, "GET", "/api/library", nil)
+	notes, _ := theirs["books"].([]any)[0].(map[string]any)["notes"].([]any)
+	if len(notes) != 1 || notes[0].(map[string]any)["text"] != "Haunting." || len(notes[0].(map[string]any)) != 2 {
+		t.Fatalf("public notes: %v", notes)
 	}
 }
 

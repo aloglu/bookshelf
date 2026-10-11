@@ -1,8 +1,13 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Bookshelf Shelf Study</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..500&family=Instrument+Sans:wght@400..600&display=swap">
 <style>
+/* Hidden means hidden, whatever display a class gives. */
+[hidden] { display: none !important; }
 /* Layout: thin floating wood shelves on a colored wall. Spines are colored from their covers.
    A hovered book slides straight out of the shelf; a clicked one flies out and opens to its details.
    Day (light) and evening (dark). Each wall color carries a day (-l) and evening (-d) variant. */
@@ -91,6 +96,18 @@ header .elsewhere { grid-area: links; justify-self: end; align-self: center; }
 
 /* What the owner is reading now, under the numbers: a small cover, and the book opens from its place on the shelf. */
 .nowreading { display: flex; align-items: center; gap: 10px; margin-top: 12px; text-align: left; color: var(--muted); font-size: .88rem; }
+/* With several books in hand their covers fan out, and the line opens a short list to choose from. */
+.nowreading .fan { display: flex; flex: none; }
+.nowreading .fan img + img { margin-left: -8px; }
+.nowreading .fan img { box-shadow: 0 0 0 1.5px var(--wall), 0 3px 8px -3px rgba(0,0,0,.5); }
+.nr-menu { position: fixed; z-index: 15; display: grid; gap: 2px; width: max-content; min-width: 240px; max-width: min(380px, calc(100vw - 24px));
+  padding: 6px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line); box-shadow: 0 24px 60px -24px rgba(0,0,0,.55); }
+.nr-menu button { display: grid; grid-template-columns: 26px minmax(0, 1fr); align-items: center; gap: 12px; padding: 7px 10px; border-radius: 8px; text-align: left; color: var(--ink); }
+.nr-menu img { width: 26px; height: 39px; object-fit: cover; border-radius: 2px; box-shadow: 0 3px 8px -3px rgba(0,0,0,.5); }
+.nr-menu b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--display); font-weight: 600; font-size: 1rem; line-height: 1.25; }
+.nr-menu small { color: var(--muted); font-size: .78rem; }
+.nr-menu button:focus-visible { outline-offset: -2px; }
+@media (hover: hover) { .nr-menu button:hover { background: color-mix(in oklab, var(--ink) 6%, transparent); } }
 .nowreading img { width: 22px; height: 33px; object-fit: cover; border-radius: 2px; box-shadow: 0 3px 8px -3px rgba(0,0,0,.5); }
 .nowreading b { color: var(--ink); font-weight: 600; font-family: var(--display); font-size: 1.05em; }
 @media (hover: hover) { .nowreading:hover b { text-decoration: underline; text-underline-offset: 3px; text-decoration-color: color-mix(in oklab, var(--ink) 35%, transparent); } }
@@ -213,6 +230,8 @@ header .elsewhere { grid-area: links; justify-self: end; align-self: center; }
 .reading-card .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 12px; margin: 0; padding: 14px 0 0; list-style: none; border-top: 1px solid var(--line); }
 .reading-card .facts li { display: grid; align-content: start; gap: 2px; color: var(--muted); font-size: .78rem; }
 .reading-card .facts b { color: var(--ink); font-size: 1.1rem; font-weight: 600; }
+/* Several books in hand: a card each, one beneath another, the most recently started first. */
+.reading-cards { display: grid; gap: 10px; }
 .charts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .chart { padding: 16px 18px 18px; min-width: 0; }
 .chart.wide { grid-column: 1 / -1; }
@@ -556,6 +575,29 @@ select.inp { appearance: none; background-image: linear-gradient(45deg, transpar
 @keyframes spin { to { rotate: 1turn; } }
 .check2 { display: flex; align-items: center; gap: 8px; font-size: .88rem; color: var(--ink); }
 .check2 input { accent-color: var(--accent); width: 16px; height: 16px; }
+/* A book's readings: each with its dates, how long it took, and its note. */
+.rd-list { display: grid; margin: 18px 0 0; padding: 0; list-style: none; }
+.rd { display: grid; gap: 10px; padding: 14px 0; border-top: 1px solid var(--line); }
+.rd-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 14px; }
+.rd-top b { font-weight: 600; }
+.rd-meta { color: var(--muted); font-size: .84rem; }
+.rd-tools { display: flex; gap: 14px; margin-left: auto; font-size: .84rem; }
+.rd-note { display: grid; justify-items: start; gap: 6px; font-size: .84rem; }
+.rd-note p { margin: 0; font-family: var(--display); font-size: 1.05rem; font-style: italic; line-height: 1.5; white-space: pre-wrap; }
+.rd .link { color: var(--muted); }
+.rd-note .foot { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; }
+.rd-note .pub { color: var(--muted); }
+.rd-edit .toggle { padding-block: 2px; }
+@media (hover: hover) { .rd .link:hover { color: var(--ink); } }
+.rd-ask, .rd-btns { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
+.rd-ask span { margin-right: auto; font-size: .88rem; }
+.rd-edit { display: grid; gap: 8px; }
+textarea.inp { height: auto; min-height: 92px; padding: 10px 12px; line-height: 1.45; resize: vertical; }
+.btn.danger { background: #a3321f; color: #fff; border-color: transparent; }
+.lab .opt { color: var(--muted); font-weight: 400; }
+.head-link { padding: 0; border: 0; background: none; font: inherit; letter-spacing: inherit; text-transform: inherit; color: inherit; cursor: pointer;
+  text-decoration: underline; text-underline-offset: 3px; text-decoration-color: color-mix(in oklab, currentColor 40%, transparent); }
+@media (hover: hover) { .head-link:hover { color: var(--paper-accent); } }
 .wordmark { margin: 0 0 18px; font-family: var(--display); font-size: .82rem; font-style: italic; color: var(--muted); }
 
 /* The scanner: a viewfinder with corner marks and a sweeping line. */
@@ -779,7 +821,8 @@ body:has(.drawer-wrap:not([hidden])) .toast.saved { left: calc(100% - min(420px,
       <button type="button" class="btn icon phone-only" id="menu-btn" aria-label="Menu" title="Menu" aria-haspopup="dialog"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
       <button type="button" class="btn icon visitor-only" id="signin-btn" aria-label="Sign in" title="Sign in"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4M14 16l4-4-4-4M18 12H8"/></svg></button>
     </div>
-    <button type="button" class="nowreading" id="nowreading" hidden></button>
+    <button type="button" class="nowreading" id="nowreading" aria-haspopup="true" hidden></button>
+    <div class="nr-menu" id="nr-menu" role="menu" aria-label="Now reading" hidden></div>
     <p class="elsewhere" id="elsewhere" hidden></p>
   </header>
   <section class="gate" id="gate" hidden>
@@ -790,7 +833,7 @@ body:has(.drawer-wrap:not([hidden])) .toast.saved { left: calc(100% - min(420px,
   <section class="stats" id="stats" hidden aria-labelledby="stats-h">
     <div class="reading-block" id="reading-block" hidden>
       <h2 class="stats-h">Now reading</h2>
-      <article class="chart reading-card" id="reading-card"></article>
+      <div class="reading-cards" id="reading-cards"></div>
     </div>
     <h2 class="stats-h" id="stats-h">The library in numbers</h2>
     <div class="kpis" id="kpis"></div>
@@ -841,6 +884,7 @@ body:has(.drawer-wrap:not([hidden])) .toast.saved { left: calc(100% - min(420px,
               <button type="button" class="act" id="search-many" hidden><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></svg>Search on…</button>
               <button type="button" class="act owner-only" id="edit"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4ZM14 6l4 4"/></svg>Edit</button>
               <button type="button" class="act owner-only" id="reading"></button>
+              <button type="button" class="act owner-only" id="reading2"></button>
               <button type="button" class="act owner-only" id="hide"></button>
               <button type="button" class="act owner-only warn" id="remove"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12"/></svg>Remove</button>
             </div>
@@ -934,6 +978,32 @@ body:has(.drawer-wrap:not([hidden])) .toast.saved { left: calc(100% - min(420px,
   </form>
 </div>
 
+<div class="modal" id="readings" hidden>
+  <div class="modal-scrim" data-close></div>
+  <section class="card wide" role="dialog" aria-modal="true" aria-labelledby="rd-h">
+    <button type="button" class="btn icon x" data-close aria-label="Close"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    <div><p class="wordmark" id="rd-count"></p><h2 id="rd-h"></h2></div>
+    <ol class="rd-list" id="rd-list"></ol>
+  </section>
+</div>
+
+<div class="modal" id="marker" hidden>
+  <div class="modal-scrim" data-close></div>
+  <form class="card stack" id="mk-form" role="dialog" aria-modal="true" aria-labelledby="mk-h" novalidate>
+    <button type="button" class="btn icon x" data-close aria-label="Close"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    <div><p class="wordmark" id="mk-book"></p><h2 id="mk-h">Mark as read</h2></div>
+    <div class="lab" id="mk-outcome-l">How it ended<div class="seg" id="mk-outcome"><button type="button" data-v="finished">Finished</button><button type="button" data-v="set_aside">Set aside</button></div></div>
+    <label class="lab" id="mk-start-l"><span>Started <span class="opt">· if you know</span></span><input class="inp" type="date" name="start"></label>
+    <div class="lab"><span id="mk-when-t">Finished</span><div class="seg" id="mk-prec"><button type="button" data-v="day">On a day</button><button type="button" data-v="year">In a year</button><button type="button" data-v="unknown">I don’t remember</button></div></div>
+    <label class="lab" id="mk-day-l">Date<input class="inp" type="date" name="day"></label>
+    <label class="lab" id="mk-year-l" hidden>Year<input class="inp" name="year" inputmode="numeric" maxlength="4" placeholder="2019"></label>
+    <label class="lab" id="mk-note-l"><span>Note <span class="opt">· optional</span></span><textarea class="inp" name="note" rows="3"></textarea></label>
+    <label class="toggle" id="mk-public-l"><span><b>Public note</b><small>Visitors can read it on the book’s page.</small></span><input type="checkbox" name="public"></label>
+    <p class="err" id="mk-err" role="alert"></p>
+    <button type="submit" class="btn primary" id="mk-go">Mark as read</button>
+  </form>
+</div>
+
 <div class="modal" id="adder" hidden>
   <div class="modal-scrim" data-close></div>
   <section class="card wide" role="dialog" aria-modal="true" aria-labelledby="add-h">
@@ -988,13 +1058,17 @@ body:has(.drawer-wrap:not([hidden])) .toast.saved { left: calc(100% - min(420px,
 
     <section data-tab="site">
       <label class="lab">Name<input class="inp" id="site-name" value="Bookshelf" autocomplete="off"></label>
-      <label class="toggle"><span><b>Private library</b><small>Only you can see it. Visitors get a sign-in page.</small></span><input type="checkbox" id="set-private"></label>
     </section>
     <section data-tab="site">
-      <h3>For visitors</h3>
+      <h3>What visitors see</h3>
+      <label class="toggle"><span><b>Private library</b><small>Only you can see it. Visitors get a sign-in page.</small></span><input type="checkbox" id="set-private"></label>
+      <label class="toggle"><span><b>Statistics page</b><small>Let visitors see the numbers behind your library.</small></span><input type="checkbox" id="set-stats" checked></label>
+      <p class="fine">Any book can be hidden from its own page. Your readings are never shown, and a note only when you make it public.</p>
+    </section>
+    <section data-tab="site">
+      <h3>How it opens</h3>
       <div class="lab">Sorted by<div class="seg" id="set-sort"><button type="button" data-v="author">Author</button><button type="button" data-v="title">Title</button><button type="button" data-v="year">Year</button></div></div>
       <div class="lab">Day or evening<div class="seg" id="set-theme"><button type="button" data-v="system">System</button><button type="button" data-v="light">Day</button><button type="button" data-v="dark">Evening</button></div></div>
-      <label class="toggle"><span><b>Statistics page</b><small>Let visitors see the numbers behind your library.</small></span><input type="checkbox" id="set-stats" checked></label>
     </section>
     <section data-tab="site">
       <h3>Elsewhere</h3>
@@ -1273,7 +1347,19 @@ const libraries = {
   sample: SAMPLE.filter((b) => !LOOKUP.has(b.isbn)).map((b) => makeBook(b, 0)),
   1000: Array.from({ length: 1000 }, (_, i) => makeBook(SAMPLE[i % SAMPLE.length], Math.floor(i / SAMPLE.length))),
 };
-Object.assign(libraries.sample.find((b) => b.isbn === "9780375756566"), { reading: true, readingSince: Date.now() - 9 * 864e5, page: 112 });   // demo: Austerlitz, nine days in
+// Demo readings. A book being read keeps its reading on itself (reading, readingSince, page); finished and
+// set-aside readings are its history, each with its own dates and note, as the server keeps them.
+const DAY = 864e5, daysAgo = (d) => Date.now() - d * DAY, on = (y, m, d) => new Date(y, m - 1, d).getTime();
+let readingIds = 0;
+const demo = (isbn, o) => { const b = libraries.sample.find((x) => x.isbn === isbn); Object.assign(b, o); b.history?.forEach((r) => { r.id = ++readingIds; }); };
+demo("9780375756566", { reading: true, readingSince: daysAgo(9), page: 112 });   // Austerlitz, nine days in
+demo("9780141180144", { reading: true, readingSince: daysAgo(3), page: 41 });    // The Master and Margarita, just begun
+demo("9781590171998", { history: [                                              // Stoner, read twice
+  { outcome: "finished", start: on(2024, 2, 23), end: on(2024, 3, 12), endPrec: "day", note: "Better the second time. I hadn’t noticed how much of it is about work, and how little he asks of anyone.", public: true },
+  { outcome: "finished", start: null, end: on(2016, 1, 1), endPrec: "year", note: "" },
+] });
+demo("9780156453806", { history: [{ outcome: "set_aside", start: on(2025, 9, 20), end: on(2025, 10, 1), endPrec: "day", page: 64, note: "" }] });   // Invisible Cities
+demo("9780375706868", { history: [{ outcome: "finished", start: null, end: null, endPrec: "unknown", note: "" }] });   // Snow, read long ago
 const state = { size: "sample", sort: "author", query: "", owner: false, selecting: false };
 // The owner's settings. The server keeps these; here they live for the visit.
 const settings = {
@@ -1361,9 +1447,13 @@ function renderStats() {
 // The book being read: how far in (the owner keeps the page up to date here), when it was started, and where
 // it stands among the rest of the library by length and by age.
 function renderReadingCard(list) {
-  const card = $("reading-card"), b = list.find((x) => x.reading);
-  $("reading-block").hidden = !b;
-  if (!b) return;
+  const now = list.filter((x) => x.reading).sort((a, b) => b.readingSince - a.readingSince);
+  $("reading-block").hidden = !now.length;
+  $("reading-cards").replaceChildren(...now.map((b) => readingCard(b, list)));
+}
+function readingCard(b, list) {
+  const card = document.createElement("article");
+  card.className = "chart reading-card";
   const share = (f) => Math.round(list.filter((x) => x !== b && f(x)).length / Math.max(1, list.length - 1) * 100);
   const page = Math.min(b.page || 0, b.pages || 0), pct = b.pages ? Math.round(page / b.pages * 100) : 0;
   const days = b.readingSince ? Math.max(0, Math.round((Date.now() - b.readingSince) / 864e5)) : null;
@@ -1383,8 +1473,9 @@ function renderReadingCard(list) {
   card.querySelector(".who b").textContent = b.title; card.querySelector(".who span").textContent = b.author;
   card.querySelector(".page input")?.addEventListener("change", (e) => {
     b.page = Math.max(0, Math.min(b.pages, Math.round(+e.target.value || 0)));
-    renderReadingCard(list); toast(b.page >= b.pages ? `Finished “${b.title}”?` : `On page ${fmt(b.page)}`, b.page >= b.pages ? { label: "Mark finished", run: () => { b.reading = false; refreshSlot(b); renderSummary(); } } : undefined);
+    renderReadingCard(list); toast(b.page >= b.pages ? `Finished “${b.title}”?` : `On page ${fmt(b.page)}`, b.page >= b.pages ? { label: "Mark finished", run: () => finishReading(b) } : undefined);
   });
+  return card;
 }
 // A book chosen on the stats page goes back to its shelf, then comes out as usual.
 // A book shown on the stats page opens right there, rising from its cover; there is no shelf order to step
@@ -1456,22 +1547,55 @@ function tipOn(el, label, value) {
   el.addEventListener("focus", () => { const r = el.getBoundingClientRect(); show(r.left + r.width / 2, r.top); });
   el.addEventListener("blur", () => { tip.hidden = true; });
 }
+// One book in hand is named with its author; two are both named; more are counted. Their covers fan out.
 function renderReading() {
-  const b = books().find((x) => x.reading && (state.owner || !x.hidden)), line = $("nowreading");
-  line.hidden = !b;
-  if (!b) return;
-  line.innerHTML = `<img alt=""><span>Now reading <b></b> by <span></span></span>`;
-  line.querySelector("img").src = b.cover;
-  line.querySelector("b").textContent = b.title;
-  line.querySelector("span span").textContent = b.author;
-  line.book = b;
+  const list = books().filter((x) => x.reading && (state.owner || !x.hidden)).sort((a, b) => b.readingSince - a.readingSince), line = $("nowreading");
+  closeNowMenu();
+  line.hidden = !list.length;
+  if (!list.length) return;
+  const rest = list.length === 1 ? ` by <span class="au"></span>` : list.length === 2 ? ` and <b></b>` : ` and ${list.length - 1} more`;
+  line.innerHTML = `<span class="fan">${list.slice(0, 3).map(() => `<img alt="">`).join("")}</span><span>Now reading <b></b>${rest}</span>`;
+  line.querySelectorAll(".fan img").forEach((img, i) => { img.src = list[i].cover; });
+  line.querySelectorAll("b").forEach((t, i) => { t.textContent = list[i].title; });
+  if (list.length === 1) line.querySelector(".au").textContent = list[0].author;
+  line.books = list;
 }
-$("nowreading").addEventListener("click", () => {
-  const b = $("nowreading").book, el = slots.get(b?.key);
+// A book from the header comes out of its place on the shelf.
+function openShelved(b) {
+  const el = slots.get(b?.key);
   if (!el) return;
   const r = el.getBoundingClientRect(), far = r.bottom < 0 || r.top > innerHeight;
   if (far) el.scrollIntoView({ block: "center", behavior: motionOK() ? "smooth" : "instant" });
   setTimeout(() => openBook(b, el), far && motionOK() ? 450 : 0);
+}
+function closeNowMenu() { $("nr-menu").hidden = true; $("nowreading").setAttribute("aria-expanded", "false"); }
+$("nowreading").addEventListener("click", (e) => {
+  const list = $("nowreading").books || [], menu = $("nr-menu");
+  if (list.length === 1) { openShelved(list[0]); return; }
+  if (!menu.hidden) { closeNowMenu(); return; }
+  menu.replaceChildren(...list.map((b) => {
+    const item = Object.assign(document.createElement("button"), { type: "button" });
+    item.setAttribute("role", "menuitem");
+    const pct = b.pages ? Math.round(Math.min(b.page || 0, b.pages) / b.pages * 100) : 0;
+    item.innerHTML = `<img alt=""><span><b></b><small></small></span>`;
+    item.querySelector("img").src = b.cover; item.querySelector("b").textContent = b.title;
+    item.querySelector("small").textContent = `${b.author} · ${pct}%`;
+    item.addEventListener("click", () => { closeNowMenu(); openShelved(b); });
+    return item;
+  }));
+  const r = $("nowreading").getBoundingClientRect();
+  menu.hidden = false;
+  menu.style.top = `${Math.round(r.bottom + 6)}px`;
+  menu.style.left = `${Math.round(Math.max(12, Math.min(r.left, innerWidth - menu.offsetWidth - 12)))}px`;
+  $("nowreading").setAttribute("aria-expanded", "true");
+  if (e.detail === 0) menu.querySelector("button").focus();   // opened from the keyboard
+});
+document.addEventListener("pointerdown", (e) => { if (!$("nr-menu").hidden && !e.target.closest("#nr-menu, #nowreading")) closeNowMenu(); });
+addEventListener("scroll", () => { if (!$("nr-menu").hidden) closeNowMenu(); }, { passive: true });
+$("nr-menu").addEventListener("keydown", (e) => {
+  const items = [...$("nr-menu").querySelectorAll("button")], i = items.indexOf(document.activeElement);
+  if (e.key === "Escape") { e.stopPropagation(); closeNowMenu(); $("nowreading").focus(); }
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); items[(i + (e.key === "ArrowDown" ? 1 : items.length - 1)) % items.length]?.focus(); }
 });
 // A profile link from whatever was typed: a full link to the right site, or a username (with or without @).
 const NETS = {
@@ -1740,10 +1864,23 @@ function fill(b) {
   $("thumb").src = b.cover;
   const list = visibleBooks(), i = list.findIndex((x) => x.key === b.key);
   [list[(i + 1) % list.length], list[(i - 1 + list.length) % list.length]].forEach((n) => n && cover(n.cover));   // a real library would fetch these here
-  $("d-kicker").textContent = (b.binding || "Book") + (b.reading ? " · Currently reading" : "");
+  // The line above the title: the binding, whether it's being read, and (for the owner) how often it was
+  // read, which opens its readings.
+  const kick = $("d-kicker"), times = readCount(b);
+  kick.textContent = (b.binding || "Book") + (b.reading ? (state.owner ? " · Reading now" : " · Currently reading") : "");
+  const notes = publicNotes(b).length;
+  if (state.owner ? b.history?.length : notes) {
+    const label = state.owner ? (times ? timesText(times) : "Readings") : notes === 1 ? "A note" : `${notes} notes`;
+    const link = Object.assign(document.createElement("button"), { type: "button", className: "head-link", textContent: label });
+    link.addEventListener("click", () => openReadings(b));
+    kick.append(" · ", link);
+  }
   $("reading").innerHTML = b.reading
-    ? `<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10v16l-5-4-5 4z"/><path d="m4 4 16 16"/></svg>Finished reading`
+    ? `<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10v16l-5-4-5 4z"/><path d="m9.5 9.5 2 2 3.5-3.5"/></svg>Finished reading`
     : `<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10v16l-5-4-5 4z"/></svg>Reading now`;
+  $("reading2").innerHTML = b.reading
+    ? `<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 6v12M14.5 6v12"/></svg>Set aside`
+    : `<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>Mark as read`;
   // "Title: Subtitle" sets the subtitle on its own line; long titles step down in size so they fit the page.
   const [title, ...more] = b.title.split(/:\s+/), sub = more.join(": ");
   $("d-title").textContent = title;
@@ -1993,14 +2130,183 @@ $("copy").addEventListener("click", () => {
   const link = `https://books.example.com/${permalink(current)}`;
   navigator.clipboard?.writeText(link).then(() => toast("Link copied"), () => toast(link));
 });
-// One book at a time is the one being read: marking another moves the ribbon to it.
+/* ---------- Readings ---------- */
+// Any number of books can be read at once, each with its own ribbon. Finishing or setting a book aside keeps
+// that reading in its history; a book can be read again, and marked as read without having been tracked.
+const readCount = (b) => (b.history || []).filter((r) => r.outcome === "finished").length;
+const timesText = (n) => n === 1 ? "Read once" : n === 2 ? "Read twice" : `Read ${n} times`;
+const longDate = new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", year: "numeric" });
+const whenText = (t, prec) => t == null || prec === "unknown" ? "" : prec === "year" ? String(new Date(t).getFullYear()) : longDate.format(t);
+const nDays = (n) => `${fmt(n)} day${n === 1 ? "" : "s"}`;
+function changedReading(b) { refreshSlot(b); renderSummary(); if (current === b && !reader.hidden) fill(b); }
+function endReading(b, outcome) {
+  const r = { id: ++readingIds, outcome, start: b.readingSince, end: Date.now(), endPrec: "day", page: b.page || 0, note: "" };
+  (b.history ||= []).unshift(r);
+  b.reading = false;
+  changedReading(b);
+  return r;
+}
+function finishReading(b) {
+  const r = endReading(b, "finished");
+  toast(`Finished “${b.title}”`, { label: "Add a note", run: () => openReadings(b, r.id) });
+}
 $("reading").addEventListener("click", () => {
-  const b = current, wasReading = !!b.reading, was = books().find((x) => x.reading && x !== b);
-  books().forEach((x) => { if (x.reading) { x.reading = false; refreshSlot(x); } });
-  b.reading = !wasReading;
-  if (b.reading) { b.readingSince = Date.now(); b.page = 0; }
-  refreshSlot(b); fill(b); renderSummary();
-  toast(b.reading ? `Now reading “${b.title}”` : `Finished “${b.title}”`, was && b.reading ? { label: "Undo", run: () => { b.reading = false; was.reading = true; refreshSlot(b); refreshSlot(was); renderSummary(); if (current === b) fill(b); } } : undefined);
+  const b = current;
+  if (b.reading) { finishReading(b); return; }
+  Object.assign(b, { reading: true, readingSince: Date.now(), page: 0 });
+  changedReading(b);
+  toast(`Now reading “${b.title}”`);
+});
+$("reading2").addEventListener("click", () => {
+  const b = current;
+  if (!b.reading) { openMarker(b); return; }
+  const was = { readingSince: b.readingSince, page: b.page }, r = endReading(b, "set_aside");
+  toast(`Set aside “${b.title}”`, { label: "Undo", run: () => { b.history.splice(b.history.indexOf(r), 1); Object.assign(b, was, { reading: true }); changedReading(b); } });
+});
+
+// The readings of a book, newest first: the one in progress, then each finished or set-aside reading with its
+// dates, how long it took and (once finished) its note. Each can be corrected or deleted.
+let rdBook = null, visitorView = false;
+const publicNotes = (b) => (b.history || []).filter((r) => r.outcome === "finished" && r.note && r.public);
+function openReadings(b, noteFor) {
+  rdBook = b; visitorView = !state.owner;
+  renderReadings(noteFor);
+  if ($("readings").hidden) showPanel($("readings"));
+  if (noteFor) $("rd-list").querySelector("textarea")?.focus({ preventScroll: true });
+}
+const endOrder = (r) => r.end ?? -Infinity;
+function renderReadings(noteFor) {
+  const b = rdBook, n = readCount(b);
+  $("rd-h").textContent = b.title;
+  $("rd-count").textContent = visitorView ? "Notes" : n ? timesText(n) : b.reading ? "Reading now" : "Readings";
+  const items = visitorView ? [...publicNotes(b)].sort((x, y) => endOrder(y) - endOrder(x))
+    : [...(b.reading ? [{ now: true }] : []), ...[...(b.history || [])].sort((x, y) => endOrder(y) - endOrder(x))];
+  $("rd-list").replaceChildren(...items.map((r) => readingItem(b, r, r.id === noteFor)));
+}
+function readingItem(b, r, writing) {
+  const li = document.createElement("li"), meta = [];
+  li.className = "rd";
+  let title;
+  if (r.now) {
+    title = "Reading now";
+    meta.push(`Started ${longDate.format(b.readingSince)}`, `page ${fmt(Math.min(b.page || 0, b.pages))} of ${fmt(b.pages)}`);
+  } else {
+    const when = whenText(r.end, r.endPrec), verb = r.outcome === "finished" ? "Finished" : "Set aside";
+    title = !when ? verb : r.endPrec === "year" ? `${verb} in ${when}` : `${verb} ${when}`;
+    if (r.start && !visitorView) meta.push(`Started ${longDate.format(r.start)}`);
+    if (r.start && r.end && r.endPrec === "day" && !visitorView) meta.push(nDays(Math.max(1, Math.round((r.end - r.start) / DAY))));
+    if (r.outcome === "set_aside" && r.page) meta.push(`stopped on page ${fmt(r.page)}`);
+    if (!when && !r.start && !visitorView) meta.push("no date");
+  }
+  li.innerHTML = `<div class="rd-top"><b></b><span class="rd-meta"></span>${r.now || visitorView ? "" : `<span class="rd-tools"><button type="button" class="link" data-a="edit">Edit</button><button type="button" class="link" data-a="del">Delete</button></span>`}</div>`;
+  li.querySelector("b").textContent = title;
+  li.querySelector(".rd-meta").textContent = meta.join(" · ");
+  if (r.outcome === "finished") li.append(noteBlock(b, r, writing));
+  li.querySelector('[data-a="edit"]')?.addEventListener("click", async () => { await hidePanel($("readings")); openMarker(b, r); });
+  li.querySelector('[data-a="del"]')?.addEventListener("click", () => {
+    const ask = document.createElement("div");
+    ask.className = "rd-ask";
+    ask.innerHTML = `<span>Delete this reading${r.note ? " and its note" : ""}?</span><button type="button" class="btn sm danger">Delete</button><button type="button" class="btn sm">Keep it</button>`;
+    const [yes, no] = ask.querySelectorAll("button");
+    yes.addEventListener("click", () => { b.history.splice(b.history.indexOf(r), 1); renderReadings(); changedReading(b); toast("Reading deleted"); });
+    no.addEventListener("click", () => renderReadings());
+    li.querySelector(".rd-top").after(ask);
+    li.querySelector(".rd-tools").hidden = true;
+    no.focus({ preventScroll: true });
+  });
+  return li;
+}
+// A finished reading's note: shown as written, or a field to write it in.
+function noteBlock(b, r, writing) {
+  const box = document.createElement("div");
+  box.className = writing ? "rd-edit" : "rd-note";
+  if (writing) {
+    box.innerHTML = `<textarea class="inp" rows="4" aria-label="Note" placeholder="What stayed with you?"></textarea>
+      <label class="toggle"><span><b>Public note</b><small>Visitors can read it on the book’s page.</small></span><input type="checkbox"></label>
+      <div class="rd-btns"><button type="button" class="btn sm">Cancel</button><button type="button" class="btn sm primary">Save note</button></div>`;
+    const ta = box.querySelector("textarea"), pub = box.querySelector('input[type="checkbox"]'), [cancel, save] = box.querySelectorAll(".rd-btns button");
+    ta.value = r.note || ""; pub.checked = !!r.public;
+    cancel.addEventListener("click", () => renderReadings());
+    save.addEventListener("click", () => {
+      r.note = ta.value.trim(); r.public = pub.checked && !!r.note;
+      renderReadings(); changedReading(b);
+      toast(!r.note ? "Note removed" : r.public ? "Note saved; visitors can read it" : "Note saved");
+    });
+    return box;
+  }
+  if (r.note) box.append(Object.assign(document.createElement("p"), { textContent: r.note }));
+  if (visitorView) return box;
+  const foot = document.createElement("div"), edit = Object.assign(document.createElement("button"), { type: "button", className: "link", textContent: r.note ? "Edit note" : "Add a note" });
+  foot.className = "foot";
+  edit.addEventListener("click", () => { renderReadings(r.id); $("rd-list").querySelector("textarea")?.focus({ preventScroll: true }); });
+  foot.append(edit);
+  if (r.note) foot.append(Object.assign(document.createElement("span"), { className: "pub", textContent: r.public ? "Public" : "Only you" }));
+  box.append(foot);
+  return box;
+}
+
+// Marking a book as read (it was read before Bookshelf, or without "Reading now"), or correcting a past
+// reading: when it ended as precisely as the owner remembers (a day, a year, or not at all).
+let marking = null;
+const mkForm = $("mk-form");
+function setPrec(p) {
+  pressed($("mk-prec"), p);
+  $("mk-day-l").hidden = p !== "day"; $("mk-year-l").hidden = p !== "year";
+}
+function openMarker(b, r = null) {
+  marking = { b, r };
+  mkForm.reset(); $("mk-err").textContent = "";
+  const editing = !!r;
+  $("mk-book").textContent = b.title;
+  $("mk-h").textContent = editing ? "Correct this reading" : readCount(b) ? "Mark as read again" : "Mark as read";
+  $("mk-go").textContent = editing ? "Save" : "Mark as read";
+  $("mk-outcome-l").hidden = $("mk-start-l").hidden = !editing;
+  $("mk-note-l").hidden = $("mk-public-l").hidden = editing;
+  pressed($("mk-outcome"), r?.outcome || "finished");
+  $("mk-when-t").textContent = r?.outcome === "set_aside" ? "Set aside" : "Finished";
+  const iso = (t) => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
+  if (r?.start) mkForm.start.value = iso(r.start);
+  if (r?.end != null && r.endPrec === "day") mkForm.day.value = iso(r.end);
+  if (r?.end != null && r.endPrec === "year") mkForm.year.value = new Date(r.end).getFullYear();
+  setPrec(r?.endPrec || "day");
+  showPanel($("marker"), editing ? undefined : 'input[name="day"]');
+}
+$("mk-prec").addEventListener("click", (e) => { const t = e.target.closest("button"); if (t) setPrec(t.dataset.v); });
+$("mk-outcome").addEventListener("click", (e) => {
+  const t = e.target.closest("button"); if (!t) return;
+  pressed($("mk-outcome"), t.dataset.v);
+  $("mk-when-t").textContent = t.dataset.v === "set_aside" ? "Set aside" : "Finished";
+});
+mkForm.addEventListener("submit", (e) => {
+  e.preventDefault();
+  const { b, r } = marking, prec = $("mk-prec").querySelector('[aria-pressed="true"]').dataset.v, err = $("mk-err");
+  const today = Date.now(), parseDay = (v) => v ? new Date(v + "T12:00").getTime() : null;
+  let end = null;
+  if (prec === "day") {
+    end = parseDay(mkForm.day.value);
+    if (end == null) { err.textContent = "Choose the day, or another option."; return; }
+  } else if (prec === "year") {
+    const y = +mkForm.year.value;
+    if (!/^\d{4}$/.test(mkForm.year.value) || y > new Date().getFullYear()) { err.textContent = "Enter a year, like 2019."; return; }
+    end = new Date(y, 0, 1).getTime();
+  }
+  if (end != null && end > today) { err.textContent = "That’s in the future."; return; }
+  const start = r ? parseDay(mkForm.start.value) : null;
+  if (start != null && end != null && prec === "day" && start > end) { err.textContent = "It can’t end before it started."; return; }
+  if (start != null && start > today) { err.textContent = "That’s in the future."; return; }
+  if (r) {
+    const outcome = $("mk-outcome").querySelector('[aria-pressed="true"]').dataset.v;
+    if (outcome === "set_aside" && r.note) { err.textContent = "A reading with a note stays finished. Remove the note first."; return; }
+    Object.assign(r, { outcome, start, end, endPrec: prec });
+    hidePanel($("marker")).then(() => openReadings(b));
+    changedReading(b);
+    toast("Reading corrected");
+    return;
+  }
+  (b.history ||= []).unshift({ id: ++readingIds, outcome: "finished", start: null, end, endPrec: prec, note: mkForm.note.value.trim(), public: mkForm.public.checked && !!mkForm.note.value.trim() });
+  hidePanel($("marker"));
+  changedReading(b);
+  toast(`Marked “${b.title}” as read`);
 });
 // The cover is a small thumbnail at the head of the page on a phone. A tap lifts a copy of it to the middle of
 // the screen as large as fits; a tap anywhere puts it back exactly where it came from.
@@ -2095,7 +2401,7 @@ async function hidePanel(wrap) {
   wrap.hidden = true; wrap.closing = false;
   wrap.querySelectorAll("*").forEach((el) => el.getAnimations().forEach((a) => a.cancel()));
 }
-const panels = [$("signin"), $("adder"), $("drawer-wrap"), $("phone-menu")];
+const panels = [$("signin"), $("adder"), $("drawer-wrap"), $("phone-menu"), $("readings"), $("marker")];
 // The on-screen keyboard covers the bottom of the layout without resizing it; its height is how far the
 // visual viewport falls short, and the cards lift by that much.
 // The field being typed in is also kept in view inside the card.
@@ -2113,6 +2419,7 @@ document.querySelectorAll("[data-close]").forEach((b) => b.addEventListener("cli
 // Esc closes whatever is on top: a panel, then an edit or a question on the page, then choosing books.
 function dismissTop() {
   if (document.querySelector(".thumb-zoom")) { unzoom?.(); unzoom = null; return true; }
+  if (!$("nr-menu").hidden) { closeNowMenu(); return true; }
   const open = panels.find((p) => !p.hidden);
   if (open) { hidePanel(open); return true; }
   if (root.dataset.view === "stats" && reader.hidden) { setView("shelf"); return true; }   // an open book closes first

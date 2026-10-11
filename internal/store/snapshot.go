@@ -28,13 +28,26 @@ func (s *Snapshot) Book(id string) (Book, bool) {
 	return s.Books[i], true
 }
 
-// Current is the reading in progress, if any.
-func (s *Snapshot) Current() (Reading, bool) {
+// NowReading is every reading in progress (one book or several), the most
+// recently started first.
+func (s *Snapshot) NowReading() []Reading {
+	var now []Reading
 	for _, list := range s.Readings {
 		for _, r := range list {
 			if r.Outcome == OutcomeReading {
-				return r, true
+				now = append(now, r)
 			}
+		}
+	}
+	sort.Slice(now, func(i, j int) bool { return readingOrder(now[i]) > readingOrder(now[j]) })
+	return now
+}
+
+// InProgress is the book's reading in progress, if it is being read.
+func (s *Snapshot) InProgress(bookID string) (Reading, bool) {
+	for _, r := range s.Readings[bookID] {
+		if r.Outcome == OutcomeReading {
+			return r, true
 		}
 	}
 	return Reading{}, false

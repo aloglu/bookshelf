@@ -135,10 +135,7 @@ func insertLibrary(ctx context.Context, tx *sql.Tx, snap *Snapshot, lib Library,
 		added++
 	}
 
-	inProgress := false
-	if _, ok := snap.Current(); ok {
-		inProgress = true
-	}
+	inProgress := map[string]bool{} // books given a reading in progress
 	for _, r := range lib.Readings {
 		book, ok := newIDs[r.BookID]
 		if !ok {
@@ -146,10 +143,10 @@ func insertLibrary(ctx context.Context, tx *sql.Tx, snap *Snapshot, lib Library,
 		}
 		outcome := r.Outcome
 		if outcome == OutcomeReading {
-			if inProgress { // only one reading is ever in progress
+			if inProgress[book] { // a book has only one reading in progress
 				outcome = OutcomeSetAside
 			}
-			inProgress = true
+			inProgress[book] = true
 		}
 		id := newID()
 		if _, err := tx.ExecContext(ctx, `INSERT INTO readings (id, book_id, started_at, started_precision, ended_at, ended_precision, outcome) VALUES (?, ?, ?, ?, ?, ?, ?)`,

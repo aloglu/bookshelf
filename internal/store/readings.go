@@ -7,23 +7,22 @@ import (
 	"time"
 )
 
-// StartReading begins a tracked reading of a book ("Reading now"). Only one
-// reading is in progress at a time: one already in progress, of this book or
-// another, is set aside now. A book read before can be started again; that
-// is a re-read and earlier readings are left as they are.
+// StartReading begins a tracked reading of a book ("Reading now"). Several
+// books can be read at once, but a book has only one reading in progress:
+// starting a book already being read returns that reading. A book read
+// before can be started again; that is a re-read and earlier readings are
+// left as they are.
 func (s *Store) StartReading(ctx context.Context, bookID string) (Reading, error) {
 	id := newID()
 	err := s.change(ctx, func(tx *sql.Tx, snap *Snapshot) error {
 		if _, ok := snap.Book(bookID); !ok {
 			return ErrNotFound
 		}
-		now := s.now()
-		if cur, ok := snap.Current(); ok {
-			if err := endReading(ctx, tx, cur.ID, OutcomeSetAside, When{Time: now, Precision: Instant}); err != nil {
-				return err
-			}
+		if cur, ok := snap.InProgress(bookID); ok {
+			id = cur.ID
+			return nil
 		}
-		started := When{Time: now, Precision: Instant}
+		started := When{Time: s.now(), Precision: Instant}
 		_, err := tx.ExecContext(ctx, `INSERT INTO readings (id, book_id, started_at, started_precision, ended_at, ended_precision, outcome) VALUES (?, ?, ?, ?, '', 'unknown', 'reading')`,
 			id, bookID, started.encode(), started.Precision)
 		return err

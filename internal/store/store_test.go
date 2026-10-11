@@ -84,7 +84,7 @@ func TestReopenKeepsEverything(t *testing.T) {
 	if !ok || got.Title != "Austerlitz" || got.ISBN != "9780375756566" || *got.Pages != 304 {
 		t.Fatalf("book after reopen: %+v", got)
 	}
-	cur, ok := snap.Current()
+	cur, ok := snap.InProgress(got.ID)
 	if !ok || cur.Page() != 112 || cur.Started.Precision != Instant {
 		t.Fatalf("reading after reopen: %+v", cur)
 	}
@@ -152,7 +152,7 @@ func TestBookInputIsChecked(t *testing.T) {
 	}
 }
 
-func TestOneReadingInProgress(t *testing.T) {
+func TestSeveralBooksInProgress(t *testing.T) {
 	s, _ := open(t)
 	a := add(t, s, "A", "", 300)
 	b := add(t, s, "B", "", 200)
@@ -162,11 +162,14 @@ func TestOneReadingInProgress(t *testing.T) {
 		t.Fatal(err)
 	}
 	snap := s.Snapshot()
-	if cur, _ := snap.Current(); cur.ID != rb.ID {
-		t.Fatalf("current is %v, want %v", cur.ID, rb.ID)
+	if now := snap.NowReading(); len(now) != 2 || now[0].ID != rb.ID || now[1].ID != ra.ID {
+		t.Fatalf("now reading: %+v", now)
 	}
-	if old, _ := snap.Reading(ra.ID); old.Outcome != OutcomeSetAside || !old.Ended.Known() {
-		t.Fatalf("the earlier reading should be set aside: %+v", old)
+	if again, err := s.StartReading(ctx, a.ID); err != nil || again.ID != ra.ID || len(s.Snapshot().Readings[a.ID]) != 1 {
+		t.Fatalf("starting a book being read: %+v %v", again, err)
+	}
+	if _, err := s.EndReading(ctx, ra.ID, OutcomeSetAside); err != nil {
+		t.Fatal(err)
 	}
 	if _, err := s.SetPage(ctx, ra.ID, 10); err == nil {
 		t.Fatal("a set-aside reading took a page")

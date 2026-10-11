@@ -160,7 +160,7 @@ CREATE TABLE readings (
 	outcome           TEXT NOT NULL CHECK (outcome IN ('reading','finished','set_aside'))
 );
 CREATE INDEX readings_book ON readings(book_id);
-CREATE UNIQUE INDEX readings_one_in_progress ON readings(outcome) WHERE outcome = 'reading';
+CREATE UNIQUE INDEX readings_one_in_progress ON readings(book_id) WHERE outcome = 'reading';
 
 CREATE TABLE reading_progress (
 	reading_id TEXT NOT NULL REFERENCES readings(id) ON DELETE CASCADE,
