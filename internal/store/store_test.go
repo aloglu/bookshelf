@@ -264,6 +264,14 @@ func TestSettingsAreValidated(t *testing.T) {
 	if s.Snapshot().Settings.WallDay != "#e9e0d0" {
 		t.Fatal("a rejected change was kept")
 	}
+	for _, bad := range []string{"javascript:alert(1)", "http://www.goodreads.com/x", "https://goodreads.com.evil.example/x", "https://user@www.goodreads.com/x"} {
+		if _, err := s.UpdateSettings(ctx, func(st *Settings) { st.Social.Goodreads = bad }); err == nil {
+			t.Fatalf("a social link took %q", bad)
+		}
+	}
+	if _, err := s.UpdateSettings(ctx, func(st *Settings) { st.Social.Goodreads = "https://www.goodreads.com/user/show/1-a" }); err != nil {
+		t.Fatal(err)
+	}
 	got, err := s.UpdateSettings(ctx, func(st *Settings) { st.Sources = []string{"goodreads", "openlibrary"}; st.WallDay = "#A1B2C3" })
 	if err != nil {
 		t.Fatal(err)

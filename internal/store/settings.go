@@ -2,6 +2,7 @@ package store
 
 import (
 	"fmt"
+	"net/url"
 	"regexp"
 	"slices"
 	"strings"
@@ -98,6 +99,19 @@ func (s *Settings) Validate() error {
 		*c = strings.ToLower(strings.TrimSpace(*c))
 		if !hexColor.MatchString(*c) {
 			return fmt.Errorf("the %s color must look like #a1b2c3", name)
+		}
+	}
+	for _, l := range []struct {
+		name, host string
+		url        *string
+	}{{"Goodreads", "goodreads.com", &s.Social.Goodreads}, {"The StoryGraph", "thestorygraph.com", &s.Social.StoryGraph}, {"Instagram", "instagram.com", &s.Social.Instagram}} {
+		*l.url = strings.TrimSpace(*l.url)
+		if *l.url == "" {
+			continue
+		}
+		u, err := url.Parse(*l.url)
+		if err != nil || u.Scheme != "https" || u.User != nil || (u.Hostname() != l.host && !strings.HasSuffix(u.Hostname(), "."+l.host)) {
+			return fmt.Errorf("the %s link must be an https address on %s", l.name, l.host)
 		}
 	}
 	if !slices.Contains(woods, s.WoodDay) || !slices.Contains(woods, s.WoodNight) {

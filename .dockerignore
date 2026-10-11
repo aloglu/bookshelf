@@ -4,3 +4,6 @@ docs
 **/node_modules
 *.test
 /data
+# The frontend is built inside the image, never copied from a local build
+cmd/bookshelf/webdist/*
+!cmd/bookshelf/webdist/README

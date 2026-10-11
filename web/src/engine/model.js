@@ -1,0 +1,115 @@
+// The book as the shelf and the open book use it: the server's book, plus what drawing it needs
+// (thickness and height in shelf units, a cover image, the spine's colors, a search haystack).
+
+export const root = document.documentElement;
+export const $ = (id) => document.getElementById(id);
+export const EASE = "cubic-bezier(.22, 1, .36, 1)";
+export const curve = "cubic-bezier(.32, .72, 0, 1)";
+export const motionOK = () => !matchMedia("(prefers-reduced-motion: reduce)").matches;
+export const isPhone = () => matchMedia("(max-width: 720px)").matches;
+export const touch = () => matchMedia("(pointer: coarse)").matches;
+export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+// An animation's end, or a backstop in case it never reports finishing.
+export const settled = (anim, ms) => new Promise((resolve) => {
+  let done = false; const go = () => { if (!done) { done = true; resolve(); } };
+  anim.finished.then(go, go); setTimeout(go, ms + 80);
+});
+export const fmt = (n) => (n ?? 0).toLocaleString("en-US");
+export const plural = (n, unit) => `${fmt(n)} ${unit}${n === 1 ? "" : "s"}`;
+
+export const hash = (s) => { let h = 2166136261; for (const c of s) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return h >>> 0; };
+export const fold = (s) => String(s ?? "").toLowerCase().normalize("NFD").replace(/\p{M}/gu, "");
+export const lastName = (a) => (a || "").trim().split(/\s+/).pop();
+const article = /^(the|a|an) /i;
+
+/* Spine height. Real dimensions are rarely in the catalogs, so a spine is as tall as its title needs,
+   between a floor and a ceiling, with a few units of irregularity so no two neighbours line up exactly.
+   Hardcover, cloth and leather books stand a little taller, as their boards do on a real shelf. */
+const BINDING_HEIGHT = { paperback: 1, hardcover: 1.07, cloth: 1.07, leather: 1.05 };
+export const bindingOf = (b) => (b.binding in BINDING_HEIGHT ? b.binding : "paperback");
+export const BINDING_NAMES = { paperback: "Paperback", hardcover: "Hardcover", cloth: "Cloth", leather: "Leather" };
+// `limit` is Look → Tallest spine: every height is scaled by the same share, so the tallest book comes
+// down to the limit and the rest keep their proportions to it.
+export function spineHeight(b, bindings = true, limit = 1) {
+  const fit = Math.max(222, Math.min(280, 196 + b.title.length * 3.1));
+  return Math.round((fit + (b.seed % 7) - 3) * (bindings ? BINDING_HEIGHT[bindingOf(b)] : 1) * limit);
+}
+// Spine thickness follows the page count: roughly 0.085 px per page plus the boards.
+export const thickness = (pages) => Math.max(18, Math.min(80, Math.round((pages || 250) * 0.085 + 7)));
+
+export const sorters = {
+  author: (a, b) => lastName(a.author).localeCompare(lastName(b.author)) || a.title.localeCompare(b.title),
+  title: (a, b) => a.title.replace(article, "").localeCompare(b.title.replace(article, "")),
+  year: (a, b) => (a.published || 0) - (b.published || 0) || a.title.localeCompare(b.title),
+};
+
+/* Without a cover, a book gets a plain cloth binding with its title stamped on, in the cloth color the
+   server gave its spine. Drawn once per title and color. */
+const plain = new Map();
+export function plainCover(b) {
+  const key = `${b.spine.color}|${b.title}|${b.author}`;
+  if (plain.has(key)) return plain.get(key);
+  const c = document.createElement("canvas"); c.width = 330; c.height = 500;
+  const g = c.getContext("2d");
+  g.fillStyle = b.spine.color; g.fillRect(0, 0, 330, 500);
+  g.strokeStyle = "rgba(240, 222, 180, .55)"; g.lineWidth = 2; g.strokeRect(22, 22, 286, 456);
+  g.fillStyle = "#efdcae"; g.textAlign = "center";
+  g.font = "600 34px 'Fraunces Variable', Georgia, serif";
+  const lines = [""];
+  for (const w of b.title.split(/\s+/)) { const t = (lines[lines.length - 1] + " " + w).trim(); if (g.measureText(t).width > 250 && lines[lines.length - 1]) lines.push(w); else lines[lines.length - 1] = t; }
+  lines.forEach((l, i) => g.fillText(l, 165, 190 + i * 42));
+  if (b.author) { g.font = "500 16px 'Instrument Sans Variable', sans-serif"; g.fillText(b.author.toUpperCase(), 165, 210 + lines.length * 42); }
+  const url = c.toDataURL("image/jpeg", .9);
+  plain.set(key, url);
+  return url;
+}
+
+// Covers are decoded up front so nothing pops in late.
+const decoded = new Map();
+export function cover(url) {
+  let entry = decoded.get(url);
+  if (!entry) {
+    const im = new Image(); im.decoding = "async"; im.src = url;
+    entry = { im, ready: im.decode().catch(() => {}) };
+    decoded.set(url, entry);
+  }
+  return entry;
+}
+export function coverImg(url) {
+  const im = new Image(); im.alt = ""; im.decoding = "sync"; im.src = url;
+  return im;
+}
+
+/* The library's books as the shelf draws them. A book keeps its object (and so its spine) across
+   reloads; only what the server says changes. */
+const kept = new Map();
+export function shelfBooks(view, readings, settings) {
+  const now = new Map(view.reading.map((r) => [r.bookId, r]));
+  const history = new Map();
+  for (const r of (readings || []).filter((r) => r.outcome !== "reading")) (history.get(r.bookId) || history.set(r.bookId, []).get(r.bookId)).push(r);
+  const seen = new Set();
+  const list = view.books.map((src) => {
+    const b = kept.get(src.id) || { key: src.id, seed: hash(src.id) };
+    Object.assign(b, src);
+    b.pages = src.pages || 0;
+    b.t = thickness(src.pages);
+    b.h = spineHeight(b, settings.bindings, settings.maxHeight / 100);
+    b.cover = src.cover ? src.cover.url : plainCover(b);
+    b.thumb = src.cover ? src.cover.thumb : b.cover;
+    const r = now.get(src.id);
+    b.reading = !!r;
+    b.readingId = r?.id || null;
+    b.readingSince = r ? Date.parse(r.started.time) : null;
+    b.page = r?.page || 0;
+    b.history = history.get(src.id) || [];
+    b.haystack = fold([b.title, b.author, b.translator, b.publisher, b.published, b.isbn, b.issn, b.identifier, b.issue].join(" "));
+    kept.set(src.id, b);
+    seen.add(src.id);
+    return b;
+  });
+  for (const id of kept.keys()) if (!seen.has(id)) kept.delete(id);
+  return list;
+}
+export const tone = (b) => ({ c: b.spine.color, fg: b.spine.text });
+// Look → bindings and Tallest spine change every height at once.
+export function reheight(list, settings) { list.forEach((b) => { b.h = spineHeight(b, settings.bindings, settings.maxHeight / 100); }); }

@@ -1,0 +1,775 @@
+/* Hidden means hidden, whatever display a class gives. */
+[hidden] { display: none !important; }
+/* Layout: thin floating wood shelves on a colored wall. Spines are colored from their covers.
+   A hovered book slides straight out of the shelf; a clicked one flies out and opens to its details.
+   Day (light) and evening (dark). Each wall color carries a day (-l) and evening (-d) variant. */
+:root {
+  --w-ash: url("../assets/wood/ash.jpg"); --w-cherry: url("../assets/wood/cherry.jpg"); --w-ebony: url("../assets/wood/ebony.jpg"); --w-mahogany: url("../assets/wood/mahogany.jpg"); --w-maple: url("../assets/wood/maple.jpg"); --w-oak: url("../assets/wood/oak.jpg"); --w-pine: url("../assets/wood/pine.jpg"); --w-teak: url("../assets/wood/teak.jpg"); --w-walnut: url("../assets/wood/walnut.jpg");
+  --wood-day: var(--w-oak); --wood-night: var(--w-walnut);
+  --wall-l: #e9e0d0; --wall2-l: #ded2bf; --ink-l: #2b1f16; --muted-l: #75634f; --surface-l: #f6efe3; --line-l: rgba(43, 31, 22, .16); --accent-l: #2f4f3c; --accent-ink-l: #f3ead8;
+  --wall-d: #17110d; --wall2-d: #100b08; --ink-d: #f0e4d0; --muted-d: #ad9a80; --surface-d: #241a12; --line-d: rgba(240, 228, 208, .12);
+  --wood: var(--wood-day); --wood-v: var(--wood-day-v, none); --wood-back: var(--wood-day-back, none);
+  --side: 18px; --crown: 18px; --base: 16px; --ribbon: #8e2532;
+  --wall: var(--wall-l); --wall-2: var(--wall2-l); --ink: var(--ink-l); --muted: var(--muted-l);
+  --surface: var(--surface-l); --line: var(--line-l); --accent: var(--accent-l); --accent-ink: var(--accent-ink-l);
+  --scrim: rgba(43, 31, 22, .42);
+  --shade: rgba(40, 24, 10, .34); --shadow: rgba(40, 24, 10, .42);
+  /* Paper stays paper in both modes; the evening sheet is just a little dimmer. */
+  --paper: #f7f1e5; --paper-ink: #2a2018; --paper-muted: #7a6956; --paper-line: rgba(42, 32, 24, .15); --paper-accent: #2f4f3c;
+  --display: "Fraunces Variable", "Iowan Old Style", Georgia, serif;
+  --ui: "Instrument Sans Variable", "Segoe UI", system-ui, sans-serif;
+  --ease: cubic-bezier(.22, 1, .36, 1);
+  --faded: saturate(.15) contrast(.7) brightness(1.12);
+  --danger: #a3321f; --field: rgba(43, 31, 22, .04);
+  color-scheme: light;
+}
+:root[data-wall="tobacco"] { --wall-l: #cdb08a; --wall2-l: #c0a079; --ink-l: #2a1c11; --muted-l: #5d452f; --surface-l: #efe3cf; --line-l: rgba(42, 28, 17, .2);
+  --wall-d: #2a1c12; --wall2-d: #20150d; --ink-d: #f2e3cc; --muted-d: #bda281; --surface-d: #33231a; --line-d: rgba(242, 227, 204, .12); }
+:root[data-wall="chestnut"] { --wall-l: #94633f; --wall2-l: #855836; --ink-l: #fbf1e2; --muted-l: #efd9bd; --surface-l: #6f4628; --line-l: rgba(255, 240, 220, .24); --accent-l: #e3c27c; --accent-ink-l: #2a1c10;
+  --wall-d: #3a2416; --wall2-d: #2d1b0f; --ink-d: #f4e4cc; --muted-d: #c9ad8a; --surface-d: #4a3020; --line-d: rgba(244, 228, 204, .14); }
+:root[data-wall="umber"] { --wall-l: #5b4130; --wall2-l: #4f3828; --ink-l: #f6ead8; --muted-l: #d8c1a3; --surface-l: #463021; --line-l: rgba(246, 234, 216, .2); --accent-l: #e3c27c; --accent-ink-l: #2a1c10;
+  --wall-d: #1e1510; --wall2-d: #160f0b; --ink-d: #f0e2cd; --muted-d: #b39b7e; --surface-d: #2a1e16; --line-d: rgba(240, 226, 205, .12); }
+:root[data-wall="forest"] { --wall-l: #3d4c3e; --wall2-l: #334234; --ink-l: #f1ead9; --muted-l: #cbc5aa; --surface-l: #304031; --line-l: rgba(241, 234, 217, .2); --accent-l: #e3c27c; --accent-ink-l: #2a1c10;
+  --wall-d: #152018; --wall2-d: #0f1812; --ink-d: #ece6d4; --muted-d: #a9b39d; --surface-d: #1d2a20; --line-d: rgba(236, 230, 212, .12); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --wood: var(--wood-night); --wood-v: var(--wood-night-v, none); --wood-back: var(--wood-night-back, none);
+    --wall: var(--wall-d); --wall-2: var(--wall2-d); --ink: var(--ink-d); --muted: var(--muted-d);
+    --surface: var(--surface-d); --line: var(--line-d); --accent: #c9a35a; --accent-ink: #1c130c;
+    --scrim: rgba(6, 3, 1, .66);
+    --shade: rgba(0, 0, 0, .5); --shadow: rgba(0, 0, 0, .7);
+    --paper: #e6dcc7; --paper-muted: #6e5f4e;
+    --danger: #e8896c; --field: rgba(240, 228, 208, .05);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --wood: var(--wood-night); --wood-v: var(--wood-night-v, none); --wood-back: var(--wood-night-back, none);
+  --wall: var(--wall-d); --wall-2: var(--wall2-d); --ink: var(--ink-d); --muted: var(--muted-d);
+  --surface: var(--surface-d); --line: var(--line-d); --accent: #c9a35a; --accent-ink: #1c130c;
+  --scrim: rgba(6, 3, 1, .66);
+  --shade: rgba(0, 0, 0, .5); --shadow: rgba(0, 0, 0, .7);
+  --paper: #e6dcc7; --paper-muted: #6e5f4e;
+  --danger: #e8896c; --field: rgba(240, 228, 208, .05);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { scrollbar-gutter: stable; }   /* a search that shortens the page never shifts the header sideways */
+body {
+  background: radial-gradient(1200px 500px at 50% -120px, var(--wall), var(--wall-2) 75%);
+  background-color: var(--wall-2);
+  color: var(--ink); font-family: var(--ui); font-size: 15px;
+  min-height: 100vh; -webkit-font-smoothing: antialiased;
+  padding-inline: 16px; overflow-x: clip;
+  transition: background-color .4s;
+}
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.wrap { max-width: 1200px; margin: 0 auto; }
+
+/* ---------- Header ---------- */
+/* Two rows. The title and the numbers sit beside the tools, so the tools never move; what the owner is
+   reading and where else to find them share the row beneath, left and right. */
+header {
+  display: grid; grid-template-columns: max-content minmax(0, 1fr); grid-template-areas: "brand tools" "reading links";
+  align-items: end; gap: 0 28px; padding-block: 38px 8px;
+}
+.brand { grid-area: brand; }
+.tools { grid-area: tools; justify-content: flex-end; }
+header .nowreading { grid-area: reading; justify-self: start; align-self: center; }
+header .elsewhere { grid-area: links; justify-self: end; align-self: center; }
+.brand { min-width: 0; }
+.home { color: inherit; text-decoration: none; transition: color .2s; }
+.home:focus-visible { color: var(--accent); }
+@media (hover: hover) { .home:hover { color: var(--accent); } }
+.brand h1 { margin: 0; font-family: var(--display); font-weight: 600; font-size: clamp(2.1rem, 5vw, 3.1rem); line-height: 1; letter-spacing: -.02em; font-variation-settings: "opsz" 120; text-wrap: balance; }
+
+/* What the owner is reading now, under the numbers: a small cover, and the book opens from its place on the shelf. */
+.nowreading { display: flex; align-items: center; gap: 10px; margin-top: 12px; text-align: left; color: var(--muted); font-size: .88rem; }
+/* With several books in hand their covers fan out, and the line opens a short list to choose from. */
+.nowreading .fan { display: flex; flex: none; }
+.nowreading .fan img + img { margin-left: -8px; }
+.nowreading .fan img { box-shadow: 0 0 0 1.5px var(--wall), 0 3px 8px -3px rgba(0,0,0,.5); }
+.nr-menu { position: fixed; z-index: 15; display: grid; gap: 2px; width: max-content; min-width: 240px; max-width: min(380px, calc(100vw - 24px));
+  padding: 6px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line); box-shadow: 0 24px 60px -24px rgba(0,0,0,.55); }
+.nr-menu button { display: grid; grid-template-columns: 26px minmax(0, 1fr); align-items: center; gap: 12px; padding: 7px 10px; border-radius: 8px; text-align: left; color: var(--ink); }
+.nr-menu img { width: 26px; height: 39px; object-fit: cover; border-radius: 2px; box-shadow: 0 3px 8px -3px rgba(0,0,0,.5); }
+.nr-menu b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--display); font-weight: 600; font-size: 1rem; line-height: 1.25; }
+.nr-menu small { color: var(--muted); font-size: .78rem; }
+.nr-menu button:focus-visible { outline-offset: -2px; }
+@media (hover: hover) { .nr-menu button:hover { background: color-mix(in oklab, var(--ink) 6%, transparent); } }
+.nowreading img { width: 22px; height: 33px; object-fit: cover; border-radius: 2px; box-shadow: 0 3px 8px -3px rgba(0,0,0,.5); }
+.nowreading b { color: var(--ink); font-weight: 600; font-family: var(--display); font-size: 1.05em; }
+@media (hover: hover) { .nowreading:hover b { text-decoration: underline; text-underline-offset: 3px; text-decoration-color: color-mix(in oklab, var(--ink) 35%, transparent); } }
+/* Where else to find the owner: quiet links, in the order the settings list them. */
+.elsewhere { display: flex; flex-wrap: wrap; gap: 2px 14px; margin: 12px 0 0; font-size: .82rem; }
+.elsewhere a { color: var(--muted); text-decoration: none; }
+.elsewhere a::after { content: " ↗"; font-size: .85em; }
+@media (hover: hover) { .elsewhere a:hover { color: var(--ink); } }
+.tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.field { display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 14px; width: 250px; border-radius: 8px; background: var(--surface); border: 1px solid var(--line); color: var(--muted); box-shadow: inset 0 1px 2px rgba(0,0,0,.08); }
+.field:focus-within { border-color: color-mix(in oklab, var(--accent) 60%, transparent); }
+/* Search folds into an icon at the head of the tools. Hovered, tapped, focused, or holding a query, the field
+   grows out of the icon (on a click or tap, never on hover) as an overlay toward the free space beside it (leftward on a wide screen, across
+   the row on a phone), so nothing else in the row ever moves or wraps. It grows by its width, not a
+   transform, so its text never re-settles. */
+.search { position: relative; flex: none; width: 40px; height: 40px; }
+.search .field { position: absolute; right: 0; top: 0; z-index: 4; width: 40px; padding: 0 10px; overflow: hidden; cursor: pointer; transition: width .26s var(--ease), border-color .2s; }
+.search .field .i { flex: none; }
+.search .field:focus-within, .search.has-query .field { width: 270px; cursor: text; }
+:root:not([data-owner])[data-nostats] .stats-btn { display: none; }
+.btn.icon[aria-pressed="true"] { background: color-mix(in oklab, var(--accent) 16%, var(--surface)); border-color: color-mix(in oklab, var(--accent) 40%, transparent); }
+.field input { all: unset; flex: 1; min-width: 0; color: var(--ink); font-size: .92rem; }
+.field input::placeholder { color: var(--muted); }
+.seg { display: flex; height: 40px; padding: 3px; border-radius: 8px; background: var(--surface); border: 1px solid var(--line); }
+.seg button { padding: 0 12px; border-radius: 5px; color: var(--muted); font-size: .86rem; font-weight: 500; transition: background-color .2s, color .2s; }
+.seg button[aria-pressed="true"], .seg button[aria-selected="true"] { background: color-mix(in oklab, var(--accent) 16%, transparent); color: var(--ink); }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; white-space: nowrap; height: 40px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); font-size: .88rem; font-weight: 500; }
+.btn.icon { width: 40px; padding: 0; }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+.btn:active { transform: translateY(1px); }
+.btn:disabled { opacity: .45; cursor: default; transform: none; }
+.owner-only { display: none !important; }
+.phone-only { display: none !important; }
+/* The phone menu: sort on top, then one row per thing to do. */
+.menu-sheet { display: grid; gap: 18px; }
+.menu-sheet .seg button { flex: 1; }
+.pm-list { display: grid; }
+.pm-list button { display: flex; align-items: center; gap: 14px; padding: 13px 4px; font-size: 1rem; text-align: left; border-top: 1px solid var(--line); }
+.pm-list button .i { color: var(--muted); }
+:root[data-owner] .pm-list .owner-only { display: flex !important; }
+:root[data-owner] .owner-only { display: inline-flex !important; }
+
+/* ---------- Shelves ---------- */
+.case { position: relative; margin-bottom: 120px; }
+.shelf { position: relative; padding-top: 44px; content-visibility: auto; contain-intrinsic-size: auto 360px; overflow-clip-margin: 36px; }   /* shelves out of view are not laid out or painted, so a big library costs what a screenful does */
+.books {
+  position: relative; display: flex; justify-content: center; align-items: flex-end; gap: 2px;
+  height: var(--row-h); padding-inline: 6px;
+}
+.books.full { justify-content: space-between; }
+.plank {
+  position: relative; z-index: 1; height: 13px; border-radius: 5px;
+  background:
+    linear-gradient(rgba(255,255,255,.34), rgba(255,255,255,.1) 3px, transparent 50%, rgba(0,0,0,.24)),
+    var(--wood) var(--wx, 0) center / 1024px auto;
+  box-shadow: 0 12px 16px -10px var(--shadow), 0 3px 4px -2px var(--shade);
+}
+/* The bookcase, when the owner wants one: sides, a top and a back, each on its own, all in the shelves'
+   own wood. The sides and back are cut from the same texture as the planks, turned so their grain runs
+   upright (see woodFaces). With sides, the planks run between them instead of floating free, and a base
+   board closes the bottom. */
+.shelves { position: relative; }
+:root[data-case~="sides"] .shelves { padding-inline: var(--side); padding-bottom: var(--base); }
+:root[data-case~="sides"] .plank { border-radius: 0; }
+:root[data-case~="top"] .shelves { padding-top: var(--crown); }
+.shelves::before, .shelves::after { content: ""; position: absolute; z-index: 2; pointer-events: none; display: none; }
+:root[data-case~="sides"] .shelves::before {
+  display: block; inset: 0;
+  background:
+    linear-gradient(90deg, rgba(255,255,255,.22), rgba(255,255,255,.04) 30%, rgba(0,0,0,.18)) left top / var(--side) 100% no-repeat,
+    linear-gradient(90deg, rgba(0,0,0,.18), rgba(255,255,255,.04) 70%, rgba(255,255,255,.18)) right top / var(--side) 100% no-repeat,
+    linear-gradient(rgba(255,255,255,.26), rgba(255,255,255,.06) 3px, transparent 50%, rgba(0,0,0,.28)) left bottom / 100% var(--base) no-repeat,
+    var(--wood) left bottom / 1024px var(--base) repeat-x,
+    var(--wood-v) left top / var(--side) auto repeat-y, var(--wood-v) right top / var(--side) auto repeat-y;
+  box-shadow: 0 16px 18px -12px var(--shadow);   /* the base board, standing on the floor */
+}
+:root[data-case~="top"] .shelves::after {
+  display: block; left: 0; right: 0; top: 0; height: var(--crown); border-radius: 5px;
+  background: linear-gradient(rgba(255,255,255,.34), rgba(255,255,255,.1) 3px, transparent 50%, rgba(0,0,0,.26)), var(--wood) 0 center / 1024px auto;
+  box-shadow: 0 12px 16px -10px var(--shadow), 0 3px 4px -2px var(--shade);
+}
+:root[data-case~="top"][data-case~="sides"] .shelves::after { border-radius: 3px 3px 0 0; left: -2px; right: -2px; }
+:root[data-case~="back"] .shelves {
+  background:
+    linear-gradient(90deg, rgba(0,0,0,.42), transparent) var(--side-in, 0) 0 / 34px 100% no-repeat,
+    linear-gradient(270deg, rgba(0,0,0,.42), transparent) right var(--side-in, 0) top 0 / 34px 100% no-repeat,
+    linear-gradient(rgba(0,0,0,.4), transparent 44px),
+    linear-gradient(rgba(18, 10, 4, .5), rgba(18, 10, 4, .5)),
+    var(--wood-back) 0 0 / 648px 1024px;
+}
+:root[data-case~="back"][data-case~="sides"] .shelves { --side-in: var(--side); }
+/* ---------- The stats page ---------- */
+/* One accent hue for every chart (a single series each, so no legend); hairline grids; numbers in the sans.
+   Every chart has a Table view, and hover only repeats what the axis or the table already gives. */
+:root[data-view="stats"] .case, :root[data-view="stats"] .nowreading, :root[data-view="stats"] .elsewhere, :root[data-view="stats"] .sort-seg { display: none !important; }
+.stats { padding-block: 22px 120px; }
+.stats-top { display: grid; gap: 6px; margin-bottom: 22px; }
+.stats-h { margin: 0 0 18px; }
+.reading-block { margin-bottom: 34px; }
+.stats h2 { margin: 0 0 18px; font-family: var(--display); font-weight: 600; font-size: clamp(1.6rem, 3.6vw, 2.2rem); letter-spacing: -.01em; font-variation-settings: "opsz" 72; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 10px; }
+.kpi, .chart { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+.kpi { display: grid; grid-template-rows: auto auto auto; align-content: start; gap: 6px; padding: 16px 18px 18px; }
+.kpi span { color: var(--muted); font-size: .8rem; }
+.kpi b { font-size: clamp(1.45rem, 2.4vw, 2rem); font-weight: 600; line-height: 1; letter-spacing: -.015em; white-space: nowrap; }
+.kpi small { color: var(--muted); font-size: .78rem; }
+/* The book in hand: its cover, how far along, and how it sits among the rest. */
+.reading-card { display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 0 26px; align-items: start; padding: 20px 22px; }
+.reading-card img { width: 104px; height: 156px; object-fit: cover; border-radius: 3px; box-shadow: 0 10px 22px -10px rgba(0,0,0,.55); cursor: pointer; }
+.reading-card .body { display: grid; gap: 14px; min-width: 0; }
+.reading-card .who b { display: block; font-family: var(--display); font-weight: 600; font-size: 1.6rem; line-height: 1.1; font-variation-settings: "opsz" 48; }
+.reading-card .who span { color: var(--muted); font-size: .9rem; }
+/* How far along: the share and the page on the left, the page field on the right, the bar beneath both. */
+.reading-card .progress { display: grid; gap: 8px; }
+.reading-card .line { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; min-height: 32px; }
+.reading-card .line .big { font-size: 1.5rem; font-weight: 600; line-height: 1; }
+.reading-card .line .big small { margin-left: 8px; font-size: .86rem; font-weight: 500; color: var(--muted); }
+.reading-card .page { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: .82rem; }
+.reading-card .page input { width: 5.5em; height: 32px; padding: 0 8px; border-radius: 6px; border: 1px solid var(--line); background: var(--field); color: var(--ink); font: inherit; font-variant-numeric: tabular-nums; }
+.reading-card .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 12px; margin: 0; padding: 14px 0 0; list-style: none; border-top: 1px solid var(--line); }
+.reading-card .facts li { display: grid; align-content: start; gap: 2px; color: var(--muted); font-size: .78rem; }
+.reading-card .facts b { color: var(--ink); font-size: 1.1rem; font-weight: 600; }
+/* Several books in hand: a card each, one beneath another, the most recently started first. */
+.reading-cards { display: grid; gap: 10px; }
+.charts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.chart { padding: 16px 18px 18px; min-width: 0; }
+.chart.wide { grid-column: 1 / -1; }
+.chart.tall { grid-row: span 2; display: flex; flex-direction: column; }
+.chart.tall .plot { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; }
+.chart.tall .cols { --ph: 250px; }
+.chart header { display: grid; grid-template-columns: 1fr auto; grid-template-areas: "h t" "p t"; gap: 2px 12px; padding: 0; margin-bottom: 14px; }
+.chart h3 { grid-area: h; margin: 0; font-size: .95rem; font-weight: 600; }
+.chart header p { grid-area: p; margin: 0; color: var(--muted); font-size: .8rem; }
+.chart .tbl { grid-area: t; align-self: start; color: var(--muted); font-size: .78rem; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--line); }
+@media (hover: hover) { .chart .tbl:hover { color: var(--ink); } }
+/* Columns: thin, rounded at the cap, square at the baseline, standing on one hairline. */
+.cols { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 0 8px; }
+.cols .yax { display: flex; flex-direction: column-reverse; justify-content: space-between; height: var(--ph, 160px); color: var(--muted); font-size: .7rem; text-align: right; font-variant-numeric: tabular-nums; translate: 0 .5em; }
+.cols .area { position: relative; height: var(--ph, 160px); display: flex; align-items: flex-end; gap: 2px; border-bottom: 1px solid var(--line);
+  background: repeating-linear-gradient(to top, var(--line) 0 1px, transparent 1px calc(var(--ph, 160px) / var(--steps))); }
+.cols .col { flex: 1; min-width: 0; display: flex; justify-content: center; align-items: flex-end; height: 100%; cursor: default; }
+.cols .col i { display: block; width: min(24px, 70%); height: var(--v); min-height: 0; border-radius: 4px 4px 0 0; background: var(--accent); }
+.cols .col:hover i, .cols .col:focus-visible i { background: color-mix(in oklab, var(--accent) 78%, var(--surface)); }
+.cols .col b { position: absolute; bottom: calc(var(--v) + 4px); font-size: .72rem; font-weight: 600; }
+.cols .xax { grid-column: 2; display: flex; gap: 2px; margin-top: 6px; color: var(--muted); font-size: .7rem; font-variant-numeric: tabular-nums; }
+.cols .xax span { flex: 1; min-width: 0; text-align: center; white-space: nowrap; overflow: visible; }
+/* Bars: for named categories, label left, bar, value at the tip. */
+.bars { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 7px 12px; align-items: center; }
+.bars .name { font-size: .84rem; min-width: 0; max-width: 16em; overflow-wrap: anywhere; }
+.bars .track { display: flex; align-items: center; gap: 8px; }
+.bars .track i { display: block; height: 14px; width: var(--v); min-width: 3px; border-radius: 0 4px 4px 0; background: var(--accent); }
+.bars .track b { font-size: .8rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+/* A share of the whole: a meter on its own lighter track. */
+.meter { display: grid; gap: 10px; }
+.meter .big { font-size: 2.2rem; font-weight: 600; line-height: 1; }
+.meter .big small { font-size: .9rem; font-weight: 500; color: var(--muted); margin-left: 6px; }
+.meter .bar { height: 10px; border-radius: 99px; background: color-mix(in oklab, var(--accent) 18%, var(--surface)); overflow: hidden; }
+.meter .bar i { display: block; height: 100%; width: var(--v); border-radius: 99px; background: var(--accent); }
+.meter p { margin: 0; color: var(--muted); font-size: .82rem; }
+/* The extremes: four books, each with its cover and the fact that puts it there. */
+.edges { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px 14px; }
+.edge { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 4px 12px; align-items: center; text-align: left; padding: 6px; margin: -6px; border-radius: 8px; }
+@media (hover: hover) { .edge:hover { background: color-mix(in oklab, var(--ink) 5%, transparent); } }
+.edge img { grid-row: span 3; width: 44px; height: 66px; object-fit: cover; border-radius: 2px; box-shadow: 0 4px 10px -4px rgba(0,0,0,.45); }
+.edge small { color: var(--muted); font-size: .74rem; text-transform: uppercase; letter-spacing: .1em; }
+.edge b { font-family: var(--display); font-weight: 600; font-size: 1rem; line-height: 1.15; font-variation-settings: "opsz" 24; }
+.edge span { color: var(--muted); font-size: .8rem; }
+/* The table twin of any chart. */
+.chart table { width: 100%; border-collapse: collapse; font-size: .84rem; font-variant-numeric: tabular-nums; }
+.chart th, .chart td { padding: 6px 4px; border-bottom: 1px solid var(--line); text-align: left; }
+.chart th:last-child, .chart td:last-child { text-align: right; }
+.chart th { color: var(--muted); font-weight: 500; font-size: .76rem; }
+.tip { position: fixed; z-index: 40; pointer-events: none; padding: 7px 10px; border-radius: 8px; background: var(--ink); color: var(--surface); font-size: .8rem; box-shadow: 0 10px 24px -10px rgba(0,0,0,.5); white-space: nowrap; }
+.tip b { font-weight: 600; margin-right: 6px; }
+/* ---------- Layers ----------
+   Everything that opens over the page (the open book, cards, sheets, the settings drawer) follows the same
+   rules, in CSS alone, so nothing is pinned, moved or measured:
+   - while any layer is open the page underneath doesn't scroll;
+   - the dimmed backdrop ignores swipes, and each layer's own scroll area keeps its swipes to itself. */
+:root:has(.reader:not([hidden]), .modal:not([hidden]), .drawer-wrap:not([hidden])) { overflow: hidden; overscroll-behavior: none; }
+.modal-scrim, .drawer-scrim, .reader .scrim { touch-action: none; }
+.t-page, .card, .drawer { overscroll-behavior: contain; }
+/* While the keyboard is up on a touch screen, the layer being typed in gets room beneath its content (hidden
+   behind the keyboard) so the field in use can always come up to its top; the room goes when typing stops. */
+@media (pointer: coarse) { .typing-room::after { content: ""; display: block; height: 50vh; } }
+.empty { margin: 0; padding: 70px 16px; text-align: center; color: var(--muted); font-family: var(--display); font-style: italic; font-size: 1.3rem; }
+
+/* A book. On hover it comes out toward you the same way wherever it stands on the shelf: it rises a few
+   pixels, casts a deeper shadow and catches the light.
+   Nothing here may be a transform or an opacity change. Those run on the compositor, which lifts the spine
+   onto a layer of its own while they play; text on such a layer loses its subpixel smoothing, and when the
+   layer is dropped at the end the lettering visibly re-settles. So the spine moves by its own position and
+   the light is a repainted gradient, and the text is drawn the same way at every moment. */
+@property --glow { syntax: "<number>"; inherits: false; initial-value: 0; }
+.slot {
+  --pull: 40px; --lift: 4px;
+  position: relative; flex: none; width: var(--t); height: var(--h);
+}
+.slot:focus-visible { outline-offset: 4px; }
+.slot.peek { z-index: 3; }
+.slot.out .spine { visibility: hidden; transition: none; inset: 0; }
+.spine {
+  position: absolute; inset: 0; overflow: hidden;
+  display: flex; flex-direction: column; align-items: center; justify-content: space-between; gap: 8px; padding-block: 16px 13px;
+  color: var(--fg); border-radius: 4px / 3px;   /* softened like a real spine's turned-in cloth */
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(0,0,0,.34), rgba(255,255,255,.12) 20%, rgba(255,255,255,0) 48%, rgba(0,0,0,.08) 72%, rgba(0,0,0,.36)),
+    linear-gradient(rgba(0,0,0,.18), transparent 6px, transparent calc(100% - 5px), rgba(0,0,0,.25)),
+    var(--cloth), var(--c);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.16);
+  transition: box-shadow .3s var(--ease), top .3s var(--ease), bottom .3s var(--ease);
+}
+.slot.peek .spine { top: calc(-1 * var(--lift)); bottom: var(--lift); box-shadow: inset 0 0 0 1px rgba(0,0,0,.16), 0 14px 22px -10px rgba(0,0,0,.55); }
+.spine::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(rgba(255, 244, 224, calc(.14 * var(--glow))), transparent 60%); transition: --glow .3s var(--ease); pointer-events: none; }
+.slot.peek .spine::after { --glow: 1; }
+/* The book being read has its ribbon marker out: it hangs from the foot of the spine over the front of the
+   plank, forked at the end, clear of the lettering. */
+.slot.reading { z-index: 2; }
+.slot.reading::after {
+  content: ""; position: absolute; left: 50%; top: calc(100% - 3px); width: 7px; height: 30px; translate: -50% 0; pointer-events: none;
+  background: linear-gradient(90deg, rgba(0,0,0,.25), transparent 35%, rgba(255,255,255,.18) 55%, transparent 75%, rgba(0,0,0,.25)), var(--ribbon);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 82%, 0 100%); filter: drop-shadow(0 2px 2px rgba(0,0,0,.35));
+}
+.slot.reading.out::after { display: none; }
+.slot.reading::after { transition: top .3s var(--ease); }   /* by position, like the spine it hangs from */
+.slot.peek.reading::after { top: calc(100% - 3px - var(--lift)); }
+/* Bindings. A paperback is the plain spine above; the others add what tells them apart on a real shelf,
+   all in paint, nothing that would bulk up a big library. The same rules draw the book in flight (its
+   lengths scaled by --k), so a book never changes its binding on the way out.
+   - Hardcover: a rounded spine, light down the middle and falling away to the edges; a crease along each
+     joint where the boards hinge; and the boards' edges standing proud at head and tail.
+   - Cloth: the same boards, a fine woven texture, and the title stamped in gilt.
+   - Leather: a deeper, burnished skin, a raised band at head and tail with a gilt rule beside it, and gilt
+     lettering pressed in.
+   Every binding keeps the spine in its cover's own color: the shading on top is no darker than a
+   paperback's, so only the texture and the details tell the bindings apart. */
+:root:not([data-plain]) :is(.slot[data-b="hardcover"] .spine, .tome[data-b="hardcover"] .t-spine, .slot[data-b="cloth"] .spine, .tome[data-b="cloth"] .t-spine) {
+  --j: clamp(calc(2.5px * var(--k, 1)), 9%, calc(6px * var(--k, 1)));
+  background:
+    linear-gradient(90deg, transparent var(--j), rgba(0,0,0,.26) var(--j), rgba(255,255,255,.1) calc(var(--j) + 1px * var(--k, 1)), transparent calc(var(--j) + 2px * var(--k, 1)),
+      transparent calc(100% - var(--j) - 2px * var(--k, 1)), rgba(255,255,255,.1) calc(100% - var(--j) - 1px * var(--k, 1)), rgba(0,0,0,.26) calc(100% - var(--j)), transparent calc(100% - var(--j))),
+    linear-gradient(90deg, rgba(0,0,0,.32), transparent 24%, rgba(255,255,255,.12) 50%, transparent 76%, rgba(0,0,0,.34)),
+    linear-gradient(rgba(255,255,255,.16) 0 calc(2px * var(--k, 1)), rgba(0,0,0,.24) calc(2px * var(--k, 1)), transparent calc(8px * var(--k, 1)),
+      transparent calc(100% - 8px * var(--k, 1)), rgba(0,0,0,.28) calc(100% - 2px * var(--k, 1)), rgba(255,255,255,.12) calc(100% - 2px * var(--k, 1))),
+    var(--weave, linear-gradient(transparent, transparent)), var(--cloth), var(--c);
+}
+:root:not([data-plain]) :is(.slot[data-b="cloth"] .spine, .tome[data-b="cloth"] .t-spine) {
+  --weave: repeating-linear-gradient(0deg, rgba(255,255,255,.06) 0 calc(1px * var(--k, 1)), transparent 0 calc(2px * var(--k, 1))),
+    repeating-linear-gradient(90deg, rgba(0,0,0,.08) 0 calc(1px * var(--k, 1)), transparent 0 calc(2px * var(--k, 1)));
+}
+:root:not([data-plain]) :is(.slot[data-b="leather"] .spine, .tome[data-b="leather"] .t-spine) {
+  --gilt: #d8b467;
+  background:
+    linear-gradient(transparent calc(8px * var(--k, 1)), rgba(255,255,255,.2) calc(8px * var(--k, 1)), rgba(0,0,0,.34) calc(11px * var(--k, 1)), transparent calc(11px * var(--k, 1)),
+      transparent calc(13px * var(--k, 1)), var(--gilt) calc(13px * var(--k, 1)), var(--gilt) calc(14px * var(--k, 1)), transparent calc(14px * var(--k, 1)),
+      transparent calc(100% - 14px * var(--k, 1)), var(--gilt) calc(100% - 14px * var(--k, 1)), var(--gilt) calc(100% - 13px * var(--k, 1)), transparent calc(100% - 13px * var(--k, 1)),
+      transparent calc(100% - 11px * var(--k, 1)), rgba(255,255,255,.18) calc(100% - 11px * var(--k, 1)), rgba(0,0,0,.34) calc(100% - 8px * var(--k, 1)), transparent calc(100% - 8px * var(--k, 1))),
+    linear-gradient(90deg, rgba(0,0,0,.32), transparent 22%, rgba(255,236,200,.13) 46%, transparent 70%, rgba(0,0,0,.34)),
+    radial-gradient(120% 40% at 50% 30%, rgba(255,230,190,.06), transparent 70%),
+    var(--cloth), var(--cloth), var(--c);
+}
+/* Leather lettering keeps clear of the bands at head and tail. */
+:root:not([data-plain]) :is(.slot[data-b="leather"] .spine, .tome[data-b="leather"] .t-face) { padding-block: 25px 23px; }
+:root:not([data-plain]) :is(.slot[data-b="leather"], .tome[data-b="leather"]) .st { max-height: calc(var(--h) - 106px); }
+/* Gilt lettering for leather and cloth, pressed in: a hair of shadow above, light below. */
+:root:not([data-plain]) :is(.slot[data-b="leather"], .slot[data-b="cloth"], .tome[data-b="leather"], .tome[data-b="cloth"]) :is(.st, .sa) {
+  color: #e2c27a; text-shadow: 0 -1px 0 rgba(0,0,0,.35), 0 1px 0 rgba(255,240,200,.12);
+}
+.st, .sa { writing-mode: vertical-rl; text-orientation: sideways; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.st { font-family: var(--display); font-weight: 600; font-size: clamp(10px, calc(var(--t) * .4), 16px); max-height: calc(var(--h) - 88px); }
+.sa { font-size: clamp(7.5px, calc(var(--t) * .27), 10.5px); letter-spacing: .14em; text-transform: uppercase; opacity: .82; max-height: 84px; }   /* a long name shortens before it can crowd the title */
+.slot.is-hidden .spine { filter: var(--faded); }
+.slot.is-hidden .eye { display: block; }
+.eye { display: none; position: absolute; left: 50%; bottom: 8px; translate: -50% 0; width: 13px; height: 13px; color: var(--fg); }
+
+/* ---------- The open book ---------- */
+.reader { position: fixed; inset: 0; z-index: 20; }
+.reader .scrim { position: absolute; inset: 0; background: var(--scrim); }
+.stage { position: absolute; inset: 0; perspective: 1800px; pointer-events: none; }
+.carry {
+  position: absolute; width: var(--W); height: var(--H);   /* placed on whole pixels by measure() */
+  transform-style: preserve-3d;
+}
+.tome { position: absolute; inset: 0; transform-style: preserve-3d; }
+.tome > *, .lid > * { position: absolute; display: block; }
+/* Every outer face is one-sided, so a glimpse past a page corner can only ever show what is behind the book. */
+.tome > :not(.hinge) { backface-visibility: hidden; }
+.t-back { inset: 0; transform: translateZ(calc(var(--D) / -2)) rotateY(180deg); background: linear-gradient(90deg, rgba(0,0,0,.25), transparent 30%), var(--cloth), var(--board); border-radius: var(--R) 0 0 var(--R); }
+.t-spine {
+  top: 0; font-style: normal; width: calc(var(--D) + 2px); height: var(--H); left: calc((var(--W) - var(--D)) / 2 - 1px);
+  transform: rotateY(-90deg) translateZ(calc(var(--W) / 2));
+  overflow: hidden; color: var(--fg);
+  /* drawn exactly like the shelf spine, scaled, so nothing changes when the book is picked up */
+  background:
+    linear-gradient(90deg, rgba(0,0,0,.34), rgba(255,255,255,.12) 20%, rgba(255,255,255,0) 48%, rgba(0,0,0,.08) 72%, rgba(0,0,0,.36)),
+    linear-gradient(rgba(0,0,0,.18), transparent calc(6px * var(--k)), transparent calc(100% - 5px * var(--k)), rgba(0,0,0,.25)),
+    var(--cloth), var(--c);
+  box-shadow: inset 0 0 0 calc(1px * var(--k)) rgba(0,0,0,.16);
+  border-radius: calc(4px * var(--k)) / calc(3px * var(--k));
+}
+.t-glow { position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(rgba(255,244,224,.14), transparent 60%); opacity: 0; pointer-events: none; }
+/* The lettering is laid out at the shelf spine's own size, by the shelf's own rules, and only then scaled
+   up, so it breaks and shortens ("Years o…") exactly as on the shelf at every moment of the flight. */
+.t-face {
+  position: absolute; left: 50%; top: 0; width: var(--t); height: var(--h); translate: -50% 0; transform: scale(var(--k)); transform-origin: 50% 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: space-between; gap: 8px; padding-block: 16px 13px;
+}
+
+/* The page block's three outer faces run right out to the boards, with the boards' edges drawn in,
+   so at no angle is there a slit to see into the book through. */
+.tome { --board: color-mix(in oklab, var(--c) 78%, black); --R: 5px; }   /* corner rounding of the boards and pages */
+.t-edge { top: var(--R); width: var(--D); height: calc(var(--H) - 2 * var(--R)); left: calc((var(--W) - var(--D)) / 2); transform: rotateY(90deg) translateZ(calc(var(--W) / 2 - .5px));
+  background: linear-gradient(90deg, var(--board) 0 2px, transparent 2px calc(100% - 2px), var(--board) calc(100% - 2px)), repeating-linear-gradient(90deg, #f1e9d8 0 1px, #d9cdb5 1px 2px); }
+.t-top, .t-bot { left: .5px; width: calc(var(--W) - .5px - var(--R)); height: var(--D); top: calc((var(--H) - var(--D)) / 2);
+  border-radius: calc(3px * var(--k)) 0 0 calc(3px * var(--k)) / calc(4px * var(--k)) 0 0 calc(4px * var(--k));
+  background: linear-gradient(var(--board) 0 2px, transparent 2px calc(100% - 2px), var(--board) calc(100% - 2px)), repeating-linear-gradient(0deg, #f1e9d8 0 1px, #d9cdb5 1px 2px); }
+.t-top { transform: rotateX(90deg) translateZ(calc(var(--H) / 2 - .5px)); }
+.t-bot { transform: rotateX(-90deg) translateZ(calc(var(--H) / 2 - .5px)); }
+/* The first page, where the details are printed. */
+.t-page {
+  left: 1px; top: .5px; width: calc(var(--W) - 1.5px); height: calc(var(--H) - 1px);
+  transform: translateZ(calc(var(--D) / 2 - 1px)); backface-visibility: hidden;
+  background: linear-gradient(90deg, rgba(60,40,20,.2), rgba(60,40,20,.05) 5%, transparent 12%), var(--paper);
+  border-radius: 0 var(--R) var(--R) 0; color: var(--paper-ink);
+  overflow: hidden auto; overscroll-behavior: contain; pointer-events: auto; touch-action: pan-y;
+  font-size: clamp(12px, calc(var(--W) * .038), 16px);
+}
+/* Set like a title page: running head, the title and author centered in the upper half, then the
+   particulars as a short contents list with dotted leaders, the actions, and a folio at the foot. */
+.leaf { display: flex; flex-direction: column; align-items: center; min-height: 100%; padding: 2.4em 2.4em 1.3em 2.8em; text-align: center; font-family: var(--display); }
+.thumb-zoom { position: fixed; z-index: 45; object-fit: cover; border-radius: 3px; box-shadow: 0 30px 60px -20px rgba(0,0,0,.6); cursor: zoom-out; transform-origin: 0 0; }
+.thumb-scrim { position: fixed; inset: 0; z-index: 44; background: var(--scrim); }
+.thumb { cursor: zoom-in; }
+.thumbwrap { position: relative; width: fit-content; margin-inline: auto; }
+.thumb-replace { display: none; }
+/* Editing on a phone: the open board is off screen, so the cover at the head of the page takes the label. */
+.reader.editing .thumbwrap { margin-bottom: 1em; }
+.reader.editing .thumbwrap .thumb { margin-bottom: 0; cursor: pointer; }
+/* The same label a new book's cover carries in Add a book (.mini span): a small dark bar at the foot. */
+.reader.editing .thumb-replace, .mini span { position: absolute; z-index: 1; left: 5px; right: 5px; bottom: 5px; padding: 4px 2px; border-radius: 5px; text-align: center; font-family: var(--ui); font-size: .62rem; font-weight: 600; line-height: 1.2; color: #f7f1e6; background: rgba(20, 14, 9, .62); cursor: pointer; }
+@media (max-width: 720px) { .reader.editing .thumb-replace { display: block; } }
+.thumb { display: none; width: 5em; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 2px; margin-bottom: 1em; box-shadow: 0 6px 14px -6px rgba(0,0,0,.5); }
+.head { font-family: var(--ui); color: var(--paper-muted); font-size: .68em; font-weight: 600; letter-spacing: .22em; text-transform: uppercase; }
+.chip { display: none; margin: .7em 0 0; font-style: italic; font-size: .86em; color: var(--paper-muted); }
+:root[data-owner] .reader.is-hidden .chip { display: block; }
+.tp { flex: 1 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; padding-block: 1.6em 1.8em; }
+.leaf h2 { margin: 0; max-width: 100%; font-weight: 600; font-size: 2.7em; line-height: 1.04; letter-spacing: -.02em; text-wrap: balance; overflow-wrap: break-word; hyphens: auto; font-variation-settings: "opsz" 96; }
+.leaf h2[data-len="long"] { font-size: 2.15em; }
+.leaf h2[data-len="longer"] { font-size: 1.7em; line-height: 1.1; font-variation-settings: "opsz" 72; }
+/* Fraunces' display cut thins its hairlines as the optical size rises; past these values the crossbar of an
+   H falls under a pixel at these sizes and vanishes on a 1x screen, so each size stops short of it. */
+.sub { margin: .55em 0 0; font-style: italic; font-size: 1.12em; line-height: 1.3; color: var(--paper-muted); text-wrap: balance; }
+/* A short rule with a lozenge in the book's own color. */
+.orn { position: relative; width: 4.2em; height: 1px; margin: 1.5em 0 1.3em; background: var(--paper-line); }
+.orn::after { content: ""; position: absolute; left: 50%; top: 50%; width: .5em; height: .5em; translate: -50% -50%; rotate: 45deg; background: color-mix(in oklab, var(--c) 72%, var(--paper-ink)); }
+.by { margin: 0; font-size: 1.25em; font-variant-caps: all-small-caps; letter-spacing: .08em; }
+.leaf dl { width: 100%; max-width: 21em; margin: 0; display: grid; gap: .5em; text-align: left; font-variant-numeric: lining-nums tabular-nums; }
+.leaf dl div { display: flex; align-items: baseline; }
+.leaf dt { flex: 1; display: flex; align-items: baseline; color: var(--paper-muted); font-variant-caps: all-small-caps; letter-spacing: .08em; }
+.leaf dt::after { content: ""; flex: 1; min-width: 1em; margin: 0 .5em; border-bottom: 1px dotted color-mix(in oklab, var(--paper-ink) 35%, transparent); translate: 0 -.3em; }
+.leaf dd { margin: 0; text-align: right; overflow-wrap: anywhere; }
+.actions { display: flex; flex-wrap: wrap; justify-content: center; gap: .3em; margin-top: 1.5em; }
+.actbar > .actions { margin-top: 0; }
+.act { display: inline-flex; align-items: center; gap: .45em; padding: .55em .75em; border-radius: 6px; font-family: var(--ui); font-size: .72em; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--paper-accent); transition: background-color .2s; }
+.act .i { width: 1.35em; height: 1.35em; }
+@media (hover: hover) { .act:hover { background: color-mix(in oklab, var(--paper-accent) 10%, transparent); } }
+.folio { margin: 1.1em 0 0; color: var(--paper-muted); font-style: italic; font-size: .9em; font-variant-numeric: lining-nums tabular-nums; }
+/* The front board, hinged at the spine: the cover outside, the endpaper with the cover plate inside. */
+.hinge { position: absolute; inset: 0; transform: translateZ(calc(var(--D) / 2 + .5px)); transform-style: preserve-3d; }
+.lid { position: absolute; inset: 0; transform-origin: 0 50%; transform-style: preserve-3d; }
+.lid-out, .lid-in { inset: 0; backface-visibility: hidden; overflow: hidden; }
+.lid-out { background: var(--c); border-radius: 0 var(--R) var(--R) 0; }
+.lid-out img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.plate img { display: block; width: 100%; height: 100%; }
+.lid-out::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(0,0,0,.32), rgba(0,0,0,0) 6%); }
+.lid-in {
+  transform: rotateY(180deg) translateZ(0); border-radius: var(--R) 0 0 var(--R); pointer-events: auto;
+  display: grid; place-items: center;
+  background: linear-gradient(270deg, rgba(40,25,10,.26), transparent 9%), var(--cloth), color-mix(in oklab, var(--c) 64%, #efe6d3);
+}
+.reader.flat .lid-in { transform: rotateY(180deg) translateZ(-1.5px); }
+/* With the endpaper moved down to the page, the outside of the cover now lies above it, face down. Some
+   browsers don't cull that back face, and would show the cover mirrored over the endpaper, so at rest it
+   is simply not drawn. */
+.reader.flat .lid-out { visibility: hidden; }
+.plate { width: var(--pw); height: var(--ph); margin: 0; background: var(--c); box-shadow: 0 1px 0 rgba(255,255,255,.4), 0 10px 22px -10px rgba(0,0,0,.55); outline: 1px solid rgba(0,0,0,.08); }
+.reader-bar { position: absolute; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); translate: -50% 0; display: flex; gap: 8px; }
+.reader.solo [data-step], .reader.solo .folio { display: none; }
+.reader-bar .btn { box-shadow: 0 8px 20px -10px rgba(0,0,0,.5); }
+.swatches { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.swatches button { width: 30px; height: 30px; border-radius: 99px; background: var(--sw); border: 2px solid var(--surface); box-shadow: 0 0 0 1px var(--line); }
+.swatches button[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--accent); }
+/* Any wall color: a well that opens the color picker, its hex code, and what it becomes by day and evening. */
+.wallpick { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-block: 2px 4px; }
+.well { position: relative; width: 42px; height: 42px; border-radius: 10px; background: var(--pick, #e9e0d0); box-shadow: inset 0 0 0 1px rgba(0,0,0,.18); cursor: pointer; }
+.well input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.inp.hex { width: 8.5em; font-variant-numeric: tabular-nums; text-transform: uppercase; letter-spacing: .04em; }
+.wallpick .when { color: var(--ink); font-size: .86rem; }
+/* The named walls show both halves: day above the diagonal, evening below. */
+.swatches button { background: linear-gradient(135deg, var(--sw) 50%, var(--sn) 50%); }
+.toast { position: fixed; z-index: 30; left: 50%; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); translate: -50% 0; padding: 10px 16px; border-radius: 8px; background: var(--ink); color: var(--surface); font-size: .86rem; box-shadow: 0 10px 30px -10px rgba(0,0,0,.5); max-width: calc(100vw - 32px); }
+
+/* ---------- Owner tools ---------- */
+:root[data-owner] .visitor-only { display: none !important; }
+.btn.danger { color: var(--danger); }
+.btn.danger.solid { background: var(--danger); color: #fff8f2; border-color: transparent; }
+
+/* Choosing several books: the books stay put. A slip of paper rises out of the top of each chosen one,
+   into the free space above the row where no neighbour can cover it, and its spine is ringed from inside. */
+:root[data-selecting] .slot { cursor: pointer; }
+:root[data-selecting] .slot::before {
+  content: ""; position: absolute; left: 0; right: 0; margin-inline: auto; top: 0; width: clamp(6px, calc(var(--t) * .46), 13px); height: 24px;
+  border-radius: 2px 2px 0 0; background: linear-gradient(90deg, rgba(0,0,0,.12), transparent 40%), var(--accent);
+  transition: top .35s var(--ease);   /* by position, not transform: see the note on hover above */
+}
+:root[data-selecting] .slot.sel::before { top: -17px; }
+.slot.sel .spine { box-shadow: inset 0 0 0 1px rgba(0,0,0,.16), inset 0 0 0 2.5px var(--accent), inset 0 0 0 3.5px rgba(255,248,236,.7); }
+.selbar {
+  position: fixed; z-index: 18; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); translate: -50% 0;
+  display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px; padding: 6px; max-width: calc(100vw - 32px);
+  border-radius: 12px; background: var(--surface); border: 1px solid var(--line); box-shadow: 0 18px 40px -16px rgba(0,0,0,.5);
+}
+.selbar .count { padding: 0 10px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.selbar .ask { padding: 0 8px 0 10px; }
+
+/* Cards over the shelf: signing in and adding a book. Bottom sheets on a phone. */
+.modal { position: fixed; inset: 0; z-index: 25; display: grid; place-items: center; padding: 16px; }
+.modal-scrim, .drawer-scrim { position: absolute; inset: 0; background: var(--scrim); }
+.card {
+  position: relative; width: min(460px, 100%); max-height: calc(100vh - 32px); overflow: auto;
+  padding: 28px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); box-shadow: 0 40px 90px -36px rgba(0,0,0,.6);
+}
+.card.wide { width: min(620px, 100%); }
+.card h2, .drawer h2 { margin: 0 0 4px; padding-right: 44px; font-family: var(--display); font-weight: 600; font-size: 1.75rem; line-height: 1.1; letter-spacing: -.01em; font-variation-settings: "opsz" 72; }
+.lede { margin: 0 0 22px; color: var(--muted); font-size: .9rem; line-height: 1.45; }
+.x { position: absolute; top: 16px; right: 16px; }
+.stack { display: grid; gap: 14px; }
+.lab { display: grid; gap: 6px; min-width: 0; font-size: .78rem; color: var(--muted); }
+.inp { width: 100%; height: 42px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--field); color: var(--ink); font: inherit; font-size: .95rem; }
+.inp:focus { outline: 2px solid color-mix(in oklab, var(--accent) 70%, transparent); outline-offset: -1px; }
+select.inp { appearance: none; background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%); background-position: calc(100% - 17px) 18px, calc(100% - 12px) 18px; background-size: 5px 5px; background-repeat: no-repeat; padding-right: 30px; }
+.inp.isbn { height: 52px; font-family: var(--display); font-size: 1.35rem; letter-spacing: .01em; font-variant-numeric: lining-nums tabular-nums; }   /* set as the title page sets it */
+.row-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+.row-btns.end { justify-content: flex-end; }
+.err { margin: 0; min-height: 1.3em; color: var(--danger); font-size: .84rem; }
+.fine { margin: 0; color: var(--muted); font-size: .8rem; line-height: 1.5; }
+.fine .link { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: color-mix(in oklab, var(--ink) 35%, transparent); }
+.tag { font-variant-numeric: tabular-nums; padding: 1px 7px; border-radius: 5px; background: color-mix(in oklab, var(--ink) 8%, transparent); color: var(--ink); }
+.status { display: flex; align-items: center; gap: 10px; min-height: 1.4em; margin: 0; font-size: .9rem; color: var(--muted); }
+.status.ok { color: var(--ink); }
+.spin { width: 15px; height: 15px; border-radius: 50%; border: 2px solid color-mix(in oklab, var(--muted) 35%, transparent); border-top-color: var(--accent); animation: spin .7s linear infinite; }
+@keyframes spin { to { rotate: 1turn; } }
+.check2 { display: flex; align-items: center; gap: 8px; font-size: .88rem; color: var(--ink); }
+.check2 input { accent-color: var(--accent); width: 16px; height: 16px; }
+/* A book's readings: each with its dates, how long it took, and its note. */
+.rd-list { display: grid; margin: 18px 0 0; padding: 0; list-style: none; }
+.rd { display: grid; gap: 10px; padding: 14px 0; border-top: 1px solid var(--line); }
+.rd-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 14px; }
+.rd-top b { font-weight: 600; }
+.rd-meta { color: var(--muted); font-size: .84rem; }
+.rd-tools { display: flex; gap: 14px; margin-left: auto; font-size: .84rem; }
+.rd-note { display: grid; justify-items: start; gap: 6px; font-size: .84rem; }
+.rd-note p { margin: 0; font-family: var(--display); font-size: 1.05rem; font-style: italic; line-height: 1.5; white-space: pre-wrap; }
+.rd .link { color: var(--muted); }
+.rd-note .foot { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; }
+.rd-note .pub { color: var(--muted); }
+.rd-edit .toggle { padding-block: 2px; }
+@media (hover: hover) { .rd .link:hover { color: var(--ink); } }
+.rd-ask, .rd-btns { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
+.rd-ask span { margin-right: auto; font-size: .88rem; }
+.rd-edit { display: grid; gap: 8px; }
+textarea.inp { height: auto; min-height: 92px; padding: 10px 12px; line-height: 1.45; resize: vertical; }
+.btn.danger { background: #a3321f; color: #fff; border-color: transparent; }
+.lab .opt { color: var(--muted); font-weight: 400; }
+.head-link { padding: 0; border: 0; background: none; font: inherit; letter-spacing: inherit; text-transform: inherit; color: inherit; cursor: pointer;
+  text-decoration: underline; text-underline-offset: 3px; text-decoration-color: color-mix(in oklab, currentColor 40%, transparent); }
+@media (hover: hover) { .head-link:hover { color: var(--paper-accent); } }
+.wordmark { margin: 0 0 18px; font-family: var(--display); font-size: .82rem; font-style: italic; color: var(--muted); }
+
+/* The scanner: a viewfinder with corner marks and a sweeping line. */
+.viewfinder { position: relative; aspect-ratio: 4 / 3; border-radius: 10px; overflow: hidden; background: radial-gradient(120% 90% at 50% 40%, #3b342d, #15110d); }
+.viewfinder::before { content: ""; position: absolute; inset: 22% 14%; border-radius: 6px;
+  background: linear-gradient(#f3ead8, #f3ead8) top left / 22px 3px, linear-gradient(#f3ead8, #f3ead8) top left / 3px 22px,
+    linear-gradient(#f3ead8, #f3ead8) top right / 22px 3px, linear-gradient(#f3ead8, #f3ead8) top right / 3px 22px,
+    linear-gradient(#f3ead8, #f3ead8) bottom left / 22px 3px, linear-gradient(#f3ead8, #f3ead8) bottom left / 3px 22px,
+    linear-gradient(#f3ead8, #f3ead8) bottom right / 22px 3px, linear-gradient(#f3ead8, #f3ead8) bottom right / 3px 22px;
+  background-repeat: no-repeat; }
+.viewfinder::after { content: ""; position: absolute; left: 16%; right: 16%; top: 24%; height: 2px; background: #e3c27c; box-shadow: 0 0 12px #e3c27c; animation: sweep 1.8s ease-in-out infinite alternate; }
+@keyframes sweep { to { top: 76%; } }
+.viewfinder video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.viewfinder::before, .viewfinder::after { z-index: 1; }
+.viewfinder p { position: absolute; left: 0; right: 0; bottom: 12px; margin: 0; text-align: center; color: #d9cdb7; font-size: .8rem; }
+
+/* Confirming a found book: its cover beside the details, all editable. */
+.found { display: grid; grid-template-columns: 132px minmax(0, 1fr); gap: 22px; align-items: start; }
+.mini { position: relative; display: block; width: 132px; aspect-ratio: 2 / 3; border-radius: 3px 6px 6px 3px; overflow: hidden; background: var(--c, #8a7a66); box-shadow: 0 14px 26px -12px rgba(0,0,0,.6); cursor: pointer; }
+.mini img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.mini::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(0,0,0,.32), rgba(0,0,0,0) 8%); }
+.mini span { opacity: 0; transition: opacity .2s; }
+.mini:hover span, .mini:focus-within span { opacity: 1; }
+@media (hover: none) { .mini span { opacity: 1; } }
+.fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 14px; }
+.fields .full { grid-column: 1 / -1; }
+.source { margin: 0 0 14px; font-size: .84rem; color: var(--muted); }
+.source b { color: var(--ink); font-weight: 600; }
+
+/* The library drawer: everything about the library as a whole. */
+.drawer-wrap { position: fixed; inset: 0; z-index: 24; }
+.drawer {
+  position: absolute; top: 0; right: 0; bottom: 0; width: min(420px, 100%); overflow: auto;
+  padding: 28px 26px calc(28px + env(safe-area-inset-bottom, 0px)); background: var(--surface); border-left: 1px solid var(--line);
+  box-shadow: -30px 0 80px -40px rgba(0,0,0,.6);
+}
+.drawer section { display: grid; gap: 12px; padding-block: 20px; border-top: 1px solid var(--line); }
+.drawer section[hidden] + section:not([hidden]), .dtabs + section { border-top: 0; }
+.dtabs { margin: 16px 0 4px; }
+.dtabs button { flex: 1; }
+.drawer .seg button { flex: 1; padding: 0 8px; }
+.drawer .lede { margin: 0; }
+/* A setting that is on or off: what it does on the left, a switch on the right. */
+.toggle { display: flex; align-items: center; justify-content: space-between; gap: 16px; cursor: pointer; }
+.toggle b { display: block; font-weight: 600; font-size: .92rem; }
+.toggle small { display: block; margin-top: 2px; color: var(--muted); font-size: .8rem; line-height: 1.4; }
+.toggle input { appearance: none; flex: none; position: relative; width: 38px; height: 22px; border-radius: 99px; background: color-mix(in oklab, var(--ink) 18%, transparent); cursor: pointer; transition: background-color .2s; }
+.toggle input::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: var(--surface); box-shadow: 0 1px 3px rgba(0,0,0,.3); transition: left .2s var(--ease); }
+.toggle input:checked { background: var(--accent); }
+.toggle input:checked::after { left: 19px; }
+.radios, .checks { display: grid; gap: 4px; color: var(--ink); font-size: .9rem; }
+.radios label, .checks label { display: flex; align-items: center; gap: 10px; padding: 5px 0; cursor: pointer; }
+.radios input, .checks input { accent-color: var(--accent); width: 16px; height: 16px; margin: 0; }
+.radios code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: .84rem; color: var(--muted); }
+.radios code span { color: var(--ink); }
+/* The five bindings side by side, drawn by the shelf's own rules. */
+/* The four bindings as a small stack of books lying on their sides, each named beside it. */
+.bindprev { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 3px 14px; padding: 10px 12px; border-radius: 10px; background: color-mix(in oklab, var(--ink) 5%, transparent); }
+.bindprev figure { display: contents; }
+.bindprev .lie { position: relative; flex: none; width: var(--h); height: var(--t); }
+.bindprev .slot { position: absolute; left: calc((var(--h) - var(--t)) / 2); top: calc((var(--t) - var(--h)) / 2); transform: rotate(-90deg); pointer-events: none; }
+.bindprev figcaption { color: var(--muted); font-size: .78rem; }
+.checks.inline { display: flex; flex-wrap: wrap; gap: 4px 18px; }
+.checks.inline:has(input:disabled) { opacity: .5; }
+.sub-lab { display: block; margin-top: -2px; color: var(--muted); font-size: .76rem; }
+.social { display: grid; gap: 10px; }
+.social .bad { border-color: var(--danger); }
+.swatches.ribbons button { background: var(--sw); }
+.well.small { width: 30px; height: 30px; border-radius: 99px; background: conic-gradient(from 90deg, #c0392b, #d4a72c, #3f8f4f, #2f6f9f, #6b3fa0, #c0392b); box-shadow: inset 0 0 0 2px var(--surface), 0 0 0 1px var(--line); }
+.well.small.on { box-shadow: inset 0 0 0 2px var(--surface), 0 0 0 2px var(--accent); }   /* a color of the owner's own */
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.lab output { float: right; color: var(--ink); font-variant-numeric: tabular-nums; }
+input[type="range"] { width: 100%; accent-color: var(--accent); }
+/* Shelf woods: a small plank of each, for day and for evening. */
+.woodrow { display: grid; gap: 6px; margin-top: 4px; }
+.woodrow .when { color: var(--ink); font-size: .86rem; }
+.woods { display: flex; flex-wrap: wrap; gap: 6px; }
+.woods button { width: 32px; height: 32px; border-radius: 7px; background: var(--wood) center / 1024px auto; box-shadow: inset 0 0 0 1px rgba(0,0,0,.2); }
+.woods button[aria-pressed="true"] { box-shadow: inset 0 0 0 1px rgba(0,0,0,.2), 0 0 0 2px var(--surface), 0 0 0 4px var(--accent); }
+/* A private library, seen by a visitor. */
+.gate { display: grid; justify-items: center; gap: 14px; padding: 18vh 16px; text-align: center; }
+.gate .i { width: 30px; height: 30px; color: var(--muted); }
+.gate h2 { margin: 0; font-family: var(--display); font-weight: 600; font-size: 1.5rem; }
+:root[data-gated] .tools, :root[data-gated] .case, :root[data-gated] .summary, :root[data-gated] .nowreading, :root[data-gated] .elsewhere { display: none !important; }
+.drawer h3 { margin: 0; font-size: .72rem; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.drop { display: grid; place-items: center; gap: 4px; padding: 18px; border-radius: 10px; border: 1.5px dashed var(--line); text-align: center; color: var(--muted); font-size: .86rem; cursor: pointer; transition: border-color .2s, background-color .2s; }
+.drop b { color: var(--ink); font-weight: 600; }
+.drop.over { border-color: var(--accent); background: color-mix(in oklab, var(--accent) 8%, transparent); }
+.backups { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.backups li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0; font-size: .9rem; }
+.backups li + li { border-top: 1px dashed var(--line); }
+.backups small { display: block; color: var(--muted); font-size: .78rem; font-variant-numeric: tabular-nums; }
+.btn.sm { height: 32px; padding: 0 10px; font-size: .8rem; }
+
+/* Editing on the title page itself: the same layout, with every line made writable. */
+.view { display: contents; }
+.reader.editing .view { display: none; }
+.pform { display: none; flex-direction: column; align-items: center; width: 100%; flex: 1 0 auto; }
+.reader.editing .pform { display: flex; }
+.pinp { width: 100%; padding: .2em 0; border: 0; border-bottom: 1px solid var(--paper-line); background: transparent; color: var(--paper-ink); font: inherit; text-align: inherit; }
+.pinp:focus { outline: none; border-bottom-color: var(--paper-accent); background: color-mix(in oklab, var(--paper-accent) 5%, transparent); }
+.pinp::placeholder { color: color-mix(in oklab, var(--paper-muted) 70%, transparent); font-style: italic; }
+textarea.pinp { display: block; resize: none; overflow: hidden; field-sizing: content; text-wrap: balance; }
+.pform .pt { margin-top: 1.1em; font-weight: 600; font-size: 1.9em; line-height: 1.15; letter-spacing: -.02em; text-align: center; font-variation-settings: "opsz" 72; }
+.pform .ps { margin-top: .4em; font-style: italic; font-size: 1.05em; text-align: center; }
+.pform .pa { font-size: 1.15em; text-align: center; font-variant-caps: all-small-caps; letter-spacing: .08em; }
+.pform .orn { margin: 1.2em 0 1em; }
+.prows { display: grid; gap: .45em; width: 100%; max-width: 21em; margin-top: 1.6em; }
+.prow { display: grid; grid-template-columns: 6.6em minmax(0, 1fr); align-items: baseline; gap: .6em; }
+.prow > span { color: var(--paper-muted); font-variant-caps: all-small-caps; letter-spacing: .08em; text-align: left; }
+.prow .pinp { text-align: right; font-variant-numeric: lining-nums tabular-nums; }
+.prow select.pinp { appearance: none; cursor: pointer; text-align-last: right; }
+.prow.bad .pinp { border-bottom-color: #a3321f; }
+.perr { min-height: 1.2em; margin: .5em 0 0; font-family: var(--ui); font-size: .76em; color: #a3321f; }
+.pcheck { display: flex; align-items: center; gap: .5em; margin-top: 1em; font-family: var(--ui); font-size: .8em; color: var(--paper-ink); }
+.pcheck input { accent-color: var(--paper-accent); }
+.act.solid { background: var(--paper-accent); color: #f3ead8; }
+@media (hover: hover) { .act.solid:hover { background: color-mix(in oklab, var(--paper-accent) 88%, black); } }
+.act.warn { color: #a3321f; }
+.confirm { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: .3em; }
+.confirm > span { font-family: var(--ui); font-size: .82em; padding-right: .4em; }
+/* The actions, the sources to search on and the question before a removal all share one slot, as tall as
+   the tallest of them, so swapping one for another never moves anything else on the page. */
+.actbar { display: grid; margin-top: 1.5em; }
+.actbar > * { grid-area: 1 / 1; align-self: center; margin: 0; }
+.actbar > .sources, .actbar > .confirm, .reader.searching .actbar > .actions, .reader.asking .actbar > :not(.confirm) { visibility: hidden; }
+.reader.searching:not(.asking) .actbar > .sources, .reader.asking .actbar > .confirm { visibility: visible; }
+.sources { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: .3em; }
+.sources > span:first-child { font-family: var(--ui); font-size: .72em; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--paper-muted); padding-right: .3em; }
+#source-links { display: contents; }
+a.act { text-decoration: none; }
+
+/* On the inside board while editing: replace the cover, or set the spine color by hand. */
+.ctools { position: absolute; left: 0; right: 0; bottom: 5%; display: none; justify-content: center; gap: 8px; }
+.reader.editing .ctools { display: flex; }
+.ctool { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: 99px; background: rgba(247, 241, 229, .94); color: #2a2018; font-family: var(--ui); font-size: .76rem; font-weight: 600; box-shadow: 0 6px 14px -6px rgba(0,0,0,.45); cursor: pointer; }
+.ctool { position: relative; }
+/* The browser's color well can't be trusted to fill a circle, so a plain dot shows the color and the
+   real input lies invisibly over the whole pill. */
+.ctool .dot { width: 16px; height: 16px; border-radius: 50%; background: var(--c); box-shadow: inset 0 0 0 1px rgba(0,0,0,.22); }
+.ctool input[type="color"] { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.ctool input[type="file"] { display: none; }
+.toast { display: flex; align-items: center; gap: 14px; }
+/* Settings save as they change; this small pill says so. It sits under the drawer while the drawer is open,
+   and a run of changes (dragging a slider, typing a name) keeps one pill up rather than stacking new ones. */
+.toast.saved { gap: 8px; padding: 8px 15px 8px 11px; border-radius: 99px; background: color-mix(in oklab, var(--surface) 90%, var(--ink)); color: var(--ink); border: 1px solid var(--line); font-size: .82rem; white-space: nowrap; box-shadow: 0 16px 34px -12px rgba(0,0,0,.55), 0 2px 6px -2px rgba(0,0,0,.25); }
+.toast.saved .i { width: 16px; height: 16px; color: var(--accent); stroke-width: 2.2; }
+body:has(.drawer-wrap:not([hidden])) .toast.saved { left: calc(100% - min(420px, 100%) / 2); bottom: calc(24px + env(safe-area-inset-bottom, 0px)); }
+.toast button { font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+
+@media (max-width: 720px) {
+  /* A phone: the title with its few tools on one line (Add book, then search beside the menu), and what
+     the owner is reading and the links beneath. */
+  header { padding-block: 26px 4px; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "brand tools" "reading reading" "links links"; align-items: center; row-gap: 18px; }
+  .tools { justify-content: flex-end; flex-wrap: nowrap; }
+  header .nowreading, header .elsewhere { justify-self: start; margin-top: 0; }
+  .tools { gap: 6px; }
+  .phone-only { display: inline-flex !important; }
+  .tools > .sort-seg, .tools > #mode, .tools > #stats-btn, .tools > #select, .tools > #settings-btn, .tools > #signout-btn, .tools > #signin-btn { display: none !important; }
+  .tools > #add { order: -1; width: 38px; padding: 0; gap: 0; font-size: 0; }   /* just the plus; its name stays for screen readers */
+  .tools .seg button { padding: 0 8px; }
+  .tools .btn.icon, .search { width: 38px; }
+  .search .field { width: 38px; padding: 0 9px; }
+  .charts { grid-template-columns: minmax(0, 1fr); }
+  .chart.tall { grid-row: auto; }
+  .chart.tall .cols { --ph: 160px; }
+  .edges { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .reading-card { grid-template-columns: 72px minmax(0, 1fr); gap: 0 16px; padding: 16px; }
+  .reading-card img { width: 72px; height: 108px; }
+  .reading-card .progress, .reading-card .facts { grid-column: 1 / -1; }
+  .reading-card .body { display: contents; }
+  .reading-card .who { align-self: center; }
+  .reading-card .progress { margin-top: 16px; }
+  .reading-card .facts { margin-top: 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  :root[data-view="stats"] header { row-gap: 0; }
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kpi:last-child:nth-child(odd) { grid-column: 1 / -1; }
+  .search .field:focus-within, .search.has-query .field { width: calc(100vw - 32px - 44px); }   /* grows leftward over the title, stopping short of the menu */
+  .shelf { padding-top: 34px; }
+  .plank { height: 11px; border-radius: 4px; }
+  :root { --side: 11px; --crown: 14px; --base: 12px; }
+  .slot { --pull: 26px; --lift: 3px; }
+  .thumb { display: block; }
+  .leaf { padding: 1.8em 1.6em 1.1em 2em; }
+  .modal { place-items: end stretch; grid-template-rows: minmax(0, 1fr); padding: 0; inset: 0 0 var(--kb, 0px) 0; }   /* sits above the on-screen keyboard (see visualViewport below) */
+  .field input, .inp, .prow .pinp, .pform .pa, .pform .ps, .reading-card .page input { font-size: 16px; }   /* under 16px, iOS zooms in on focus */
+  .card { width: 100%; max-height: calc(100% - 24px); border-radius: 16px 16px 0 0; padding: 24px 20px calc(24px + env(safe-area-inset-bottom, 0px)); }
+  .card.wide { width: 100%; }
+  .found { grid-template-columns: 92px minmax(0, 1fr); gap: 16px; }
+  .mini { width: 92px; }
+  .fields { grid-template-columns: minmax(0, 1fr); }
+  .drawer { width: 100%; border-left: 0; }
+  .tp { padding-block: .6em 1.4em; }
+}
+@media (prefers-reduced-motion: reduce) { .spine, .spine::after, .slot::before { transition: none; } .slot.peek .spine { inset: 0; } }

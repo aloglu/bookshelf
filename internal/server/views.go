@@ -67,10 +67,10 @@ type readingView struct {
 }
 
 type libraryView struct {
-	Owner    bool         `json:"owner"`
-	User     string       `json:"user,omitempty"`
-	Settings any          `json:"settings"`
-	Books    []bookView   `json:"books"`
+	Owner    bool          `json:"owner"`
+	User     string        `json:"user,omitempty"`
+	Settings any           `json:"settings"`
+	Books    []bookView    `json:"books"`
 	Reading  []readingView `json:"reading"` // books being read now, the most recently started first
 
 	covers map[string]bool // cover and thumbnail files this audience may fetch

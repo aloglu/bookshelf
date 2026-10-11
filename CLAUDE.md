@@ -10,3 +10,5 @@ Working rules:
 - Never write to the owner's real 1.x library (`~/.local/share/bookshelf`); test against copies in a scratch folder.
 - Update the Progress and Follow-ups sections of `docs/v2/PLAN.md` as work lands.
 - Keep the guides in `docs/` true to the app: when behaviour or setup changes, change the guide in the same piece of work.
+
+Building: `cd web && npm ci && npm run build` puts the frontend in `cmd/bookshelf/webdist`, then `go build ./cmd/bookshelf` embeds it. For frontend work, run Bookshelf on port 8080 and `npm run dev` in `web/`. `go test ./...` runs the server's tests.
