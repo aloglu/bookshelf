@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/aloglu/bookshelf/internal/auth"
+	"github.com/aloglu/bookshelf/internal/backup"
 	"github.com/aloglu/bookshelf/internal/lookup"
 	"github.com/aloglu/bookshelf/internal/server"
 	"github.com/aloglu/bookshelf/internal/store"
@@ -35,6 +36,9 @@ func main() {
 }
 
 func run(args []string) error {
+	if len(args) > 0 && args[0] == "health" {
+		return health()
+	}
 	flags := flag.NewFlagSet("bookshelf", flag.ContinueOnError)
 	dataDir := flags.String("data-dir", env("BOOKSHELF_DATA_DIR", defaultDataDir()), "the folder Bookshelf keeps your library in")
 	host := flags.String("host", env("BOOKSHELF_HOST", ""), "the address to listen on (empty: every address of this computer)")
@@ -53,6 +57,10 @@ Settings come from these environment variables (or the options below):
   BOOKSHELF_TRUSTED_PROXIES reverse proxies to believe about visitors' addresses,
                             for example "172.17.0.0/16"
   BOOKSHELF_GOOGLE_API_KEY  an optional Google Books key for ISBN lookups
+  PUID, PGID                in Docker, the user and group to run as (default 1000)
+
+Commands:
+  bookshelf health          check that Bookshelf answers (for health checks)
 
 Options:
 `, version)
@@ -75,6 +83,9 @@ Options:
 		return errors.New("set BOOKSHELF_ADMIN_PASSWORD to the password you want to sign in with")
 	}
 
+	if err := dropPrivileges(*dataDir); err != nil {
+		return err
+	}
 	st, err := store.Open(*dataDir)
 	if err != nil {
 		if errors.Is(err, store.ErrInUse) {
@@ -88,13 +99,15 @@ Options:
 	if err != nil {
 		return err
 	}
-	srv := &server.Server{Store: st, Auth: a, Lookup: lookup.New(os.Getenv("BOOKSHELF_GOOGLE_API_KEY"), version),
+	backups := backup.New(*dataDir, st, version, log)
+	srv := &server.Server{Store: st, Auth: a, Lookup: lookup.New(os.Getenv("BOOKSHELF_GOOGLE_API_KEY"), version), Backups: backups,
 		DataDir: *dataDir, Version: version, Web: webFS(), Log: log}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	go housekeeping(ctx, st, log)
+	go backups.Run(ctx) // scheduled backups and the unused-cover cleanup
 
 	httpServer := &http.Server{
 		Addr:              net.JoinHostPort(*host, strconv.Itoa(*port)),
@@ -121,6 +134,21 @@ Options:
 	shutdown, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	return httpServer.Shutdown(shutdown)
+}
+
+// health checks that a Bookshelf on this machine answers (the Docker
+// image's health check), using the same port setting as the server.
+func health() error {
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Get("http://127.0.0.1:" + strconv.Itoa(envInt("PORT", 8080)) + "/healthz")
+	if err != nil {
+		return err
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("answered %s", resp.Status)
+	}
+	return nil
 }
 
 // housekeeping removes expired sessions now and every hour.

@@ -1,0 +1,16 @@
+# Copy to compose.yml, put BOOKSHELF_ADMIN_PASSWORD in a .env file beside it,
+# then run: docker compose up -d
+services:
+  bookshelf:
+    image: ghcr.io/aloglu/bookshelf:latest
+    container_name: bookshelf
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      BOOKSHELF_ADMIN_PASSWORD: ${BOOKSHELF_ADMIN_PASSWORD:?set BOOKSHELF_ADMIN_PASSWORD in .env}
+      BOOKSHELF_ADMIN_USER: admin
+      PUID: 1000
+      PGID: 1000
+    volumes:
+      - ./data:/data

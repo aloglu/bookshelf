@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/aloglu/bookshelf/internal/auth"
+	"github.com/aloglu/bookshelf/internal/backup"
 	"github.com/aloglu/bookshelf/internal/lookup"
 	"github.com/aloglu/bookshelf/internal/store"
 )
@@ -24,6 +25,7 @@ type Server struct {
 	Store   *store.Store
 	Auth    *auth.Auth
 	Lookup  *lookup.Client
+	Backups *backup.Backups
 	DataDir string
 	Version string
 	Web     fs.FS // the built frontend; nil serves a placeholder
@@ -62,6 +64,14 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("DELETE /api/readings/{id}", s.owner(s.removeReading))
 	mux.HandleFunc("PUT /api/readings/{id}/note", s.owner(s.putNote))
 	mux.HandleFunc("DELETE /api/readings/{id}/note", s.owner(s.deleteNote))
+
+	mux.HandleFunc("GET /api/backups", s.owner(s.listBackups))
+	mux.HandleFunc("POST /api/backups", s.owner(s.backupNow))
+	mux.HandleFunc("GET /api/backups/{name}", s.owner(s.downloadBackup))
+	mux.HandleFunc("POST /api/backups/{name}/restore", s.owner(s.restoreBackup))
+	mux.HandleFunc("POST /api/restore", s.owner(s.restoreUpload))
+	mux.HandleFunc("POST /api/import", s.owner(s.importFile))
+	mux.HandleFunc("GET /api/export", s.owner(s.export))
 
 	mux.HandleFunc("GET /api/settings", s.owner(s.getSettings))
 	mux.HandleFunc("PATCH /api/settings", s.owner(s.patchSettings))

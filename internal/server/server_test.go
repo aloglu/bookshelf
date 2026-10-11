@@ -15,6 +15,7 @@ import (
 	"testing"
 
 	"github.com/aloglu/bookshelf/internal/auth"
+	"github.com/aloglu/bookshelf/internal/backup"
 	"github.com/aloglu/bookshelf/internal/lookup"
 	"github.com/aloglu/bookshelf/internal/store"
 )
@@ -39,7 +40,8 @@ func setup(t *testing.T) *env {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := &Server{Store: st, Auth: a, Lookup: lookup.New("", "test"), DataDir: dir, Version: "test", Log: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	s := &Server{Store: st, Auth: a, Lookup: lookup.New("", "test"), Backups: backup.New(dir, st, "test", log), DataDir: dir, Version: "test", Log: log}
 	srv := httptest.NewServer(s.Handler())
 	t.Cleanup(srv.Close)
 	jar, _ := cookiejar.New(nil)
@@ -273,5 +275,59 @@ func TestSettingsPatchIsAllOrNothing(t *testing.T) {
 	code, st := e.do(e.owner, "PATCH", "/api/settings", map[string]any{"caseParts": map[string]any{"back": false}})
 	if parts := st["caseParts"].(map[string]any); code != 200 || parts["back"] != false || parts["sides"] != true {
 		t.Fatalf("partial nested patch: %d %v", code, st)
+	}
+}
+
+func TestBackupExportImportRestore(t *testing.T) {
+	e := setup(t)
+	id := e.addBook("Austerlitz", "9780375756566", false)
+	e.do(e.owner, "PUT", "/api/books/"+id+"/cover", png1(t))
+
+	code, b := e.do(e.owner, "POST", "/api/backups", nil)
+	if code != 201 || b["kind"] != "manual" || b["books"] != 1.0 {
+		t.Fatalf("backup: %d %v", code, b)
+	}
+	name := b["name"].(string)
+
+	// Export: CSV, JSON and a full archive.
+	for _, f := range []string{"csv", "json", "archive"} {
+		resp, _ := e.owner.Get(e.srv.URL + "/api/export?format=" + f)
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if resp.StatusCode != 200 || !strings.Contains(resp.Header.Get("Content-Disposition"), "attachment") || len(body) == 0 {
+			t.Fatalf("export %s: %d", f, resp.StatusCode)
+		}
+		if f == "csv" && !strings.Contains(string(body), "978-0-375-75656-6") {
+			t.Fatalf("csv: %s", body)
+		}
+	}
+
+	// Import a CSV: one new book, one already there.
+	code, res := e.do(e.owner, "POST", "/api/import?name=books.csv", []byte("title,author,isbn\nAusterlitz,W. G. Sebald,9780375756566\nDune,Frank Herbert,9780441172719\n"))
+	if code != 200 || res["added"] != 1.0 || res["skipped"] != 1.0 {
+		t.Fatalf("import: %d %v", code, res)
+	}
+	if code, res := e.do(e.owner, "POST", "/api/import?name=books.csv", []byte("name,writer\nX,Y\n")); code != 422 {
+		t.Fatalf("a CSV without titles: %d %v", code, res)
+	}
+
+	// Restore the backup: back to one book, with its cover.
+	if code, res := e.do(e.owner, "POST", "/api/backups/"+name+"/restore", nil); code != 200 {
+		t.Fatalf("restore: %d %v", code, res)
+	}
+	_, lib := e.do(e.owner, "GET", "/api/library", nil)
+	books := lib["books"].([]any)
+	if len(books) != 1 || books[0].(map[string]any)["cover"] == nil {
+		t.Fatalf("after restore: %v", books)
+	}
+	cover := books[0].(map[string]any)["cover"].(map[string]any)["url"].(string)
+	if resp, _ := e.owner.Get(e.srv.URL + cover); resp.StatusCode != 200 {
+		t.Fatalf("the restored cover isn't served: %d", resp.StatusCode)
+	}
+	if code, _ := e.do(e.owner, "POST", "/api/backups/../../etc/restore", nil); code == 200 {
+		t.Fatal("a path outside the backups was restored")
+	}
+	if code, _ := e.do(e.visitor, "GET", "/api/export?format=archive", nil); code != 401 {
+		t.Fatal("a visitor exported the library")
 	}
 }
