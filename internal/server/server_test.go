@@ -1,0 +1,277 @@
+package server
+
+import (
+	"bytes"
+	"encoding/json"
+	"image"
+	"image/color"
+	"image/png"
+	"io"
+	"log/slog"
+	"net/http"
+	"net/http/cookiejar"
+	"net/http/httptest"
+	"strings"
+	"testing"
+
+	"github.com/aloglu/bookshelf/internal/auth"
+	"github.com/aloglu/bookshelf/internal/lookup"
+	"github.com/aloglu/bookshelf/internal/store"
+)
+
+type env struct {
+	t       *testing.T
+	srv     *httptest.Server
+	owner   *http.Client // signed in
+	visitor *http.Client
+	st      *store.Store
+}
+
+func setup(t *testing.T) *env {
+	t.Helper()
+	dir := t.TempDir()
+	st, err := store.Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { st.Close() })
+	a, err := auth.New(st, "admin", "secret", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := &Server{Store: st, Auth: a, Lookup: lookup.New("", "test"), DataDir: dir, Version: "test", Log: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	srv := httptest.NewServer(s.Handler())
+	t.Cleanup(srv.Close)
+	jar, _ := cookiejar.New(nil)
+	e := &env{t: t, srv: srv, owner: &http.Client{Jar: jar}, visitor: &http.Client{}, st: st}
+	if code, _ := e.do(e.owner, "POST", "/api/session", map[string]string{"user": "admin", "password": "secret"}); code != 200 {
+		t.Fatalf("sign in: %d", code)
+	}
+	return e
+}
+
+// do sends JSON (or raw bytes) the way the site's own page does, and decodes the answer.
+func (e *env) do(c *http.Client, method, path string, body any) (int, map[string]any) {
+	e.t.Helper()
+	var rd io.Reader
+	switch b := body.(type) {
+	case nil:
+	case []byte:
+		rd = bytes.NewReader(b)
+	default:
+		raw, _ := json.Marshal(b)
+		rd = bytes.NewReader(raw)
+	}
+	req, _ := http.NewRequest(method, e.srv.URL+path, rd)
+	req.Header.Set("Origin", e.srv.URL)
+	resp, err := c.Do(req)
+	if err != nil {
+		e.t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	raw, _ := io.ReadAll(resp.Body)
+	var out map[string]any
+	json.Unmarshal(raw, &out)
+	return resp.StatusCode, out
+}
+
+func (e *env) addBook(title, isbn string, hidden bool) string {
+	e.t.Helper()
+	code, b := e.do(e.owner, "POST", "/api/books", map[string]any{"title": title, "author": "A. Writer", "isbn": isbn, "pages": 300, "hidden": hidden})
+	if code != 201 {
+		e.t.Fatalf("add %s: %d %v", title, code, b)
+	}
+	return b["id"].(string)
+}
+
+func titles(lib map[string]any) []string {
+	var out []string
+	for _, b := range lib["books"].([]any) {
+		out = append(out, b.(map[string]any)["title"].(string))
+	}
+	return out
+}
+
+func png1(t *testing.T) []byte {
+	img := image.NewRGBA(image.Rect(0, 0, 200, 300))
+	for y := range 300 {
+		for x := range 200 {
+			img.Set(x, y, color.RGBA{30, 60, 120, 255})
+		}
+	}
+	var buf bytes.Buffer
+	png.Encode(&buf, img)
+	return buf.Bytes()
+}
+
+func TestVisitorsNeverSeeHiddenBooks(t *testing.T) {
+	e := setup(t)
+	e.addBook("Shown", "9780679723424", false)
+	hid := e.addBook("Secret", "", true)
+	e.do(e.owner, "PUT", "/api/books/"+hid+"/cover", png1(t))
+
+	_, mine := e.do(e.owner, "GET", "/api/library", nil)
+	if got := strings.Join(titles(mine), ","); got != "Shown,Secret" {
+		t.Fatalf("owner sees %s", got)
+	}
+	_, theirs := e.do(e.visitor, "GET", "/api/library", nil)
+	if got := strings.Join(titles(theirs), ","); got != "Shown" {
+		t.Fatalf("visitor sees %s", got)
+	}
+	if _, ok := theirs["settings"].(map[string]any)["private"]; ok {
+		t.Fatal("visitors received owner-only settings")
+	}
+	// The hidden book's cover isn't served to visitors either.
+	var cover string
+	for _, b := range mine["books"].([]any) {
+		if bm := b.(map[string]any); bm["id"] == hid {
+			cover = bm["cover"].(map[string]any)["url"].(string)
+		}
+	}
+	if resp, _ := e.owner.Get(e.srv.URL + cover); resp.StatusCode != 200 {
+		t.Fatalf("owner cover: %d", resp.StatusCode)
+	}
+	if resp, _ := e.visitor.Get(e.srv.URL + cover); resp.StatusCode != 404 {
+		t.Fatalf("visitor fetched a hidden book's cover: %d", resp.StatusCode)
+	}
+}
+
+func TestPrivateLibrary(t *testing.T) {
+	e := setup(t)
+	e.addBook("Anything", "", false)
+	if code, _ := e.do(e.owner, "PATCH", "/api/settings", map[string]any{"private": true}); code != 200 {
+		t.Fatal("could not make it private")
+	}
+	code, body := e.do(e.visitor, "GET", "/api/library", nil)
+	if code != 403 || body["private"] != true || body["books"] != nil {
+		t.Fatalf("private library to a visitor: %d %v", code, body)
+	}
+	if code, _ := e.do(e.owner, "GET", "/api/library", nil); code != 200 {
+		t.Fatal("the owner was refused their own private library")
+	}
+}
+
+func TestOwnerOnly(t *testing.T) {
+	e := setup(t)
+	for _, c := range []struct{ method, path string }{
+		{"POST", "/api/books"}, {"PATCH", "/api/settings"}, {"GET", "/api/readings"}, {"GET", "/api/lookup?isbn=9780679723424"}, {"DELETE", "/api/books/x"},
+	} {
+		if code, _ := e.do(e.visitor, c.method, c.path, map[string]any{}); code != 401 {
+			t.Errorf("%s %s by a visitor: %d", c.method, c.path, code)
+		}
+	}
+}
+
+func TestChangesFromOtherSitesAreRefused(t *testing.T) {
+	e := setup(t)
+	req, _ := http.NewRequest("POST", e.srv.URL+"/api/books", strings.NewReader(`{"title":"Planted"}`))
+	req.Header.Set("Origin", "https://evil.example")
+	resp, _ := e.owner.Do(req)
+	if resp.StatusCode != 403 {
+		t.Fatalf("cross-site change: %d", resp.StatusCode)
+	}
+	if n := len(e.st.Snapshot().Books); n != 0 {
+		t.Fatal("the cross-site book was added")
+	}
+}
+
+func TestSignInMistakes(t *testing.T) {
+	e := setup(t)
+	c := &http.Client{}
+	if code, _ := e.do(c, "POST", "/api/session", map[string]string{"user": "admin", "password": "wrong"}); code != 401 {
+		t.Fatalf("wrong password: %d", code)
+	}
+	for range 5 {
+		e.do(c, "POST", "/api/session", map[string]string{"user": "admin", "password": "wrong"})
+	}
+	code, body := e.do(c, "POST", "/api/session", map[string]string{"user": "admin", "password": "secret"})
+	if code != 429 || !strings.Contains(body["error"].(string), "Try again in") {
+		t.Fatalf("lockout: %d %v", code, body)
+	}
+}
+
+func TestBooksAndISBNs(t *testing.T) {
+	e := setup(t)
+	code, b := e.do(e.owner, "POST", "/api/books", map[string]any{"title": "Pale Fire", "isbn": "ISBN-10: 0-679-72342-0", "binding": "Mass market paperback"})
+	if code != 201 || b["isbn"] != "9780679723424" || b["isbnDisplay"] != "978-0-679-72342-4" || b["binding"] != "paperback" || b["address"] != "9780679723424" {
+		t.Fatalf("add: %d %v", code, b)
+	}
+	if code, body := e.do(e.owner, "POST", "/api/books", map[string]any{"title": "Again", "isbn": "9780679723424"}); code != 409 {
+		t.Fatalf("duplicate: %d %v", code, body)
+	}
+	if code, _ := e.do(e.owner, "POST", "/api/books", map[string]any{"title": "Bad", "isbn": "9780679723425"}); code != 422 {
+		t.Fatalf("bad checksum: %d", code)
+	}
+	e.do(e.owner, "PATCH", "/api/settings", map[string]any{"permalink": "title"})
+	_, lib := e.do(e.owner, "GET", "/api/library", nil)
+	if a := lib["books"].([]any)[0].(map[string]any)["address"]; a != "pale-fire" {
+		t.Fatalf("address by title: %v", a)
+	}
+}
+
+func TestCoverUploadSetsTheSpine(t *testing.T) {
+	e := setup(t)
+	id := e.addBook("Blue", "", false)
+	code, b := e.do(e.owner, "PUT", "/api/books/"+id+"/cover", png1(t))
+	if code != 200 || b["spine"].(map[string]any)["color"] != "#1e3c78" {
+		t.Fatalf("cover: %d %v", code, b)
+	}
+	if code, _ := e.do(e.owner, "PUT", "/api/books/"+id+"/cover", []byte("nope")); code != 422 {
+		t.Fatalf("not an image: %d", code)
+	}
+	code, b = e.do(e.owner, "PUT", "/api/books/"+id+"/spine", map[string]any{"color": "#AA0000"})
+	if code != 200 || b["spine"].(map[string]any)["color"] != "#aa0000" || b["spine"].(map[string]any)["own"] != true {
+		t.Fatalf("own spine: %d %v", code, b)
+	}
+}
+
+func TestReadingsThroughTheAPI(t *testing.T) {
+	e := setup(t)
+	id := e.addBook("Austerlitz", "", false)
+	code, rd := e.do(e.owner, "POST", "/api/readings", map[string]any{"bookId": id})
+	if code != 201 {
+		t.Fatalf("start: %d %v", code, rd)
+	}
+	rid := rd["id"].(string)
+	if code, _ := e.do(e.owner, "PATCH", "/api/readings/"+rid, map[string]any{"page": 112}); code != 200 {
+		t.Fatal("page")
+	}
+	_, lib := e.do(e.visitor, "GET", "/api/library", nil)
+	if r := lib["reading"].(map[string]any); r["page"] != 112.0 || r["bookId"] != id {
+		t.Fatalf("visitors see the current reading: %v", r)
+	}
+	if code, _ := e.do(e.owner, "PATCH", "/api/readings/"+rid, map[string]any{"end": "finished"}); code != 200 {
+		t.Fatal("finish")
+	}
+	if code, _ := e.do(e.owner, "PUT", "/api/readings/"+rid+"/note", map[string]any{"text": "Haunting.", "public": false}); code != 200 {
+		t.Fatal("note")
+	}
+	if code, _ := e.do(e.owner, "POST", "/api/readings", map[string]any{"bookId": id, "read": map[string]any{"precision": "year", "date": "2019"}}); code != 201 {
+		t.Fatal("mark read")
+	}
+	_, mine := e.do(e.owner, "GET", "/api/library", nil)
+	if n := mine["books"].([]any)[0].(map[string]any)["readCount"]; n != 2.0 {
+		t.Fatalf("read count %v", n)
+	}
+	_, theirs := e.do(e.visitor, "GET", "/api/library", nil)
+	if _, ok := theirs["books"].([]any)[0].(map[string]any)["readCount"]; ok || theirs["reading"] != nil {
+		t.Fatalf("visitors see the reading history: %v", theirs["books"])
+	}
+}
+
+func TestSettingsPatchIsAllOrNothing(t *testing.T) {
+	e := setup(t)
+	if code, _ := e.do(e.owner, "PATCH", "/api/settings", map[string]any{"name": "Shelf", "wallDay": "nope"}); code != 422 {
+		t.Fatalf("invalid patch: %d", code)
+	}
+	if code, _ := e.do(e.owner, "PATCH", "/api/settings", map[string]any{"name": "Shelf", "colour": "x"}); code != 422 {
+		t.Fatalf("unknown field: %d", code)
+	}
+	if n := e.st.Snapshot().Settings.Name; n != "Bookshelf" {
+		t.Fatalf("a rejected patch changed the name to %q", n)
+	}
+	code, st := e.do(e.owner, "PATCH", "/api/settings", map[string]any{"caseParts": map[string]any{"back": false}})
+	if parts := st["caseParts"].(map[string]any); code != 200 || parts["back"] != false || parts["sides"] != true {
+		t.Fatalf("partial nested patch: %d %v", code, st)
+	}
+}

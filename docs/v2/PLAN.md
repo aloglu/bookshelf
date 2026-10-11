@@ -164,10 +164,20 @@ Guides for people running Bookshelf, step by step, saying what they should see, 
 ## Progress
 
 - 2026-10-12: design study finished (`prototype.html`). Architecture, storage (SQLite) and frontend split (plain-JS engine + Svelte) agreed. `v2` branch started.
+- 2026-10-12, phase 2 begun. The 1.x terminal app (`cmd/bookshelf`, `internal/tui`, the `bookshelf` wrapper script) is removed; `internal/library` and `internal/siteassets` stay only until the 1.x import exists. New packages, each with tests:
+  - `internal/store` — SQLite (modernc.org/sqlite), one connection, `locking_mode=EXCLUSIVE` + WAL taken at open with `busy_timeout(0)`; whole library held in memory as an immutable `Snapshot`; changes take turns on a mutex. Books (unique slug and ISBN), readings (one in progress, re-reads, mark as read with day/year/unknown precision, page log, corrections), notes (finished readings only), settings (validated), sessions (touched at most hourly; sliding week). Tests prove a second open is refused at once, no `-shm` file exists, and a single file lock is held while 200 readers run against 40 writes.
+  - `internal/isbn` — normalize (labels, punctuation, ISBN-10 → 13), checksums, hyphenation from the embedded RangeMessage.xml (all groups, 978 and 979).
+  - `internal/covers` — decode with size limits, WebP detail (900px) and thumbnail (360px) written atomically under a fresh name per cover, spine colour by the study's edge median, lettering colour.
+  - `internal/auth` — env user/password (SHA-256 + constant-time compare), sessions in an HTTP-only SameSite=Lax cookie, lockout per client address (5 in 15 minutes) with the address taken from X-Forwarded-For only behind `BOOKSHELF_TRUSTED_PROXIES`, a global slow-down instead of a global lockout, pruned failure records.
+  - `internal/lookup` — Open Library (edition + search index; edition title kept unless the index has the same title with better capitals or without a trailing series) then Google Books (optional `BOOKSHELF_GOOGLE_API_KEY`); covers fetched only over HTTPS from Open Library, archive.org and Google Books hosts, redirects checked too.
+  - `internal/server` — the API from the plan, visitor and owner views built once per change, hidden books and their covers never served to visitors, a private library refusing visitors everything, same-origin check on every change, all-or-nothing settings patches.
+  - `cmd/bookshelf` — the program: flags/env, default data folder `com.aloglu.bookshelf` in the system's data folder (never 1.x's), graceful shutdown, hourly session pruning, refuses to start without a password before touching anything, embeds the built frontend from `cmd/bookshelf/webdist` when present.
+- Checked by hand against a scratch folder: sign-in, live lookup, adding a book with its Open Library cover, a second instance refused, and one database lock held before and after 300 parallel requests.
 
 ## Follow-ups
 
-- Review the data model and API drafts above before phase 2.
+- **Phase 2, still to do:** backups (scheduled, before imports and restores, keep N, zip with real timestamps), restore, import (CSV, JSON, archive), export (CSV, JSON, archive with covers), the orphaned-cover cleanup, and the Docker image (non-root entrypoint with PUID/PGID, healthcheck).
+- **Lookup data quality:** Open Library's "first published" year is sometimes wrong (Pale Fire shows 1945; it is 1962). The owner corrects it on the confirm card; consider preferring the edition's own year when the two disagree badly.
 - **Reading in the interface:** the study has "Reading now" / "Finished reading" and the page field. 2.0 also needs "Set aside", "Mark as read" (with its optional date or year), a way to write the note after finishing (on the book's page, for books that have been read), and somewhere to see, correct and delete past readings of a book ("Read 3 times", each reading with its dates and note). Design these before the frontend phase.
 - **Notes blog (later, decided 2026-10-12):** a very simple section where the owner publishes notes, chosen per book; notes can also stay private to the owner. Not part of 2.0's first release unless decided otherwise.
 - **Read dates from imports (possibility, not committed):** a CSV import (for example a Goodreads export, which carries read dates) could mark books as read in one go.

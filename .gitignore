@@ -9,3 +9,7 @@ CHANGELOG.md
 /data/
 /public/
 /backups/
+
+# The built frontend, copied in at build time
+/cmd/bookshelf/webdist/*
+!/cmd/bookshelf/webdist/README
