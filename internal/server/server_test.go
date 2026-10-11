@@ -36,7 +36,7 @@ func setup(t *testing.T) *env {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { st.Close() })
-	a, err := auth.New(st, "admin", "secret", "")
+	a, err := auth.New(st, "admin", auth.Plain("secret"), "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -174,6 +174,42 @@ func TestChangesFromOtherSitesAreRefused(t *testing.T) {
 	}
 	if n := len(e.st.Snapshot().Books); n != 0 {
 		t.Fatal("the cross-site book was added")
+	}
+	try := func(site, origin string) int {
+		req, _ := http.NewRequest("POST", e.srv.URL+"/api/books", strings.NewReader(`{"title":"Planted"}`))
+		req.Header.Set("Sec-Fetch-Site", site)
+		req.Header.Set("Origin", origin)
+		resp, err := e.owner.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		return resp.StatusCode
+	}
+	// A modern browser says where the request comes from, whatever its Origin claims.
+	for _, site := range []string{"cross-site", "same-site"} {
+		if code := try(site, e.srv.URL); code != 403 {
+			t.Fatalf("Sec-Fetch-Site %s: %d", site, code)
+		}
+	}
+	// Behind a proxy that rewrites Host, the browser still says same-origin.
+	if code := try("same-origin", "https://books.example.com"); code != 201 {
+		t.Fatalf("same-origin behind a proxy: %d", code)
+	}
+}
+
+func TestEveryAnswerCarriesTheSafetyHeaders(t *testing.T) {
+	e := setup(t)
+	for _, path := range []string{"/", "/api/library", "/api/nothing"} {
+		resp, err := e.visitor.Get(e.srv.URL + path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		h := resp.Header
+		if h.Get("X-Content-Type-Options") != "nosniff" || !strings.Contains(h.Get("Content-Security-Policy"), "script-src 'self'") || h.Get("X-Frame-Options") != "SAMEORIGIN" {
+			t.Fatalf("%s: %v", path, h)
+		}
 	}
 }
 

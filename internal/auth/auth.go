@@ -1,6 +1,6 @@
-// Package auth signs the owner in: one user name and password from the
-// environment, week-long sessions per device, and a lockout after repeated
-// wrong passwords.
+// Package auth signs the owner in: one user name and a password (from the
+// environment, or set once with `bookshelf set-password`), week-long sessions
+// per device, and a lockout after repeated wrong passwords.
 package auth
 
 import (
@@ -39,10 +39,11 @@ func (e *LockedError) Error() string { return "too many wrong passwords; try aga
 
 // Auth checks sign-ins and sessions.
 type Auth struct {
-	user, password [32]byte // SHA-256, so comparisons take the same time whatever the input
-	userName       string
-	store          *store.Store
-	trusted        []netip.Prefix // proxies whose X-Forwarded-For is believed
+	user     [32]byte // SHA-256, so comparisons take the same time whatever the input
+	password Password
+	userName string
+	store    *store.Store
+	trusted  []netip.Prefix // proxies whose X-Forwarded-For is believed
 
 	mu       sync.Mutex
 	failures map[string][]time.Time // by client address
@@ -53,14 +54,14 @@ type Auth struct {
 
 // New makes an Auth. trustedProxies is a comma-separated list of addresses
 // or networks (for example "172.17.0.0/16, 10.0.0.2") of reverse proxies.
-func New(st *store.Store, user, password, trustedProxies string) (*Auth, error) {
-	if password == "" {
-		return nil, errors.New("set BOOKSHELF_ADMIN_PASSWORD to the password you want to sign in with")
+func New(st *store.Store, user string, password Password, trustedProxies string) (*Auth, error) {
+	if password == nil {
+		return nil, errors.New("no password")
 	}
 	if user == "" {
 		user = "admin"
 	}
-	a := &Auth{store: st, userName: user, user: sha256.Sum256([]byte(user)), password: sha256.Sum256([]byte(password)),
+	a := &Auth{store: st, userName: user, user: sha256.Sum256([]byte(user)), password: password,
 		failures: map[string][]time.Time{}, now: time.Now, sleep: time.Sleep}
 	for _, part := range strings.Split(trustedProxies, ",") {
 		part = strings.TrimSpace(part)
@@ -132,15 +133,14 @@ func (a *Auth) Trusted(r *http.Request) bool {
 // SignIn checks a user name and password from client and, if they match,
 // returns a new session token.
 func (a *Auth) SignIn(ctx context.Context, client, user, password, userAgent string) (string, error) {
-	if wait := a.lockedFor(client); wait > 0 {
+	if wait := a.attempt(client); wait > 0 {
 		return "", &LockedError{Wait: wait}
 	}
 	a.slowDown()
-	u, p := sha256.Sum256([]byte(user)), sha256.Sum256([]byte(password))
+	u := sha256.Sum256([]byte(user))
 	userOK := subtle.ConstantTimeCompare(u[:], a.user[:]) == 1
-	passOK := subtle.ConstantTimeCompare(p[:], a.password[:]) == 1
+	passOK := a.password.Match(password) // checked whatever the user name, so a wrong name takes as long
 	if !userOK || !passOK {
-		a.fail(client)
 		return "", ErrWrong
 	}
 	a.mu.Lock()
@@ -169,23 +169,22 @@ func hash(token string) string {
 	return hex.EncodeToString(h[:])
 }
 
-func (a *Auth) lockedFor(client string) time.Duration {
+// attempt counts a sign-in from client before its password is checked, or
+// says how long the client must wait. Counting first, in one step, means
+// many attempts sent at once can't all slip in before the first is counted;
+// a right password then clears the count.
+func (a *Auth) attempt(client string) time.Duration {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.pruneLocked()
 	list := a.failures[client]
-	if len(list) < failuresAllowed {
-		return 0
+	if len(list) >= failuresAllowed {
+		return list[len(list)-failuresAllowed].Add(failureWindow).Sub(a.now())
 	}
-	return list[len(list)-failuresAllowed].Add(failureWindow).Sub(a.now())
-}
-
-func (a *Auth) fail(client string) {
-	a.mu.Lock()
-	defer a.mu.Unlock()
 	now := a.now()
-	a.failures[client] = append(a.failures[client], now)
+	a.failures[client] = append(list, now)
 	a.recent = append(a.recent, now)
+	return 0
 }
 
 // slowDown makes every attempt wait a moment while many wrong passwords are

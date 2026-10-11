@@ -81,6 +81,14 @@ func (s *Server) Handler() http.Handler {
 	return s.guard(mux)
 }
 
+// contentPolicy lets the page run only its own scripts (and the barcode
+// reader's WebAssembly), talk only to this server, and show covers from here,
+// from the lookup's https hosts, or drawn in the browser. Inline styles are
+// allowed: every spine carries its own colors and size.
+const contentPolicy = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; " +
+	"img-src 'self' data: blob: https:; media-src 'self' blob:; font-src 'self'; connect-src 'self'; " +
+	"object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'self'"
+
 // guard adds the headers every answer carries, refuses changes that don't
 // come from this site's own pages, and logs failures.
 func (s *Server) guard(next http.Handler) http.Handler {
@@ -89,6 +97,7 @@ func (s *Server) guard(next http.Handler) http.Handler {
 		h.Set("X-Content-Type-Options", "nosniff")
 		h.Set("Referrer-Policy", "same-origin")
 		h.Set("X-Frame-Options", "SAMEORIGIN")
+		h.Set("Content-Security-Policy", contentPolicy)
 		if r.Method != http.MethodGet && r.Method != http.MethodHead && !s.sameOrigin(r) {
 			fail(w, http.StatusForbidden, "This change didn’t come from Bookshelf’s own page.")
 			return
@@ -97,14 +106,18 @@ func (s *Server) guard(next http.Handler) http.Handler {
 	})
 }
 
-// sameOrigin is the CSRF check: a change must come from a page on this host.
-// Browsers send Origin on every cross-site POST/PATCH/PUT/DELETE; a missing
-// Origin with a Sec-Fetch-Site of same-origin (or none, for tools) is allowed.
+// sameOrigin is the CSRF check: a change must come from a page of this site.
+// Browsers say where a request comes from in Sec-Fetch-Site, which pages can't
+// forge and which holds behind any proxy (it compares the page with the address
+// the browser asked for). Browsers too old to send it are checked by Origin
+// against the host; tools that send neither (curl) carry no visitor's cookies.
 func (s *Server) sameOrigin(r *http.Request) bool {
+	if site := r.Header.Get("Sec-Fetch-Site"); site != "" {
+		return site == "same-origin" || site == "none"
+	}
 	origin := r.Header.Get("Origin")
 	if origin == "" {
-		site := r.Header.Get("Sec-Fetch-Site")
-		return site == "" || site == "same-origin" || site == "none"
+		return true
 	}
 	u, err := url.Parse(origin)
 	if err != nil {

@@ -1,40 +1,66 @@
+# Builds and tests Bookshelf on every push and pull request: the frontend, the
+# Go server with the frontend embedded, and the Docker image's smoke test.
 name: CI
 
 on:
   push:
-    branches:
-      - main
+    branches: [main, v2]
   pull_request:
 
 permissions:
   contents: read
 
 jobs:
-  verify:
-    runs-on: ubuntu-latest
+  checks:
+    name: Checks
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
-
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
-          cache: true
 
-      - uses: actions/setup-node@v6
+      - name: Frontend
+        working-directory: web
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+
+      - name: Go
+        run: |
+          unformatted="$(gofmt -l .)"
+          [ -z "$unformatted" ] || { echo "Run gofmt on: $unformatted"; exit 1; }
+          go vet ./...
+          go test ./...
+          go build -o bookshelf ./cmd/bookshelf
+
+      - name: The program serves the frontend
+        run: |
+          data="$(mktemp -d)"
+          BOOKSHELF_ADMIN_PASSWORD=ci ./bookshelf --data-dir "$data" --port 18200 &
+          pid=$!
+          for _ in $(seq 1 30); do PORT=18200 ./bookshelf health && break; sleep 1; done
+          curl -sf http://127.0.0.1:18200/ | grep -q '<title>Bookshelf</title>'
+          kill "$pid"
+
+  docker:
+    name: Docker
+    needs: checks
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/build-push-action@v7
         with:
-          node-version: 22
-
-      - name: Format
-        run: test -z "$(gofmt -l .)"
-
-      - name: Vet
-        run: go vet ./...
-
-      - name: Test
-        run: go test -race ./...
-
-      - name: Browser smoke test
-        run: node scripts/browser-smoke.mjs --require-browser
-
-      - name: Check installer syntax
-        run: sh -n install.sh
+          context: .
+          load: true
+          tags: bookshelf:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Smoke test
+        run: docker/smoke-test.sh bookshelf:test

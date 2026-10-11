@@ -1,14 +1,9 @@
 /build/
 /dist/
-tea_debug.log
 *.test
-CHANGELOG.md
-/.design-prototypes/
 
-# Runtime data and generated output
+# Runtime data
 /data/
-/public/
-/backups/
 
 # The built frontend, copied in at build time
 /cmd/bookshelf/webdist/*

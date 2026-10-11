@@ -5,6 +5,10 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -18,7 +22,7 @@ func setup(t *testing.T, proxies string) (*Auth, *time.Time) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { st.Close() })
-	a, err := New(st, "", "secret", proxies)
+	a, err := New(st, "", Plain("secret"), proxies)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -31,7 +35,7 @@ func setup(t *testing.T, proxies string) (*Auth, *time.Time) {
 func TestNeedsAPassword(t *testing.T) {
 	st, _ := store.Open(t.TempDir())
 	defer st.Close()
-	if _, err := New(st, "admin", "", ""); err == nil {
+	if _, err := New(st, "admin", nil, ""); err == nil {
 		t.Fatal("started without a password")
 	}
 }
@@ -98,5 +102,64 @@ func TestClientBehindATrustedProxy(t *testing.T) {
 	r.RemoteAddr = "198.51.100.7:4000"
 	if got := a.Client(r); got != "198.51.100.7" {
 		t.Fatalf("spoofed client = %s", got)
+	}
+}
+
+func TestAttemptsAtOnceAreCountedToo(t *testing.T) {
+	a, now := setup(t, "")
+	// Many wrong passwords from elsewhere switch on the global slow-down, so
+	// each attempt pauses before its password is checked: the moment in
+	// which attempts sent together could all get past an uncounted check.
+	for range globalSlowAfter {
+		a.recent = append(a.recent, *now)
+	}
+	a.sleep = func(time.Duration) { time.Sleep(20 * time.Millisecond) }
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	tried := 0
+	for range 50 {
+		wg.Go(func() {
+			_, err := a.SignIn(context.Background(), "203.0.113.9", "admin", "wrong", "")
+			if errors.Is(err, ErrWrong) {
+				mu.Lock()
+				tried++
+				mu.Unlock()
+			}
+		})
+	}
+	wg.Wait()
+	if tried != failuresAllowed {
+		t.Fatalf("%d passwords were tried at once, want %d", tried, failuresAllowed)
+	}
+}
+
+func TestASetPasswordIsKeptHashed(t *testing.T) {
+	dir := t.TempDir()
+	if _, err := LoadPassword(dir); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("no password yet: %v", err)
+	}
+	if err := SavePassword(dir, "short"); err == nil {
+		t.Fatal("a 5-character password was taken")
+	}
+	if err := SavePassword(dir, "a long password"); err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := os.ReadFile(filepath.Join(dir, PasswordFile))
+	if strings.Contains(string(raw), "a long password") || !strings.HasPrefix(string(raw), "pbkdf2-sha256$") {
+		t.Fatalf("the file holds %q", raw)
+	}
+	if info, _ := os.Stat(filepath.Join(dir, PasswordFile)); info.Mode().Perm() != 0o600 {
+		t.Fatalf("the file is %v", info.Mode().Perm())
+	}
+	pw, err := LoadPassword(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !pw.Match("a long password") || pw.Match("a long passworD") || pw.Match("") {
+		t.Fatal("the stored password matches the wrong things")
+	}
+	os.WriteFile(filepath.Join(dir, PasswordFile), []byte("hunter2\n"), 0o600)
+	if _, err := LoadPassword(dir); err == nil {
+		t.Fatal("a file Bookshelf didn't write was taken as a password")
 	}
 }

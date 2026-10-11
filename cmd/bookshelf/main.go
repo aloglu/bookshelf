@@ -3,6 +3,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"flag"
@@ -15,6 +16,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -23,6 +25,7 @@ import (
 	"github.com/aloglu/bookshelf/internal/lookup"
 	"github.com/aloglu/bookshelf/internal/server"
 	"github.com/aloglu/bookshelf/internal/store"
+	"golang.org/x/term"
 )
 
 // version is set when releases are built (-ldflags "-X main.version=2.0.0").
@@ -39,6 +42,10 @@ func run(args []string) error {
 	if len(args) > 0 && args[0] == "health" {
 		return health()
 	}
+	setPassword := len(args) > 0 && args[0] == "set-password"
+	if setPassword {
+		args = args[1:]
+	}
 	flags := flag.NewFlagSet("bookshelf", flag.ContinueOnError)
 	dataDir := flags.String("data-dir", env("BOOKSHELF_DATA_DIR", defaultDataDir()), "the folder Bookshelf keeps your library in")
 	host := flags.String("host", env("BOOKSHELF_HOST", ""), "the address to listen on (empty: every address of this computer)")
@@ -50,7 +57,8 @@ func run(args []string) error {
 Usage: bookshelf [options]
 
 Settings come from these environment variables (or the options below):
-  BOOKSHELF_ADMIN_PASSWORD  the password to sign in with (required)
+  BOOKSHELF_ADMIN_PASSWORD  the password to sign in with (or set one once with
+                            bookshelf set-password)
   BOOKSHELF_ADMIN_USER      the user name (default: admin)
   BOOKSHELF_DATA_DIR        where the library is kept
   PORT                      the port (default: 8080)
@@ -60,6 +68,8 @@ Settings come from these environment variables (or the options below):
   PUID, PGID                in Docker, the user and group to run as (default 1000)
 
 Commands:
+  bookshelf set-password    choose the password once; it is kept, hashed, in
+                            the data folder (BOOKSHELF_ADMIN_PASSWORD wins if set)
   bookshelf health          check that Bookshelf answers (for health checks)
 
 Options:
@@ -77,10 +87,15 @@ Options:
 		return nil
 	}
 
+	if setPassword {
+		return choosePassword(*dataDir)
+	}
+
 	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	// Refuse before touching anything: no data folder is created without a password.
-	if os.Getenv("BOOKSHELF_ADMIN_PASSWORD") == "" {
-		return errors.New("set BOOKSHELF_ADMIN_PASSWORD to the password you want to sign in with")
+	password, err := signInPassword(*dataDir)
+	if err != nil {
+		return err
 	}
 
 	if err := dropPrivileges(*dataDir); err != nil {
@@ -95,7 +110,7 @@ Options:
 	}
 	defer st.Close()
 
-	a, err := auth.New(st, os.Getenv("BOOKSHELF_ADMIN_USER"), os.Getenv("BOOKSHELF_ADMIN_PASSWORD"), os.Getenv("BOOKSHELF_TRUSTED_PROXIES"))
+	a, err := auth.New(st, os.Getenv("BOOKSHELF_ADMIN_USER"), password, os.Getenv("BOOKSHELF_TRUSTED_PROXIES"))
 	if err != nil {
 		return err
 	}
@@ -138,6 +153,59 @@ Options:
 
 // health checks that a Bookshelf on this machine answers (the Docker
 // image's health check), using the same port setting as the server.
+// signInPassword is BOOKSHELF_ADMIN_PASSWORD if it is set, otherwise the one
+// set with set-password.
+func signInPassword(dataDir string) (auth.Password, error) {
+	if pw := os.Getenv("BOOKSHELF_ADMIN_PASSWORD"); pw != "" {
+		return auth.Plain(pw), nil
+	}
+	pw, err := auth.LoadPassword(dataDir)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, errors.New("set BOOKSHELF_ADMIN_PASSWORD to the password you want to sign in with, or run bookshelf set-password once")
+	}
+	return pw, err
+}
+
+// choosePassword asks for a password twice (without showing it) and keeps it,
+// hashed, in the data folder. From a pipe it reads one line instead.
+func choosePassword(dataDir string) error {
+	read := func(prompt string) (string, error) {
+		if !term.IsTerminal(int(os.Stdin.Fd())) {
+			line, err := bufio.NewReader(os.Stdin).ReadString('\n')
+			if err != nil && line == "" {
+				return "", errors.New("no password given")
+			}
+			return strings.TrimRight(line, "\r\n"), nil
+		}
+		fmt.Fprint(os.Stderr, prompt)
+		raw, err := term.ReadPassword(int(os.Stdin.Fd()))
+		fmt.Fprintln(os.Stderr)
+		return string(raw), err
+	}
+	first, err := read(fmt.Sprintf("New password (at least %d characters, not shown as you type): ", auth.MinPassword))
+	if err != nil {
+		return err
+	}
+	if term.IsTerminal(int(os.Stdin.Fd())) {
+		again, err := read("Type it again: ")
+		if err != nil {
+			return err
+		}
+		if again != first {
+			return errors.New("the two passwords don’t match; nothing was changed")
+		}
+	}
+	if err := auth.SavePassword(dataDir, first); err != nil {
+		return err
+	}
+	fmt.Printf("The password is set (kept, hashed, in %s). Sign in as %s.\n", dataDir, env("BOOKSHELF_ADMIN_USER", "admin"))
+	if os.Getenv("BOOKSHELF_ADMIN_PASSWORD") != "" {
+		fmt.Println("BOOKSHELF_ADMIN_PASSWORD is set too, and wins while it is.")
+	}
+	fmt.Println("If Bookshelf is running, restart it to use the new password.")
+	return nil
+}
+
 func health() error {
 	client := &http.Client{Timeout: 5 * time.Second}
 	resp, err := client.Get("http://127.0.0.1:" + strconv.Itoa(envInt("PORT", 8080)) + "/healthz")

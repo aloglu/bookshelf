@@ -1,16 +1,22 @@
-# Copy to compose.yml, put BOOKSHELF_ADMIN_PASSWORD in a .env file beside it,
-# then run: docker compose up -d
+# Bookshelf with Docker Compose. Copy this file to compose.yml, put your
+# password in a .env file beside it (BOOKSHELF_ADMIN_PASSWORD=...), then run:
+#
+#   docker compose up -d
+#
+# The full guide: docs/docker.md
 services:
   bookshelf:
     image: ghcr.io/aloglu/bookshelf:latest
     container_name: bookshelf
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      # 127.0.0.1: only this computer. Set BOOKSHELF_BIND_ADDRESS=0.0.0.0 in .env
+      # to open it from other devices on your network.
+      - "${BOOKSHELF_BIND_ADDRESS:-127.0.0.1}:${BOOKSHELF_HOST_PORT:-8080}:8080"
     environment:
-      BOOKSHELF_ADMIN_PASSWORD: ${BOOKSHELF_ADMIN_PASSWORD:?set BOOKSHELF_ADMIN_PASSWORD in .env}
-      BOOKSHELF_ADMIN_USER: admin
-      PUID: 1000
-      PGID: 1000
+      BOOKSHELF_ADMIN_USER: ${BOOKSHELF_ADMIN_USER:-admin}
+      BOOKSHELF_ADMIN_PASSWORD: "${BOOKSHELF_ADMIN_PASSWORD:?Set BOOKSHELF_ADMIN_PASSWORD before starting Bookshelf}"
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
     volumes:
-      - ./data:/data
+      - ./bookshelf-data:/data
