@@ -17,8 +17,9 @@ import (
 
 // Errors a change can fail with. Callers show their text to the owner.
 var (
-	ErrNotFound      = errors.New("not found")
-	ErrDuplicateISBN = errors.New("a book with this ISBN is already on the shelf")
+	ErrNotFound       = errors.New("not found")
+	ErrDuplicateISBN  = errors.New("a book with this ISBN is already on the shelf")
+	ErrDuplicateIssue = errors.New("this issue is already on the shelf")
 )
 
 // InvalidError is a value the owner can correct.
@@ -64,8 +65,9 @@ func stamp(t time.Time) string { return t.UTC().Format(stampLayout) }
 
 // ---------------------------------------------------------------- books
 
-// BookInput is what the owner gives for a new or edited book. ISBN must
-// already be normalized to bare ISBN-13 digits (see package isbn), or "".
+// BookInput is what the owner gives for a new or edited book. A book has an
+// ISBN, or (a periodical's issue) an ISSN with an optional issue, or neither.
+// ISBN and ISSN must already be normalized (see package isbn).
 type BookInput struct {
 	Title      string
 	Author     string
@@ -75,14 +77,19 @@ type BookInput struct {
 	Pages      *int
 	Binding    string
 	ISBN       string
+	ISSN       string
+	Issue      string
 	Hidden     bool
 }
 
-var isbnDigits = regexp.MustCompile(`^97[89]\d{10}$`)
+var (
+	isbnDigits = regexp.MustCompile(`^97[89]\d{10}$`)
+	issnChars  = regexp.MustCompile(`^\d{7}[\dX]$`)
+)
 
 func (in *BookInput) clean() error {
 	trim := func(p *string) { *p = strings.Join(strings.Fields(*p), " ") }
-	for _, p := range []*string{&in.Title, &in.Author, &in.Translator, &in.Publisher} {
+	for _, p := range []*string{&in.Title, &in.Author, &in.Translator, &in.Publisher, &in.Issue} {
 		trim(p)
 	}
 	if in.Title == "" {
@@ -100,6 +107,18 @@ func (in *BookInput) clean() error {
 	in.Binding = NormalizeBinding(in.Binding)
 	if in.ISBN != "" && !isbnDigits.MatchString(in.ISBN) {
 		return invalid("The ISBN isn’t valid.")
+	}
+	if in.ISSN != "" && !issnChars.MatchString(in.ISSN) {
+		return invalid("The ISSN isn’t valid.")
+	}
+	if in.ISBN != "" && in.ISSN != "" {
+		return invalid("A book has an ISBN or an ISSN, not both.")
+	}
+	if in.ISSN == "" {
+		in.Issue = "" // an issue belongs to a periodical
+	}
+	if len([]rune(in.Issue)) > 40 {
+		return invalid("The issue is longer than 40 characters.")
 	}
 	return nil
 }
@@ -138,13 +157,15 @@ func uniqueSlug(snap *Snapshot, title, self string) string {
 	return slug
 }
 
-func checkISBN(snap *Snapshot, isbn, self string) error {
-	if isbn == "" {
-		return nil
-	}
+// checkUnique refuses a second book with the same ISBN, or the same issue of a periodical.
+func checkUnique(snap *Snapshot, in BookInput, self string) error {
 	for _, b := range snap.Books {
-		if b.ID != self && b.ISBN == isbn {
+		switch {
+		case b.ID == self:
+		case in.ISBN != "" && b.ISBN == in.ISBN:
 			return ErrDuplicateISBN
+		case in.ISSN != "" && b.ISSN == in.ISSN && strings.EqualFold(b.Issue, in.Issue):
+			return ErrDuplicateIssue
 		}
 	}
 	return nil
@@ -171,14 +192,14 @@ func (s *Store) AddBook(ctx context.Context, in BookInput) (Book, error) {
 	}
 	id := newID()
 	err := s.change(ctx, func(tx *sql.Tx, snap *Snapshot) error {
-		if err := checkISBN(snap, in.ISBN, ""); err != nil {
+		if err := checkUnique(snap, in, ""); err != nil {
 			return err
 		}
 		now := stamp(s.now())
-		_, err := tx.ExecContext(ctx, `INSERT INTO books (id, title, author, translator, publisher, published, pages, binding, isbn, slug, hidden, added_at, updated_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		_, err := tx.ExecContext(ctx, `INSERT INTO books (id, title, author, translator, publisher, published, pages, binding, isbn, issn, issue, slug, hidden, added_at, updated_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			id, in.Title, in.Author, in.Translator, in.Publisher, nullable(in.Published), nullable(in.Pages), in.Binding,
-			nullISBN(in.ISBN), uniqueSlug(snap, in.Title, ""), in.Hidden, now, now)
+			nullISBN(in.ISBN), in.ISSN, in.Issue, uniqueSlug(snap, in.Title, ""), in.Hidden, now, now)
 		return err
 	})
 	if err != nil {
@@ -198,16 +219,16 @@ func (s *Store) UpdateBook(ctx context.Context, id string, in BookInput) (Book, 
 		if !ok {
 			return ErrNotFound
 		}
-		if err := checkISBN(snap, in.ISBN, id); err != nil {
+		if err := checkUnique(snap, in, id); err != nil {
 			return err
 		}
 		slug := old.Slug
 		if in.Title != old.Title {
 			slug = uniqueSlug(snap, in.Title, id)
 		}
-		_, err := tx.ExecContext(ctx, `UPDATE books SET title=?, author=?, translator=?, publisher=?, published=?, pages=?, binding=?, isbn=?, slug=?, hidden=?, updated_at=? WHERE id=?`,
+		_, err := tx.ExecContext(ctx, `UPDATE books SET title=?, author=?, translator=?, publisher=?, published=?, pages=?, binding=?, isbn=?, issn=?, issue=?, slug=?, hidden=?, updated_at=? WHERE id=?`,
 			in.Title, in.Author, in.Translator, in.Publisher, nullable(in.Published), nullable(in.Pages), in.Binding,
-			nullISBN(in.ISBN), slug, in.Hidden, stamp(s.now()), id)
+			nullISBN(in.ISBN), in.ISSN, in.Issue, slug, in.Hidden, stamp(s.now()), id)
 		return err
 	})
 	if err != nil {

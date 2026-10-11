@@ -6,7 +6,6 @@ require (
 	github.com/gosimple/slug v1.15.0
 	github.com/linzeyan/webp-go v0.1.2
 	golang.org/x/image v0.44.0
-	golang.org/x/sync v0.23.0
 	modernc.org/sqlite v1.60.1
 )
 

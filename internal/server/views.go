@@ -16,21 +16,23 @@ import (
 // settings; when the library is private they receive nothing.
 
 type bookView struct {
-	ID          string     `json:"id"`
-	Title       string     `json:"title"`
-	Author      string     `json:"author"`
-	Translator  string     `json:"translator"`
-	Publisher   string     `json:"publisher"`
-	Published   *int       `json:"published"`
-	Pages       *int       `json:"pages"`
-	Binding     string     `json:"binding"`
-	ISBN        string     `json:"isbn"`
-	ISBNDisplay string     `json:"isbnDisplay"`
-	Slug        string     `json:"slug"`
-	Address     string     `json:"address"` // the book's own address, in the owner's chosen style
-	Cover       *coverView `json:"cover"`
-	Spine       spineView  `json:"spine"`
-	AddedAt     time.Time  `json:"addedAt"`
+	ID         string     `json:"id"`
+	Title      string     `json:"title"`
+	Author     string     `json:"author"`
+	Translator string     `json:"translator"`
+	Publisher  string     `json:"publisher"`
+	Published  *int       `json:"published"`
+	Pages      *int       `json:"pages"`
+	Binding    string     `json:"binding"`
+	ISBN       string     `json:"isbn"`
+	ISSN       string     `json:"issn"`
+	Issue      string     `json:"issue"`
+	Identifier string     `json:"identifier"` // the ISBN hyphenated, or “ISSN 1300-2880”
+	Slug       string     `json:"slug"`
+	Address    string     `json:"address"` // the book's own address, in the owner's chosen style
+	Cover      *coverView `json:"cover"`
+	Spine      spineView  `json:"spine"`
+	AddedAt    time.Time  `json:"addedAt"`
 
 	// Owner only.
 	Hidden    bool `json:"hidden,omitempty"`
@@ -134,13 +136,13 @@ func build(snap *store.Snapshot, owner bool) *libraryView {
 			continue
 		}
 		bv := bookView{ID: b.ID, Title: b.Title, Author: b.Author, Translator: b.Translator, Publisher: b.Publisher,
-			Published: b.Published, Pages: b.Pages, Binding: b.Binding, ISBN: b.ISBN, ISBNDisplay: isbn.Hyphenate(b.ISBN),
-			Slug: b.Slug, AddedAt: b.AddedAt}
+			Published: b.Published, Pages: b.Pages, Binding: b.Binding, ISBN: b.ISBN, ISSN: b.ISSN, Issue: b.Issue,
+			Identifier: isbn.ID{ISBN: b.ISBN, ISSN: b.ISSN}.Display(), Slug: b.Slug, AddedAt: b.AddedAt}
 		switch {
 		case st.Permalink == "title" || b.ISBN == "":
 			bv.Address = b.Slug
 		case st.Permalink == "hyphens":
-			bv.Address = bv.ISBNDisplay
+			bv.Address = bv.Identifier
 		default:
 			bv.Address = b.ISBN
 		}

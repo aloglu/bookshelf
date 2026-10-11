@@ -241,39 +241,47 @@ func (b *Backups) removeCovers(names []string) {
 
 // Import adds the books in a file (a .bookshelf archive, or CSV or JSON)
 // that aren't on the shelf yet, after backing up the library. It returns
-// how many books were added and how many were already there.
-func (b *Backups) Import(ctx context.Context, filename string, raw []byte) (added, skipped int, err error) {
+// how many books were added and how many were already there. The file is
+// read where it lies, never whole into memory.
+func (b *Backups) Import(ctx context.Context, filename string, r io.ReaderAt, size int64) (added, skipped int, err error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	backUp := func() error {
+		if _, err := b.create(BeforeImport); err != nil {
+			return fmt.Errorf("back up before importing: %w", err)
+		}
+		return nil
+	}
+	head := make([]byte, 512)
+	n, _ := r.ReadAt(head, 0)
+	head = head[:n]
 	var lib store.Library
 	var written []string
 	ext := strings.ToLower(filepath.Ext(filename))
 	switch {
-	case ext == archive.Extension || ext == ".zip" || bytes.HasPrefix(raw, []byte("PK\x03\x04")):
-		a, err := archive.Open(bytes.NewReader(raw), int64(len(raw)))
+	case ext == archive.Extension || ext == ".zip" || bytes.HasPrefix(head, []byte("PK\x03\x04")):
+		a, err := archive.Open(r, size)
 		if err != nil {
 			return 0, 0, err
 		}
 		lib = a.Library
-		if _, err := b.create(BeforeImport); err != nil {
-			return 0, 0, fmt.Errorf("back up before importing: %w", err)
+		if err := backUp(); err != nil {
+			return 0, 0, err
 		}
 		if written, err = a.Extract(b.CoversDir); err != nil {
 			b.removeCovers(written)
 			return 0, 0, fmt.Errorf("import covers: %w", err)
 		}
-	case ext == ".json" || bytes.HasPrefix(bytes.TrimSpace(raw), []byte("[")):
-		if lib.Books, err = archive.ReadJSON(bytes.NewReader(raw)); err != nil {
-			return 0, 0, err
-		}
 	default:
-		if lib.Books, err = archive.ReadCSV(bytes.NewReader(raw)); err != nil {
+		read := archive.ReadCSV
+		if ext == ".json" || bytes.HasPrefix(bytes.TrimSpace(head), []byte("[")) {
+			read = archive.ReadJSON
+		}
+		if lib.Books, err = read(io.NewSectionReader(r, 0, size)); err != nil {
 			return 0, 0, err
 		}
-	}
-	if len(written) == 0 { // CSV and JSON: back up now that the file is known to be readable
-		if _, err := b.create(BeforeImport); err != nil {
-			return 0, 0, fmt.Errorf("back up before importing: %w", err)
+		if err := backUp(); err != nil { // now that the file is known to be readable
+			return 0, 0, err
 		}
 	}
 	added, skipped, err = b.Store.Merge(ctx, lib)

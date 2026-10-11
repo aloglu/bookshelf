@@ -60,9 +60,14 @@ func (s *Store) Merge(ctx context.Context, lib Library) (added, skipped int, err
 	return added, skipped, err
 }
 
+// sameBook says whether two books are the same: by ISBN, by periodical
+// issue, or, with neither, by title and author.
 func sameBook(a, b Book) bool {
-	if a.ISBN != "" || b.ISBN != "" {
+	switch {
+	case a.ISBN != "" || b.ISBN != "":
 		return a.ISBN == b.ISBN
+	case a.ISSN != "" || b.ISSN != "":
+		return a.ISSN == b.ISSN && strings.EqualFold(a.Issue, b.Issue)
 	}
 	return strings.EqualFold(a.Title, b.Title) && strings.EqualFold(a.Author, b.Author)
 }
@@ -81,7 +86,7 @@ func insertLibrary(ctx context.Context, tx *sql.Tx, snap *Snapshot, lib Library,
 	newIDs := map[string]string{} // archive id -> id on this shelf
 	for _, b := range lib.Books {
 		in := BookInput{Title: b.Title, Author: b.Author, Translator: b.Translator, Publisher: b.Publisher,
-			Published: b.Published, Pages: b.Pages, Binding: b.Binding, ISBN: b.ISBN, Hidden: b.Hidden}
+			Published: b.Published, Pages: b.Pages, Binding: b.Binding, ISBN: b.ISBN, ISSN: b.ISSN, Issue: b.Issue, Hidden: b.Hidden}
 		if err := in.clean(); err != nil {
 			if skipExisting {
 				skipped++
@@ -90,7 +95,7 @@ func insertLibrary(ctx context.Context, tx *sql.Tx, snap *Snapshot, lib Library,
 			return 0, 0, invalid("“%s”: %s", b.Title, err.Error())
 		}
 		cand := b
-		cand.Title, cand.Author, cand.ISBN = in.Title, in.Author, in.ISBN
+		cand.Title, cand.Author, cand.ISBN, cand.ISSN, cand.Issue = in.Title, in.Author, in.ISBN, in.ISSN, in.Issue
 		dup := false
 		for _, have := range work.Books {
 			if sameBook(have, cand) {
@@ -119,9 +124,9 @@ func insertLibrary(ctx context.Context, tx *sql.Tx, snap *Snapshot, lib Library,
 		}
 		cand.ID, cand.Slug = id, uniqueSlug(work, in.Title, "")
 		cand.Translator, cand.Publisher, cand.Binding = in.Translator, in.Publisher, in.Binding
-		if _, err := tx.ExecContext(ctx, `INSERT INTO books (id, title, author, translator, publisher, published, pages, binding, isbn, slug, hidden,
-			cover, spine_color, spine_text_color, spine_color_override, added_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			id, cand.Title, cand.Author, cand.Translator, cand.Publisher, nullable(in.Published), nullable(in.Pages), cand.Binding, nullISBN(cand.ISBN),
+		if _, err := tx.ExecContext(ctx, `INSERT INTO books (id, title, author, translator, publisher, published, pages, binding, isbn, issn, issue, slug, hidden,
+			cover, spine_color, spine_text_color, spine_color_override, added_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			id, cand.Title, cand.Author, cand.Translator, cand.Publisher, nullable(in.Published), nullable(in.Pages), cand.Binding, nullISBN(cand.ISBN), cand.ISSN, cand.Issue,
 			cand.Slug, in.Hidden, b.Cover, b.SpineColor, b.SpineTextColor, b.SpineColorOverride, stamp(addedAt), stamp(updatedAt)); err != nil {
 			return 0, 0, err
 		}

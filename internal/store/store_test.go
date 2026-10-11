@@ -116,6 +116,27 @@ func TestSlugsAndISBNsAreUnique(t *testing.T) {
 	}
 }
 
+func TestIssuesAreUnique(t *testing.T) {
+	s, _ := open(t)
+	ctx := context.Background()
+	if _, err := s.AddBook(ctx, BookInput{Title: "Cogito", ISSN: "13002880", Issue: "70–71"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.AddBook(ctx, BookInput{Title: "Cogito", ISSN: "13002880", Issue: "76"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.AddBook(ctx, BookInput{Title: "Cogito", ISSN: "13002880", Issue: "70–71"}); !errors.Is(err, ErrDuplicateIssue) {
+		t.Fatalf("same issue: %v", err)
+	}
+	if _, err := s.AddBook(ctx, BookInput{Title: "Both", ISBN: "9780679723424", ISSN: "13002880"}); err == nil {
+		t.Fatal("a book took an ISBN and an ISSN")
+	}
+	b, err := s.AddBook(ctx, BookInput{Title: "Stray", Issue: "4"})
+	if err != nil || b.Issue != "" {
+		t.Fatalf("an issue without an ISSN: %v %q", err, b.Issue)
+	}
+}
+
 func TestBookInputIsChecked(t *testing.T) {
 	s, _ := open(t)
 	var inv *InvalidError

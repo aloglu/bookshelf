@@ -7,7 +7,7 @@ This folder holds the agreed direction for the 2.0 rework. Read this file first 
 
 ## Ground rules
 
-- 2.0 is a clean break. Bookshelf 1.x was a terminal app that built a static website; 2.0 is a self-hosted web app (a server in Docker, or a plain program) that serves the shelf and its admin. Nothing of 1.x carries over except a one-time import of the owner's 1.x library.
+- 2.0 is a clean break. Bookshelf 1.x was a terminal app that built a static website; 2.0 is a self-hosted web app (a server in Docker, or a plain program) that serves the shelf and its admin. Nothing of 1.x carries over. The owner's 1.x library is moved over once by a script kept outside the repository (decided 2026-10-11: 1.x had no other users, so 2.0 holds no code for it).
 - No dead code. Not carried over: the terminal interface, the static-site build, the shelf/stack/coverflow view switch, scroll speeds, the random-book button, the footer setting, the site subtitle ("tagline"). Old code may be reused where it is good (covers, thumbnails, spine colours, archives, import/export, backups), but only what 2.0 uses.
 - Runs anywhere Docker runs (any NAS, Unraid, Synology, a VPS, a Raspberry Pi) and without Docker on Linux, macOS and Windows. Nothing may assume one platform.
 - The website's copy is in American English.
@@ -29,7 +29,7 @@ This folder holds the agreed direction for the 2.0 rework. Read this file first 
 
 On Unraid a data folder under `/mnt/user` goes through `shfs`, a FUSE layer with few worker threads. Inkubator 3.0.0 took a blocking file lock on every request; a burst of requests (a page of thumbnails) left every `shfs` worker waiting on the lock while the holder needed one to read its file, so `/mnt/user` deadlocked and Docker, the Unraid interface and network shares hung with it (Inkubator commit 68e499b). SQLite by default locks on every transaction, and its WAL mode needs a shared-memory file that FUSE and network filesystems handle badly, so Bookshelf must be built so this cannot happen:
 
-- **One lock, taken once.** The database is opened at startup with `locking_mode=EXCLUSIVE` and that lock is held for the life of the program; no request ever waits on a file lock. A second Bookshelf (or the 1.x import) on the same folder is refused at once with "another Bookshelf is already using …".
+- **One lock, taken once.** The database is opened at startup with `locking_mode=EXCLUSIVE` and that lock is held for the life of the program; no request ever waits on a file lock. A second Bookshelf on the same folder is refused at once with "another Bookshelf is already using …".
 - **No shared-memory file.** In exclusive mode SQLite keeps the WAL index in heap memory; no `-shm` file is used. (Exclusive mode is set before the first access to the WAL database, and the journal mode is chosen accordingly; verify with a test.)
 - **Requests don't touch the database.** The visitor-facing library (and the owner's) is kept in memory and rebuilt after a change; changes take turns on an in-process mutex and are written in one transaction. Covers and thumbnails are plain file reads.
 - **Test:** hundreds of concurrent public and signed-in requests against a scratch library, asserting every answer succeeds and the process holds exactly one file lock throughout.
@@ -64,6 +64,7 @@ On Unraid a data folder under `/mnt/user` goes through `shfs`, a FUSE layer with
 - ISBN lookup (Open Library, then Google Books) or a barcode scan (the camera, reading by itself). Duplicates are caught ("Show it"). Unknown or invalid ISBNs offer entry by hand. A confirm card with the cover and every field editable, then the book flies into its place on the shelf.
 - A book without a cover gets a plain cloth cover with its title stamped on.
 - ISBNs are normalised on entry (labels and punctuation stripped, ISBN-10 converted to ISBN-13), stored as bare digits and always shown hyphenated by the ISBN agency's range table (the server ships RangeMessage.xml).
+- Periodicals (decided 2026-10-11): some periodicals publish book-like issues, which carry an ISSN rather than an ISBN. The field is "ISBN or ISSN" and takes either, or a periodical's 977 barcode (read back to its ISSN). An ISSN is checked by its own check digit and shown as `ISSN 1300-2880`; such a book also has an issue (as printed, `70–71`). The same issue can't be shelved twice; other issues of the same periodical can. An ISSN can't be looked up, so it goes straight to entry by hand with the ISSN filled in. Books with an ISSN take their address from the title.
 
 **Stats page** (`#stats`, the Stats icon; off for visitors if the owner turns it off)
 - Now reading first, under its own heading: cover, title, progress (share and page on the left, the owner's page field on the same line at the right, the bar beneath), and four facts (days since starting, pages to go, share of the library that is shorter, share that is older).
@@ -95,6 +96,7 @@ On Unraid a data folder under `/mnt/user` goes through `shfs`, a FUSE layer with
 | pages | integer; sets spine width |
 | binding | paperback, hardcover, cloth, leather |
 | isbn | bare ISBN-13 digits, unique when present |
+| issn, issue | a periodical's ISSN (bare eight characters) and its issue; the pair is unique; never with an ISBN |
 | slug | from the title, unique (`-2`, `-3` on clashes) |
 | hidden | hidden from visitors |
 | cover | file in the data folder, with a thumbnail; null for a plain cloth cover |
@@ -138,11 +140,11 @@ Owner (signed in):
 - `POST /api/session`, `DELETE /api/session`.
 - `POST /api/books`, `PATCH /api/books/<id>`, `DELETE /api/books/<id>`, batch hide/show/remove.
 - `PUT /api/books/<id>/cover` (upload), `DELETE /api/books/<id>/cover`.
-- `GET /api/lookup?isbn=` (Open Library, then Google Books, through the server).
+- `GET /api/lookup?id=` (Open Library, then Google Books, through the server; an ISSN answers `periodical: true` with the ISSN read). Books are sent with one `identifier` field (ISBN or ISSN) and an `issue`; they come back with `isbn`, `issn`, `issue` and `identifier` (as shown).
 - `POST /api/readings` (start reading a book, or mark it as read with an optional date or year), `PATCH /api/readings/<id>` (set the page, finish, set aside, correct dates), `DELETE /api/readings/<id>`, `GET /api/readings` (the history, optionally for one book).
 - `PUT /api/readings/<id>/note`, `DELETE /api/readings/<id>/note` (text and visibility; finished readings only).
 - `GET/PATCH /api/settings`.
-- `POST /api/import`, `GET /api/export?format=csv|json|archive`.
+- `POST /api/import` (a Bookshelf archive, CSV or JSON; answers with how many books were added and skipped), `GET /api/export?format=csv|json|archive`.
 - `GET /api/backups`, `POST /api/backups`, `POST /api/backups/<name>/restore`.
 
 ## Documentation (agreed 2026-10-12, after Inkubator's)
@@ -151,20 +153,20 @@ Guides for people running Bookshelf, step by step, saying what they should see, 
 - `README.md` — what it is, the quickest start, links.
 - `docs/README.md` — choose where Bookshelf runs (a table by situation), then using it.
 - One guide per home: Unraid, Synology, Raspberry Pi, Docker, without Docker.
-- Using Bookshelf, remote access (HTTPS), backups, updating, moving from 1.x, troubleshooting, building from source.
+- Using Bookshelf, remote access (HTTPS), backups, updating, troubleshooting, building from source.
 
 ## Phases
 
 1. Data model and API: reviewed and settled in this file.
 2. The server: storage, sign-in, the API, covers and spine colours, the Docker image.
-3. Moving the owner's 1.x library over (one-time import, covers included), tested against a copy.
+3. Moving the owner's 1.x library over (covers included, page counts looked up), tested against a copy, by a one-time script outside the repository.
 4. The frontend: the engine ported from the study, the Svelte surfaces around it, everything the study acted out made real.
 5. Hardening: tests, a code-quality review, the guides.
 
 ## Progress
 
 - 2026-10-12: design study finished (`prototype.html`). Architecture, storage (SQLite) and frontend split (plain-JS engine + Svelte) agreed. `v2` branch started.
-- 2026-10-12, phase 2 begun. The 1.x terminal app (`cmd/bookshelf`, `internal/tui`, the `bookshelf` wrapper script) is removed; `internal/library` and `internal/siteassets` stay only until the 1.x import exists. New packages, each with tests:
+- 2026-10-12, phase 2 begun. The 1.x terminal app (`cmd/bookshelf`, `internal/tui`, the `bookshelf` wrapper script) is removed; `internal/library` and `internal/siteassets` stay only until the 1.x library has been moved over. New packages, each with tests:
   - `internal/store` — SQLite (modernc.org/sqlite), one connection, `locking_mode=EXCLUSIVE` + WAL taken at open with `busy_timeout(0)`; whole library held in memory as an immutable `Snapshot`; changes take turns on a mutex. Books (unique slug and ISBN), readings (one in progress, re-reads, mark as read with day/year/unknown precision, page log, corrections), notes (finished readings only), settings (validated), sessions (touched at most hourly; sliding week). Tests prove a second open is refused at once, no `-shm` file exists, and a single file lock is held while 200 readers run against 40 writes.
   - `internal/isbn` — normalize (labels, punctuation, ISBN-10 → 13), checksums, hyphenation from the embedded RangeMessage.xml (all groups, 978 and 979).
   - `internal/covers` — decode with size limits, WebP detail (900px) and thumbnail (360px) written atomically under a fresh name per cover, spine colour by the study's edge median, lettering colour.
@@ -180,6 +182,10 @@ Guides for people running Bookshelf, step by step, saying what they should see, 
   - `cmd/bookshelf` — `bookshelf health` for the image's health check; on Linux, started as root (as in Docker) it refuses PUID/PGID 0, gives the data folder to PUID:PGID changing only what isn't theirs, and becomes that user before opening anything. Cross-builds checked for Linux amd64/arm64, macOS arm64 and Windows.
   - `Dockerfile` (static Go build on Alpine with CA certificates and time zones, `/data` volume, health check), `.dockerignore`, `docker-compose.example.yml`.
 - Smoke-tested the program again: health check, the automatic first backup at startup, a manual backup, and a full export holding the library and both cover files.
+- 2026-10-11, phase 3 (code done, not yet committed):
+  - Periodicals: `internal/isbn` reads ISSNs (check digit, 977 barcodes) and parses the one "ISBN or ISSN" field; books have `issn` and `issue`, unique as a pair; CSV/JSON carry `issn` and `issue` columns (an ISSN in another program's ISBN column is recognized); imports match an issue by ISSN and issue.
+  - Imports read from the uploaded file rather than memory (as the plan always said); imports and restores get an hour's deadline instead of the server's usual five minutes; an archive whose covers were all present no longer triggers a second backup.
+  - The 1.x library moves over by a one-time script outside the repository (`~/workspaces/bookshelf-1x-move/move.py`), which only reads the 1.x archive and adds everything through 2.0's API, so 2.0 checks each book as if added by hand: it looks up each page count (2.0's lookup), adds the book (bindings, visibility, years; issues 1.x kept in the ISBN field, `977-1300-2880-70-71` or `1300-2880-76`, as ISSN and issue; invalid identifiers left off and listed), uploads its cover (2.0 makes the WebP and the spine colour) and, into an empty library, brings the 1.x settings 2.0 still has (name, sort, link style, search sources with Open Library in Wikipedia's place, stats). Books already on the shelf are skipped, so it can be run again. `internal/library` and `internal/siteassets` (1.x) are removed.
 
 ## Follow-ups
 
@@ -190,5 +196,7 @@ Guides for people running Bookshelf, step by step, saying what they should see, 
 - **Notes blog (later, decided 2026-10-12):** a very simple section where the owner publishes notes, chosen per book; notes can also stay private to the owner. Not part of 2.0's first release unless decided otherwise.
 - **Read dates from imports (possibility, not committed):** a CSV import (for example a Goodreads export, which carries read dates) could mark books as read in one go.
 - **Stats from reading history (later):** books finished per year/month, time to finish, pace, re-reads. The data is kept from day one so these can be added at any time.
-- **Sign-in lockout behind a proxy** (from Inkubator's follow-ups): counting failures per connecting address means that behind Cloudflare Tunnel or any reverse proxy every visitor shares one address, so a bot's wrong passwords lock the owner out too. Use a trusted forwarded-address setting and a global limit, and prune the failure records.
+- **Google Books without an API key** (found moving the 1.x library, 2026-10-11): after a few dozen lookups it answers 429 Too Many Requests, so books Open Library doesn't know (many Turkish editions) find nothing, and the error then reads as if the sources were down. The guides should recommend `BOOKSHELF_GOOGLE_API_KEY` (free), and a 429 should read as "busy, try again in a minute" rather than unreachable.
+- **Cover size:** the pure-Go WebP encoder makes files about twice libwebp's at the same quality; most covers are ~100 KB, a few dense ones near 1 MB at 900px. Revisit (a lower quality for large covers, or another encoder) if the covers folder grows uncomfortable.
+- **The two 1.x books without a valid ISBN** (On Palestine: 12 digits; Yılanı Öldürseler: wrong check digit) come in without one; the owner corrects them by hand after the move.
 - **Test setups beside the real install:** document running a second Bookshelf with its own data folder and port, optionally started from a copy of the real data.

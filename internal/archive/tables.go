@@ -15,7 +15,7 @@ import (
 // spreadsheet or another program. Covers, readings and notes travel in a
 // full archive.
 
-var columns = []string{"title", "author", "translator", "publisher", "published", "pages", "binding", "isbn", "hidden"}
+var columns = []string{"title", "author", "translator", "publisher", "published", "pages", "binding", "isbn", "issn", "issue", "hidden"}
 
 // BookRow is one book in a CSV or JSON export.
 type BookRow struct {
@@ -27,11 +27,13 @@ type BookRow struct {
 	Pages      *int   `json:"pages"`
 	Binding    string `json:"binding"`
 	ISBN       string `json:"isbn"`
+	ISSN       string `json:"issn"`
+	Issue      string `json:"issue"`
 	Hidden     bool   `json:"hidden"`
 }
 
 func rowOf(b store.Book) BookRow {
-	return BookRow{b.Title, b.Author, b.Translator, b.Publisher, b.Published, b.Pages, b.Binding, b.ISBN, b.Hidden}
+	return BookRow{b.Title, b.Author, b.Translator, b.Publisher, b.Published, b.Pages, b.Binding, b.ISBN, b.ISSN, b.Issue, b.Hidden}
 }
 
 // WriteCSV writes books as CSV with a header row. A byte-order mark lets
@@ -42,7 +44,7 @@ func WriteCSV(w io.Writer, books []store.Book) error {
 	cw.Write(columns)
 	for _, b := range books {
 		r := rowOf(b)
-		cw.Write([]string{r.Title, r.Author, r.Translator, r.Publisher, num(r.Published), num(r.Pages), r.Binding, isbn.Hyphenate(r.ISBN), strconv.FormatBool(r.Hidden)})
+		cw.Write([]string{r.Title, r.Author, r.Translator, r.Publisher, num(r.Published), num(r.Pages), r.Binding, isbn.Hyphenate(r.ISBN), isbn.HyphenateISSN(r.ISSN), r.Issue, strconv.FormatBool(r.Hidden)})
 	}
 	cw.Flush()
 	return cw.Error()
@@ -112,7 +114,8 @@ func ReadCSV(r io.Reader) ([]store.Book, error) {
 		}
 		b := bookOf(BookRow{Title: get(rec, "title"), Author: get(rec, "author"), Translator: get(rec, "translator"),
 			Publisher: get(rec, "publisher"), Published: atoi(get(rec, "published")), Pages: atoi(get(rec, "pages")),
-			Binding: get(rec, "binding"), ISBN: get(rec, "isbn"), Hidden: truthy(get(rec, "hidden"))})
+			Binding: get(rec, "binding"), ISBN: get(rec, "isbn"), ISSN: get(rec, "issn"), Issue: get(rec, "issue"),
+			Hidden: truthy(get(rec, "hidden"))})
 		if b.Title != "" {
 			books = append(books, b)
 		}
@@ -135,13 +138,19 @@ func ReadJSON(r io.Reader) ([]store.Book, error) {
 	return books, nil
 }
 
+// bookOf turns a row into a book. A bad identifier shouldn't lose the book;
+// it comes in without one. An ISSN in the ISBN column is recognized.
 func bookOf(r BookRow) store.Book {
-	n, err := isbn.Normalize(strings.Trim(r.ISBN, `="`)) // spreadsheet exports often wrap ISBNs as ="…"
-	if err != nil {
-		n = "" // a bad ISBN shouldn't lose the book; it comes in without one
+	id, _ := isbn.Parse(strings.Trim(r.ISBN, `="`)) // spreadsheet exports often wrap ISBNs as ="…"
+	if id.ISBN == "" && r.ISSN != "" {
+		id.ISSN, _ = isbn.NormalizeISSN(strings.Trim(r.ISSN, `="`))
 	}
-	return store.Book{Title: r.Title, Author: r.Author, Translator: r.Translator, Publisher: r.Publisher,
-		Published: r.Published, Pages: r.Pages, Binding: store.NormalizeBinding(r.Binding), ISBN: n, Hidden: r.Hidden}
+	b := store.Book{Title: r.Title, Author: r.Author, Translator: r.Translator, Publisher: r.Publisher,
+		Published: r.Published, Pages: r.Pages, Binding: store.NormalizeBinding(r.Binding), ISBN: id.ISBN, ISSN: id.ISSN, Hidden: r.Hidden}
+	if b.ISSN != "" {
+		b.Issue = r.Issue
+	}
+	return b
 }
 
 func atoi(s string) *int {

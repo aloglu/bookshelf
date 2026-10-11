@@ -36,6 +36,10 @@ func setup(t *testing.T) (*Backups, *store.Store, string) {
 
 func intp(v int) *int { return &v }
 
+func importFile(b *Backups, name string, raw []byte) (added, skipped int, err error) {
+	return b.Import(ctx, name, bytes.NewReader(raw), int64(len(raw)))
+}
+
 func pngCover() []byte {
 	img := image.NewRGBA(image.Rect(0, 0, 100, 150))
 	for y := range 150 {
@@ -152,7 +156,7 @@ func TestImportSkipsWhatIsThere(t *testing.T) {
 		"Pale Fire,Vladimir Nabokov,,315,,1962\n" + // already there (same title and author, no ISBN)
 		"Middlemarch,George Eliot,=\"9780141439549\",880,Mass Market Paperback,1871\n" +
 		",,,,,\n"
-	added, skipped, err := b.Import(ctx, "books.csv", []byte(csv))
+	added, skipped, err := importFile(b, "books.csv", []byte(csv))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -176,7 +180,7 @@ func TestImportSkipsWhatIsThere(t *testing.T) {
 	// JSON, as Bookshelf exports it.
 	var buf bytes.Buffer
 	archive.WriteJSON(&buf, []store.Book{{Title: "Dune", Author: "Frank Herbert", ISBN: "9780441172719"}})
-	if added, _, err := b.Import(ctx, "books.json", buf.Bytes()); err != nil || added != 1 {
+	if added, _, err := importFile(b, "books.json", buf.Bytes()); err != nil || added != 1 {
 		t.Fatalf("json import: %d %v", added, err)
 	}
 }
@@ -192,7 +196,7 @@ func TestImportAnArchiveFromAnotherLibrary(t *testing.T) {
 	b, st, _ := setup(t)
 	st.AddBook(ctx, store.BookInput{Title: "Pale Fire", Author: "Vladimir Nabokov"})
 	cur, _ := st.StartReading(ctx, st.Snapshot().Books[0].ID)
-	added, skipped, err := b.Import(ctx, "theirs.bookshelf", arc.Bytes())
+	added, skipped, err := importFile(b, "theirs.bookshelf", arc.Bytes())
 	if err != nil || added != 1 || skipped != 1 {
 		t.Fatalf("archive import: %d %d %v", added, skipped, err)
 	}
@@ -229,13 +233,13 @@ func TestRefusesABoobyTrappedArchive(t *testing.T) {
 	w, _ = z.Create("covers/../../evil.webp")
 	w.Write([]byte("gotcha"))
 	z.Close()
-	if _, _, err := b.Import(ctx, "trap.bookshelf", buf.Bytes()); err == nil || !strings.Contains(err.Error(), "unexpected file") {
+	if _, _, err := importFile(b, "trap.bookshelf", buf.Bytes()); err == nil || !strings.Contains(err.Error(), "unexpected file") {
 		t.Fatalf("got %v", err)
 	}
 	if fileExists(filepath.Join(dir, "..", "evil.webp")) || fileExists(filepath.Join(filepath.Dir(dir), "evil.webp")) {
 		t.Fatal("a file was written outside the data folder")
 	}
-	if _, _, err := b.Import(ctx, "x.bookshelf", []byte("PK\x03\x04 not really")); err == nil {
+	if _, _, err := importFile(b, "x.bookshelf", []byte("PK\x03\x04 not really")); err == nil {
 		t.Fatal("a broken archive was accepted")
 	}
 }

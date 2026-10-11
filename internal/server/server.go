@@ -169,7 +169,7 @@ func (s *Server) failErr(w http.ResponseWriter, r *http.Request, err error) {
 		fail(w, http.StatusUnprocessableEntity, inv.Msg)
 	case errors.Is(err, store.ErrNotFound):
 		fail(w, http.StatusNotFound, "That isn’t in the library.")
-	case errors.Is(err, store.ErrDuplicateISBN):
+	case errors.Is(err, store.ErrDuplicateISBN), errors.Is(err, store.ErrDuplicateIssue):
 		fail(w, http.StatusConflict, err.Error())
 	case errors.Is(err, context.Canceled):
 	default:

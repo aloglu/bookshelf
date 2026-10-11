@@ -79,7 +79,7 @@ func (e *env) do(c *http.Client, method, path string, body any) (int, map[string
 
 func (e *env) addBook(title, isbn string, hidden bool) string {
 	e.t.Helper()
-	code, b := e.do(e.owner, "POST", "/api/books", map[string]any{"title": title, "author": "A. Writer", "isbn": isbn, "pages": 300, "hidden": hidden})
+	code, b := e.do(e.owner, "POST", "/api/books", map[string]any{"title": title, "author": "A. Writer", "identifier": isbn, "pages": 300, "hidden": hidden})
 	if code != 201 {
 		e.t.Fatalf("add %s: %d %v", title, code, b)
 	}
@@ -156,7 +156,7 @@ func TestPrivateLibrary(t *testing.T) {
 func TestOwnerOnly(t *testing.T) {
 	e := setup(t)
 	for _, c := range []struct{ method, path string }{
-		{"POST", "/api/books"}, {"PATCH", "/api/settings"}, {"GET", "/api/readings"}, {"GET", "/api/lookup?isbn=9780679723424"}, {"DELETE", "/api/books/x"},
+		{"POST", "/api/books"}, {"PATCH", "/api/settings"}, {"GET", "/api/readings"}, {"GET", "/api/lookup?id=9780679723424"}, {"DELETE", "/api/books/x"},
 	} {
 		if code, _ := e.do(e.visitor, c.method, c.path, map[string]any{}); code != 401 {
 			t.Errorf("%s %s by a visitor: %d", c.method, c.path, code)
@@ -194,20 +194,38 @@ func TestSignInMistakes(t *testing.T) {
 
 func TestBooksAndISBNs(t *testing.T) {
 	e := setup(t)
-	code, b := e.do(e.owner, "POST", "/api/books", map[string]any{"title": "Pale Fire", "isbn": "ISBN-10: 0-679-72342-0", "binding": "Mass market paperback"})
-	if code != 201 || b["isbn"] != "9780679723424" || b["isbnDisplay"] != "978-0-679-72342-4" || b["binding"] != "paperback" || b["address"] != "9780679723424" {
+	code, b := e.do(e.owner, "POST", "/api/books", map[string]any{"title": "Pale Fire", "identifier": "ISBN-10: 0-679-72342-0", "binding": "Mass market paperback"})
+	if code != 201 || b["isbn"] != "9780679723424" || b["identifier"] != "978-0-679-72342-4" || b["binding"] != "paperback" || b["address"] != "9780679723424" {
 		t.Fatalf("add: %d %v", code, b)
 	}
-	if code, body := e.do(e.owner, "POST", "/api/books", map[string]any{"title": "Again", "isbn": "9780679723424"}); code != 409 {
+	if code, body := e.do(e.owner, "POST", "/api/books", map[string]any{"title": "Again", "identifier": "9780679723424"}); code != 409 {
 		t.Fatalf("duplicate: %d %v", code, body)
 	}
-	if code, _ := e.do(e.owner, "POST", "/api/books", map[string]any{"title": "Bad", "isbn": "9780679723425"}); code != 422 {
+	if code, _ := e.do(e.owner, "POST", "/api/books", map[string]any{"title": "Bad", "identifier": "9780679723425"}); code != 422 {
 		t.Fatalf("bad checksum: %d", code)
 	}
 	e.do(e.owner, "PATCH", "/api/settings", map[string]any{"permalink": "title"})
 	_, lib := e.do(e.owner, "GET", "/api/library", nil)
 	if a := lib["books"].([]any)[0].(map[string]any)["address"]; a != "pale-fire" {
 		t.Fatalf("address by title: %v", a)
+	}
+}
+
+func TestPeriodicalIssues(t *testing.T) {
+	e := setup(t)
+	code, b := e.do(e.owner, "POST", "/api/books", map[string]any{"title": "Cogito 70", "identifier": "ISSN 1300-2880", "issue": " 70–71 "})
+	if code != 201 || b["issn"] != "13002880" || b["issue"] != "70–71" || b["identifier"] != "ISSN 1300-2880" || b["isbn"] != "" || b["address"] != "cogito-70" {
+		t.Fatalf("add: %d %v", code, b)
+	}
+	if code, body := e.do(e.owner, "POST", "/api/books", map[string]any{"title": "Again", "identifier": "13002880", "issue": "70–71"}); code != 409 {
+		t.Fatalf("same issue: %d %v", code, body)
+	}
+	if code, body := e.do(e.owner, "POST", "/api/books", map[string]any{"title": "Cogito 76", "identifier": "1300-2880", "issue": "76"}); code != 201 {
+		t.Fatalf("another issue: %d %v", code, body)
+	}
+	code, d := e.do(e.owner, "GET", "/api/lookup?id=977-2146023007", nil)
+	if code != 200 || d["periodical"] != true || d["issn"] != "2146023X" || d["identifier"] != "ISSN 2146-023X" {
+		t.Fatalf("lookup of a 977 barcode: %d %v", code, d)
 	}
 }
 

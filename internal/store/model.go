@@ -24,7 +24,9 @@ type Book struct {
 	Published          *int      `json:"published"`
 	Pages              *int      `json:"pages"`
 	Binding            string    `json:"binding"`
-	ISBN               string    `json:"isbn"` // bare ISBN-13 digits, or ""
+	ISBN               string    `json:"isbn"`  // bare ISBN-13 digits, or ""
+	ISSN               string    `json:"issn"`  // a periodical's ISSN, bare eight characters, or ""
+	Issue              string    `json:"issue"` // the periodical's issue, as printed ("70–71"), or ""
 	Slug               string    `json:"slug"`
 	Hidden             bool      `json:"hidden"`
 	Cover              string    `json:"cover"` // file name in the covers folder, or "" for a plain cloth cover

@@ -85,18 +85,20 @@ type bookIn struct {
 	Published  *int   `json:"published"`
 	Pages      *int   `json:"pages"`
 	Binding    string `json:"binding"`
-	ISBN       string `json:"isbn"`
+	Identifier string `json:"identifier"` // the one “ISBN or ISSN” field, as typed or scanned
+	Issue      string `json:"issue"`      // a periodical's issue
 	Hidden     bool   `json:"hidden"`
 	CoverURL   string `json:"coverUrl"` // adding only: a cover found by the lookup
 }
 
 func (in bookIn) input() (store.BookInput, error) {
-	n, err := isbn.Normalize(in.ISBN)
+	id, err := isbn.Parse(in.Identifier)
 	if err != nil {
-		return store.BookInput{}, &store.InvalidError{Msg: "That ISBN doesn’t add up. Check the digits."}
+		return store.BookInput{}, &store.InvalidError{Msg: "That ISBN or ISSN doesn’t add up. Check the digits."}
 	}
 	return store.BookInput{Title: in.Title, Author: in.Author, Translator: in.Translator, Publisher: in.Publisher,
-		Published: in.Published, Pages: in.Pages, Binding: in.Binding, ISBN: n, Hidden: in.Hidden}, nil
+		Published: in.Published, Pages: in.Pages, Binding: in.Binding, ISBN: id.ISBN, ISSN: id.ISSN, Issue: in.Issue,
+		Hidden: in.Hidden}, nil
 }
 
 func (s *Server) book(id string) bookView {
@@ -268,12 +270,20 @@ func (s *Server) putSpine(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, s.book(r.PathValue("id")))
 }
 
+// lookup finds a book's details by its ISBN. A periodical's ISSN (or its
+// 977 barcode) can't be looked up: the answer says so, with the ISSN read,
+// so the details can be entered by hand.
 func (s *Server) lookup(w http.ResponseWriter, r *http.Request) {
-	n, err := isbn.Normalize(r.URL.Query().Get("isbn"))
-	if err != nil || n == "" {
-		fail(w, http.StatusUnprocessableEntity, "That isn’t a valid ISBN. Check the digits.")
+	id, err := isbn.Parse(r.URL.Query().Get("id"))
+	if err != nil || id == (isbn.ID{}) {
+		fail(w, http.StatusUnprocessableEntity, "That isn’t a valid ISBN or ISSN. Check the digits.")
 		return
 	}
+	if id.ISSN != "" {
+		writeJSON(w, http.StatusOK, map[string]any{"periodical": true, "issn": id.ISSN, "identifier": id.Display()})
+		return
+	}
+	n := id.ISBN
 	for _, b := range s.view(true).Books {
 		if b.ISBN == n {
 			writeJSON(w, http.StatusConflict, map[string]any{"error": "“" + b.Title + "” is already on your shelf.", "book": b.ID})

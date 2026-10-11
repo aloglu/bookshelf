@@ -93,7 +93,18 @@ func discard(f *os.File) {
 	os.Remove(f.Name())
 }
 
+// slow gives a request that uploads and unpacks a whole library (a restore,
+// an import) longer than the server's usual deadlines: an archive with
+// thousands of covers can take minutes to send from a phone or to unpack on
+// a small computer.
+func slow(w http.ResponseWriter) {
+	rc := http.NewResponseController(w)
+	rc.SetReadDeadline(time.Now().Add(time.Hour))
+	rc.SetWriteDeadline(time.Now().Add(time.Hour))
+}
+
 func (s *Server) restoreUpload(w http.ResponseWriter, r *http.Request) {
+	slow(w)
 	f, _, err := upload(w, r)
 	if err != nil {
 		s.failErr(w, r, err)
@@ -109,19 +120,15 @@ func (s *Server) restoreUpload(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) importFile(w http.ResponseWriter, r *http.Request) {
+	slow(w)
 	f, name, err := upload(w, r)
 	if err != nil {
 		s.failErr(w, r, err)
 		return
 	}
 	defer discard(f)
-	f.Seek(0, io.SeekStart)
-	raw, err := io.ReadAll(f)
-	if err != nil {
-		s.failErr(w, r, err)
-		return
-	}
-	added, skipped, err := s.Backups.Import(r.Context(), name, raw)
+	info, _ := f.Stat()
+	added, skipped, err := s.Backups.Import(r.Context(), name, f, info.Size())
 	if err != nil {
 		s.failErr(w, r, err)
 		return

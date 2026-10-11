@@ -136,6 +136,8 @@ CREATE TABLE books (
 	pages                INTEGER,
 	binding              TEXT NOT NULL DEFAULT 'paperback' CHECK (binding IN ('paperback','hardcover','cloth','leather')),
 	isbn                 TEXT,
+	issn                 TEXT NOT NULL DEFAULT '',
+	issue                TEXT NOT NULL DEFAULT '',
 	slug                 TEXT NOT NULL UNIQUE,
 	hidden               INTEGER NOT NULL DEFAULT 0,
 	cover                TEXT NOT NULL DEFAULT '',
@@ -146,6 +148,7 @@ CREATE TABLE books (
 	updated_at           TEXT NOT NULL
 );
 CREATE UNIQUE INDEX books_isbn ON books(isbn) WHERE isbn IS NOT NULL AND isbn <> '';
+CREATE UNIQUE INDEX books_issue ON books(issn, issue) WHERE issn <> '';
 
 CREATE TABLE readings (
 	id                TEXT PRIMARY KEY,

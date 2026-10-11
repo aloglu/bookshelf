@@ -69,7 +69,7 @@ func load(ctx context.Context, q querier) (*Snapshot, error) {
 	snap := &Snapshot{byID: map[string]int{}, Readings: map[string][]Reading{}, Sessions: map[string]Session{}}
 
 	rows, err := q.QueryContext(ctx, `SELECT id, title, author, translator, publisher, published, pages, binding,
-		COALESCE(isbn, ''), slug, hidden, cover, spine_color, spine_text_color, spine_color_override, added_at, updated_at
+		COALESCE(isbn, ''), issn, issue, slug, hidden, cover, spine_color, spine_text_color, spine_color_override, added_at, updated_at
 		FROM books ORDER BY added_at, id`)
 	if err != nil {
 		return nil, err
@@ -79,7 +79,7 @@ func load(ctx context.Context, q querier) (*Snapshot, error) {
 		var published, pages sql.NullInt64
 		var added, updated string
 		if err := rows.Scan(&b.ID, &b.Title, &b.Author, &b.Translator, &b.Publisher, &published, &pages, &b.Binding,
-			&b.ISBN, &b.Slug, &b.Hidden, &b.Cover, &b.SpineColor, &b.SpineTextColor, &b.SpineColorOverride, &added, &updated); err != nil {
+			&b.ISBN, &b.ISSN, &b.Issue, &b.Slug, &b.Hidden, &b.Cover, &b.SpineColor, &b.SpineTextColor, &b.SpineColorOverride, &added, &updated); err != nil {
 			rows.Close()
 			return nil, err
 		}
