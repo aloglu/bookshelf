@@ -107,6 +107,23 @@
       loadBackups();
     } catch (err) { toast(err.message); }
   }
+  // Restoring from a file: a .bookshelf archive (a backup kept elsewhere, or another library's export)
+  // replaces everything here, after a backup of what is here now.
+  let upload = $state(null), uploading = $state(false);
+  async function restoreFile() {
+    const file = upload;
+    uploading = true;
+    const body = new FormData(); body.append("file", file);
+    try {
+      await api("POST", "/api/restore", body);
+      upload = null;
+      await reload({ animate: true });
+      st = structuredClone($state.snapshot(data.library.settings));
+      toast(`Library restored from ${file.name}`);
+      loadBackups();
+    } catch (err) { toast(`${file.name}: ${err.message}`); }
+    uploading = false;
+  }
   async function out() { await hidePanel(wrap); try { await signOut(); } catch (err) { toast(err.message); } }
 </script>
 
@@ -270,7 +287,12 @@
           <li><span class="fine">No backups yet.</span></li>
         {/each}
       </ul>
-      <div class="row-btns"><button type="button" class="btn sm" onclick={backupNow}>Back up now</button></div>
+      <div class="row-btns"><button type="button" class="btn sm" onclick={backupNow}>Back up now</button>
+        <label class="btn sm">Restore from a file<input type="file" accept=".bookshelf,.zip" hidden onchange={(e) => { upload = e.target.files[0] || null; e.target.value = ""; }}></label></div>
+      {#if upload}
+        <div class="rd-ask"><span>Replace your whole library with {upload.name}? What’s here now is backed up first.</span>
+          <button type="button" class="btn sm danger solid" disabled={uploading} onclick={restoreFile}>{uploading ? "Restoring…" : "Restore it"}</button><button type="button" class="btn sm" disabled={uploading} onclick={() => (upload = null)}>Cancel</button></div>
+      {/if}
     </section>
 
     <section hidden={tab !== "account"}>

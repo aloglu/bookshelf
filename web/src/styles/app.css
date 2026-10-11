@@ -127,6 +127,7 @@ header .elsewhere { grid-area: links; justify-self: end; align-self: center; }
 .seg button { padding: 0 12px; border-radius: 5px; color: var(--muted); font-size: .86rem; font-weight: 500; transition: background-color .2s, color .2s; }
 .seg button[aria-pressed="true"], .seg button[aria-selected="true"] { background: color-mix(in oklab, var(--accent) 16%, transparent); color: var(--ink); }
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; white-space: nowrap; height: 40px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); font-size: .88rem; font-weight: 500; }
+a.btn { color: var(--ink); text-decoration: none; }   /* downloads look like the buttons beside them */
 .btn.icon { width: 40px; padding: 0; }
 .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
 .btn:active { transform: translateY(1px); }
