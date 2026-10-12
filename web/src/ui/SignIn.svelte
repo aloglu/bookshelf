@@ -4,8 +4,8 @@
   import { showPanel, hidePanel } from "../lib/panels.js";
   import { toast } from "../lib/toast.js";
 
-  let wrap, form, err = $state(""), user = $state("admin"), pass = $state(""), busy = $state(false);
-  export function open() { err = ""; showPanel(wrap, "[name=pass]"); }
+  let wrap, form, err = $state(""), user = $state(""), pass = $state(""), busy = $state(false);
+  export function open() { err = ""; showPanel(wrap, "[name=user]"); }
   async function submit(e) {
     e.preventDefault();
     err = !user.trim() ? "Enter your user name." : !pass ? "Enter your password." : "";

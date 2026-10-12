@@ -47,7 +47,7 @@ export function renderStats(box, list, { owner, hidden, openFromStats, setPage }
   ex.firstChild.append(...edges.map(([label, b, fact]) => {
     const e = document.createElement("button"); e.type = "button"; e.className = "edge";
     e.innerHTML = `<img alt=""><small></small><b></b><span></span>`;
-    e.querySelector("img").src = b.cover; e.querySelector("small").textContent = label; e.querySelector("b").textContent = b.title; e.querySelector("span").textContent = fact(b);
+    e.querySelector("img").src = b.thumb; e.querySelector("small").textContent = label; e.querySelector("b").textContent = b.title; e.querySelector("span").textContent = fact(b);
     e.addEventListener("click", () => openFromStats(b, e));
     return e;
   }));
@@ -77,7 +77,7 @@ function readingCard(b, list, owner, openFromStats, setPage) {
       <li><b>${share((x) => x.pages && x.pages < b.pages)}%</b>of the library is shorter</li>` : ""}
       ${b.published ? `<li><b>${share((x) => x.published && x.published > b.published)}%</b>of the library is older</li>` : ""}
     </ul></div>`;
-  const img = card.querySelector("img"); img.src = b.cover; img.addEventListener("click", () => openFromStats(b, img));
+  const img = card.querySelector("img"); img.src = b.thumb; img.addEventListener("click", () => openFromStats(b, img));
   card.querySelector(".who b").textContent = b.title; card.querySelector(".who span").textContent = b.author;
   card.querySelector(".page input")?.addEventListener("change", (e) => setPage(b, Math.max(0, Math.min(b.pages, Math.round(+e.target.value || 0)))));
   return card;

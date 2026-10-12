@@ -35,7 +35,8 @@ export const openPanel = () => [...document.querySelectorAll(".modal, .drawer-wr
 
 /* Typing on a touch screen:
    1. nothing focuses a field for the reader (see showPanel, Edit and the Add-a-book steps);
-   2. tapping a field's caption doesn't select it; only the field itself does;
+   2. tapping a field's caption doesn't select it; only the field itself does (the search box, whose
+      caption is its own magnifying glass, opens on a tap as it should);
    3. tapping anything that isn't a field puts the keyboard away;
    4. the field in use is brought to the top of the layer it is in (the book's page, the drawer; cards are short),
       so the keyboard never has anything to cover and iOS has no reason to move the screen. */
@@ -45,7 +46,7 @@ export function typingRules() {
   document.addEventListener("click", (e) => {
     if (!touch()) return;
     const lab = e.target.closest("label");
-    if (lab && !e.target.closest(TEXT) && lab.querySelector(TEXT)) e.preventDefault();
+    if (lab && !lab.matches(".search .field") && !e.target.closest(TEXT) && lab.querySelector(TEXT)) e.preventDefault();
   }, true);
   document.addEventListener("pointerdown", (e) => {
     const a = document.activeElement;

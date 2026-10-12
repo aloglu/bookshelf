@@ -1,7 +1,8 @@
 <script>
   // The header: the library's name, the tools (search, sort, day or evening, stats, and the owner's), what
   // is being read now, and the owner's links elsewhere.
-  import { ui, data, setQuery, setSort, signOut, setSelecting } from "../lib/app.svelte.js";
+  import { ui, data, setQuery, signOut, setSelecting, iconURL } from "../lib/app.svelte.js";
+  import SortButtons from "./SortButtons.svelte";
   import { motionOK, root } from "../engine/model.js";
   import { toast } from "../lib/toast.js";
 
@@ -59,7 +60,7 @@
 
 <header>
   <div class="brand">
-    <h1><a href="/" class="home" id="site-title" onclick={home}>{ui.name}</a></h1>
+    <h1><a href="/" class="home" id="site-title" onclick={home}>{#if data.library?.settings.iconShown}<img class="brand-icon" src={iconURL(data.library.settings)} alt="">{/if}<span>{ui.name}</span></a></h1>
   </div>
   <div class="tools">
     <div class="search" class:has-query={!!q} id="search">
@@ -69,9 +70,7 @@
       </label>
     </div>
     <div class="seg sort-seg" id="sort" role="group" aria-label="Sort by">
-      {#each [["author", "Author"], ["title", "Title"], ["year", "Year"]] as [k, name]}
-        <button type="button" aria-pressed={ui.sort === k} onclick={() => ui.sort !== k && setSort(k)}>{name}</button>
-      {/each}
+      <SortButtons />
     </div>
     <button type="button" class="btn icon" id="mode" aria-label="Switch between day and evening" onclick={flip}><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/></svg></button>
     <button type="button" class="btn icon stats-btn" id="stats-btn" aria-label="Statistics" title="Statistics" aria-pressed={ui.view === "stats"} onclick={() => setView(ui.view === "stats" ? "shelf" : "stats")}><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V11M12 20V5M19 20v-6M3 20h18"/></svg></button>

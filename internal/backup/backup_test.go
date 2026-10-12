@@ -29,7 +29,7 @@ func setup(t *testing.T) (*Backups, *store.Store, string) {
 	}
 	t.Cleanup(func() { st.Close() })
 	b := New(dir, st, "test", nil)
-	clock := time.Date(2026, 10, 12, 9, 0, 0, 0, time.UTC)
+	clock := time.Now().UTC().Truncate(time.Second) // real time: covers are judged by their files' real ages
 	b.now = func() time.Time { clock = clock.Add(time.Minute); return clock }
 	return b, st, dir
 }

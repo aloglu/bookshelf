@@ -1,7 +1,7 @@
 // The open book: the flight out of the shelf (or up from a cover on the stats page), the title page,
 // stepping between books, putting it back. Its markup is made here and only ever filled in, never
 // re-rendered, so nothing redraws text on a layer while it flies.
-import { $, EASE, BINDING_NAMES, bindingOf, cover, coverImg, isPhone, lastName, motionOK, root, settled, tone, touch } from "./model.js";
+import { $, EASE, BINDING_NAMES, bestCover, bindingOf, cover, coverImg, isPhone, lastName, motionOK, root, settled, tone, touch } from "./model.js";
 import { onResize, scale, setPeek, slots, view, visibleBooks } from "./shelf.js";
 
 const I = (d) => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
@@ -217,14 +217,7 @@ export function fill(b) {
   face.style.setProperty("--t", t + "px"); face.style.setProperty("--h", h + "px");
   $("t-st").textContent = b.title;
   $("t-sa").textContent = lastName(b.author);
-  $("lid-out").replaceChildren(coverImg(b.cover));
-  $("plate").replaceChildren(coverImg(b.cover));
-  // The plate keeps the cover's own proportions, as large as the board allows.
-  const im = cover(b.cover).im, ratio = im.naturalWidth && im.naturalHeight ? im.naturalWidth / im.naturalHeight : 2 / 3;
-  const pw = Math.min(size.W * .8, size.H * .84 * ratio);
-  tome.style.setProperty("--pw", Math.round(pw) + "px");
-  tome.style.setProperty("--ph", Math.round(pw / ratio) + "px");
-  $("thumb").src = b.cover;
+  showCover(b);
   const list = visibleBooks(), i = list.findIndex((x) => x.key === b.key);
   [list[(i + 1) % list.length], list[(i - 1 + list.length) % list.length]].forEach((n) => n && cover(n.cover));   // the neighbours, ready for stepping
   // The line above the title: the binding, whether it's being read, and how often it was read (for the
@@ -526,9 +519,25 @@ function paintSpine(color) {
 function recover(b) {
   const { c, fg } = tone(b);
   tome.style.setProperty("--c", c); tome.style.setProperty("--fg", fg);
-  $("lid-out").replaceChildren(coverImg(b.cover));
-  $("plate").replaceChildren(coverImg(b.cover));
-  $("thumb").src = b.cover;
+  showCover(b);
+}
+/* The cover on the outside board, the plate inside and a phone's thumbnail. On a slow connection the full
+   cover may not have arrived yet when the book opens: the small one (the shelf's thumbnail) stands in, and
+   the full one takes its place the moment it has loaded, so the book never opens without a cover. */
+function showCover(b) {
+  const put = (url) => {
+    $("lid-out").replaceChildren(coverImg(url));
+    $("plate").replaceChildren(coverImg(url));
+    $("thumb").src = url;
+    // The plate keeps the cover's own proportions, as large as the board allows.
+    const im = cover(url).im, ratio = im.naturalWidth && im.naturalHeight ? im.naturalWidth / im.naturalHeight : 2 / 3;
+    const pw = Math.min(size.W * .8, size.H * .84 * ratio);
+    tome.style.setProperty("--pw", Math.round(pw) + "px");
+    tome.style.setProperty("--ph", Math.round(pw / ratio) + "px");
+  };
+  const url = bestCover(b);
+  put(url);
+  if (url !== b.cover) cover(b.cover).ready.then(() => { if (current === b && cover(b.cover).loaded) put(b.cover); });
 }
 
 export function mountReader(el) {

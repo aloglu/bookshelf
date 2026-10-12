@@ -84,8 +84,18 @@ header .elsewhere { grid-area: links; justify-self: end; align-self: center; }
 .home { color: inherit; text-decoration: none; transition: color .2s; }
 .home:focus-visible { color: var(--accent); }
 @media (hover: hover) { .home:hover { color: var(--accent); } }
+/* The icon before the name, as tall as its capitals and part of the same link home. */
+.brand h1 .home { display: inline-flex; align-items: center; gap: .26em; }
+.brand-icon { flex: none; width: .86em; height: .86em; border-radius: .19em; object-fit: cover; }
+/* Settings: the icon as it is now, and what can change it. */
+.iconpick { display: flex; align-items: center; gap: 14px; }
+.iconpick img { width: 56px; height: 56px; border-radius: 12px; object-fit: cover; box-shadow: 0 0 0 1px var(--line); }
 .brand h1 { margin: 0; font-family: var(--display); font-weight: 600; font-size: clamp(2.1rem, 5vw, 3.1rem); line-height: 1; letter-spacing: -.02em; font-variation-settings: "opsz" 120; text-wrap: balance; }
 
+/* Who made Bookshelf, and where its code is: quiet, under the shelves. */
+.credits { margin: 44px 0 28px; text-align: center; color: var(--muted); font-size: .8rem; }
+.credits a { color: inherit; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: color-mix(in oklab, currentColor 35%, transparent); transition: color .2s; }
+@media (hover: hover) { .credits a:hover { color: var(--ink); } }
 /* What the owner is reading now, under the numbers: a small cover, and the book opens from its place on the shelf. */
 .nowreading { display: flex; align-items: center; gap: 10px; margin-top: 12px; text-align: left; color: var(--muted); font-size: .88rem; }
 /* With several books in hand their covers fan out, and the line opens a short list to choose from. */
@@ -125,6 +135,13 @@ header .elsewhere { grid-area: links; justify-self: end; align-self: center; }
 .field input::placeholder { color: var(--muted); }
 .seg { display: flex; height: 40px; padding: 3px; border-radius: 8px; background: var(--surface); border: 1px solid var(--line); }
 .seg button { padding: 0 12px; border-radius: 5px; color: var(--muted); font-size: .86rem; font-weight: 500; transition: background-color .2s, color .2s; }
+/* The sort's direction: an arrow on the active button, up for A to Z and oldest first, down the other way.
+   Every sort button keeps its room, so the buttons never change width. */
+.seg .dir { width: 12px; height: 12px; margin-left: 4px; flex: none; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; visibility: hidden; transition: rotate .2s; }
+.seg button:has(.dir) { display: inline-flex; align-items: center; justify-content: center; }
+.seg .dir.shown { visibility: visible; }
+.seg .dir.down { rotate: 180deg; }
+@media (prefers-reduced-motion: reduce) { .seg .dir { transition: none; } }
 .seg button[aria-pressed="true"], .seg button[aria-selected="true"] { background: color-mix(in oklab, var(--accent) 16%, transparent); color: var(--ink); }
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; white-space: nowrap; height: 40px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); font-size: .88rem; font-weight: 500; }
 a.btn { color: var(--ink); text-decoration: none; }
@@ -735,7 +752,7 @@ body:has(.drawer-wrap:not([hidden])) .toast.saved { left: calc(100% - min(420px,
 .toast button { font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
 
 @media (max-width: 720px) {
-  /* A phone: the title with its few tools on one line (Add book, then search beside the menu), and what
+  /* A phone: the title with its few tools on one line (search, then Add book, then the menu), and what
      the owner is reading and the links beneath. */
   header { padding-block: 26px 4px; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "brand tools" "reading reading" "links links"; align-items: center; row-gap: 18px; }
   .tools { justify-content: flex-end; flex-wrap: nowrap; }
@@ -743,6 +760,7 @@ body:has(.drawer-wrap:not([hidden])) .toast.saved { left: calc(100% - min(420px,
   .tools { gap: 6px; }
   .phone-only { display: inline-flex !important; }
   .tools > .sort-seg, .tools > #mode, .tools > #stats-btn, .tools > #select, .tools > #settings-btn, .tools > #signout-btn, .tools > #signin-btn { display: none !important; }
+  .tools > .search { order: -2; }   /* search first, then Add book, then the menu */
   .tools > #add { order: -1; width: 38px; padding: 0; gap: 0; font-size: 0; }   /* just the plus; its name stays for screen readers */
   .tools .seg button { padding: 0 8px; }
   .tools .btn.icon, .search { width: 38px; }
@@ -761,7 +779,8 @@ body:has(.drawer-wrap:not([hidden])) .toast.saved { left: calc(100% - min(420px,
   :root[data-view="stats"] header { row-gap: 0; }
   .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .kpi:last-child:nth-child(odd) { grid-column: 1 / -1; }
-  .search .field:focus-within, .search.has-query .field { width: calc(100vw - 32px - 44px); }   /* grows leftward over the title, stopping short of the menu */
+  .search .field:focus-within, .search.has-query .field { width: calc(100vw - 32px - 44px); }   /* grows leftward over the title, stopping short of the tools to its right */
+  :root[data-owner] .search .field:focus-within, :root[data-owner] .search.has-query .field { width: calc(100vw - 32px - 88px); }   /* the owner's Add book is there too */
   .shelf { padding-top: 34px; }
   .plank { height: 11px; border-radius: 4px; }
   :root { --side: 11px; --crown: 14px; --base: 12px; }

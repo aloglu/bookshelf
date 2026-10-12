@@ -95,11 +95,14 @@ type publicSettings struct {
 	Bindings  bool            `json:"bindings"`
 	BookSize  int             `json:"bookSize"`
 	MaxHeight int             `json:"maxHeight"`
+	Icon      string          `json:"icon"`
+	IconShown bool            `json:"iconShown"`
 }
 
 func public(st store.Settings) publicSettings {
 	return publicSettings{st.Name, st.Sort, st.Theme, st.Stats, st.Permalink, st.Sources, st.Social,
-		st.WallDay, st.WallNight, st.WoodDay, st.WoodNight, st.Bookcase, st.CaseParts, st.Ribbon, st.Bindings, st.BookSize, st.MaxHeight}
+		st.WallDay, st.WallNight, st.WoodDay, st.WoodNight, st.Bookcase, st.CaseParts, st.Ribbon, st.Bindings, st.BookSize, st.MaxHeight,
+		st.Icon, st.IconShown}
 }
 
 type viewKey struct {

@@ -108,6 +108,7 @@
   <Stats active={ui.view === "stats"} />
   <div class="tip" id="tip" role="tooltip" hidden></div>
   <main class="case" aria-label="Bookshelves"><div class="shelves" bind:this={shelvesEl}></div></main>
+  <footer class="credits">Made by <a href="https://alog.lu" rel="noopener">alog.lu</a> · Code available on <a href="https://github.com/aloglu/bookshelf" rel="noopener">GitHub</a></footer>
 </div>
 
 <div class="reader" id="reader" role="dialog" aria-modal="true" aria-labelledby="d-title" hidden bind:this={readerEl}></div>

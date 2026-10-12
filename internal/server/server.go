@@ -39,6 +39,9 @@ type Server struct {
 // CoversDir holds every cover and thumbnail.
 func (s *Server) CoversDir() string { return filepath.Join(s.DataDir, "covers") }
 
+// IconDir holds the owner's own icon, if there is one.
+func (s *Server) IconDir() string { return filepath.Join(s.DataDir, "icon") }
+
 // Handler is every route.
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
@@ -50,6 +53,10 @@ func (s *Server) Handler() http.Handler {
 
 	mux.HandleFunc("GET /api/library", s.getLibrary)
 	mux.HandleFunc("GET /covers/{name}", s.getCover)
+	mux.HandleFunc("GET /icon/{name}", s.getIcon)
+	mux.HandleFunc("GET /manifest.json", s.manifest)
+	mux.HandleFunc("PUT /api/icon", s.owner(s.putIcon))
+	mux.HandleFunc("DELETE /api/icon", s.owner(s.deleteIcon))
 
 	mux.HandleFunc("POST /api/books", s.owner(s.addBook))
 	mux.HandleFunc("PATCH /api/books/{id}", s.owner(s.editBook))
@@ -208,7 +215,7 @@ func (s *Server) app(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	name := strings.TrimPrefix(r.URL.Path, "/")
-	if name != "" {
+	if name != "" && name != "index.html" {
 		if f, err := s.Web.Open(name); err == nil {
 			st, _ := f.Stat()
 			f.Close()
@@ -222,8 +229,7 @@ func (s *Server) app(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	// Every other address (a book's own address, /stats, /signin) is the app.
-	w.Header().Set("Cache-Control", "no-cache")
-	http.ServeFileFS(w, r, s.Web, "index.html")
+	s.page(w, r)
 }
 
 // timeNow is replaceable in tests.

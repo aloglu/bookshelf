@@ -37,11 +37,18 @@ export function spineHeight(b, bindings = true, limit = 1) {
 // Spine thickness follows the page count: roughly 0.085 px per page plus the boards.
 export const thickness = (pages) => Math.max(18, Math.min(80, Math.round((pages || 250) * 0.085 + 7)));
 
-export const sorters = {
+const sorters = {
   author: (a, b) => lastName(a.author).localeCompare(lastName(b.author)) || a.title.localeCompare(b.title),
   title: (a, b) => a.title.replace(article, "").localeCompare(b.title.replace(article, "")),
   year: (a, b) => (a.published || 0) - (b.published || 0) || a.title.localeCompare(b.title),
 };
+// Sorts books by author, title or year, either way. Books without a year go last both ways.
+export function sortBooks(list, by, desc = false) {
+  const compare = sorters[by], dir = desc ? -1 : 1;
+  return list.sort((a, b) => (by === "year" && !a.published !== !b.published ? (a.published ? -1 : 1) : dir * compare(a, b)));
+}
+// What each order is called, for the sort buttons' labels.
+export const SORT_WAYS = { author: ["A to Z", "Z to A"], title: ["A to Z", "Z to A"], year: ["oldest first", "newest first"] };
 
 /* Without a cover, a book gets a plain cloth binding with its title stamped on, in the cloth color the
    server gave its spine. Drawn once per title and color. */
@@ -70,11 +77,16 @@ export function cover(url) {
   let entry = decoded.get(url);
   if (!entry) {
     const im = new Image(); im.decoding = "async"; im.src = url;
-    entry = { im, ready: im.decode().catch(() => {}) };
+    entry = { im, loaded: false };
+    entry.ready = im.decode().then(() => { entry.loaded = true; }, () => {});
     decoded.set(url, entry);
   }
   return entry;
 }
+// A book about to be opened (pointed at, touched): its covers start loading now, not on the click.
+export function prefetch(b) { if (b) { cover(b.thumb); cover(b.cover); } }
+// The cover worth showing right now: the full one once it has loaded, otherwise the small one.
+export const bestCover = (b) => (cover(b.cover).loaded || !b.thumb ? b.cover : b.thumb);
 export function coverImg(url) {
   const im = new Image(); im.alt = ""; im.decoding = "sync"; im.src = url;
   return im;

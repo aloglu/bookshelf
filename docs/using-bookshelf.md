@@ -12,7 +12,9 @@ visitors see too.
   phone) step along the shelf; **Put back** (or Esc) returns it to its place.
 - **Search** (the magnifying glass) finds books by title, author, translator,
   publisher, year or ISBN as you type. Esc clears it.
-- **Author, Title, Year** sort the shelf. The moon switches between day and
+- **Author, Title, Year** sort the shelf. Choose the same one again to turn it
+  round (Z to A, newest first); the small arrow shows which way it runs. Books
+  without a year come last either way. The moon switches between day and
   evening for this visit.
 - **Statistics** (the bar chart) shows the library in numbers: the books being
   read, then when they were written, how long they run, how they're bound and
@@ -100,7 +102,10 @@ note"), with the day you finished it and nothing else about your reading.
 
 The **Settings** icon (the sliders) opens Settings. Every change saves at once.
 
-- **Site:** the library's name. **What visitors see:** a private library shows
+- **Site:** the library's name, and its icon: Bookshelf's, or **Use your own**
+  with any picture (cropped to a square at its middle), for the browser tab, a
+  phone's home screen and, with **Show the icon beside the name**, the header.
+  **What visitors see:** a private library shows
   visitors only a sign-in page; the statistics page can be yours alone. **How it
   opens:** the sort and day or evening visitors start with. **Elsewhere:** your
   Goodreads, The StoryGraph and Instagram, shown under the name. **Links:** each

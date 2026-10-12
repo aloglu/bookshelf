@@ -1,6 +1,7 @@
 <script>
   // The phone menu stands in for the tools a phone has no room for; each row closes it and does the same thing.
-  import { ui, setSort, signOut, setSelecting } from "../lib/app.svelte.js";
+  import { ui, signOut, setSelecting } from "../lib/app.svelte.js";
+  import SortButtons from "./SortButtons.svelte";
   import { root } from "../engine/model.js";
   import { showPanel, hidePanel } from "../lib/panels.js";
   import { toast } from "../lib/toast.js";
@@ -20,9 +21,7 @@
   <div class="modal-scrim" data-close></div>
   <section class="card menu-sheet" role="dialog" aria-modal="true" aria-label="Menu">
     <div class="lab">Sort by<div class="seg">
-      {#each [["author", "Author"], ["title", "Title"], ["year", "Year"]] as [k, name]}
-        <button type="button" aria-pressed={ui.sort === k} onclick={() => { if (ui.sort !== k) setSort(k); hidePanel(wrap); }}>{name}</button>
-      {/each}
+      <SortButtons picked={() => hidePanel(wrap)} />
     </div></div>
     <div class="pm-list">
       <button type="button" onclick={then(flip)}><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/></svg><span>{dark ? "Switch to day" : "Switch to evening"}</span></button>

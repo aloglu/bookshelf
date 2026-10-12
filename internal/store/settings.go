@@ -18,6 +18,8 @@ type Settings struct {
 	Stats     bool     `json:"stats"`     // visitors may see the stats page
 	Permalink string   `json:"permalink"` // isbn, hyphens, title
 	Sources   []string `json:"sources"`   // openlibrary, google, goodreads
+	Icon      string   `json:"icon"`      // the owner's own icon (its name in the data folder), or "" for Bookshelf's
+	IconShown bool     `json:"iconShown"` // the icon stands beside the library's name in the header
 	Social    Social   `json:"social"`
 
 	// Look
@@ -57,7 +59,7 @@ type CaseParts struct {
 // DefaultSettings are a new library's settings.
 func DefaultSettings() Settings {
 	return Settings{
-		Name: "Bookshelf", Sort: "author", Theme: "system", Stats: true, Permalink: "isbn", Sources: []string{"openlibrary"},
+		Name: "Bookshelf", Sort: "author", Theme: "system", Stats: true, Permalink: "isbn", Sources: []string{"openlibrary"}, IconShown: true,
 		WallDay: "#e9e0d0", WallNight: "#17110d", WoodDay: "oak", WoodNight: "walnut",
 		CaseParts: CaseParts{Sides: true, Top: true, Back: true}, Ribbon: "#8e2532", Bindings: true, BookSize: 100, MaxHeight: 100,
 		BackupEvery: "day", BackupKeep: 14, CheckUpdates: true,
@@ -68,6 +70,7 @@ var (
 	hexColor = regexp.MustCompile(`^#[0-9a-f]{6}$`)
 	woods    = []string{"oak", "walnut", "maple", "ash", "pine", "cherry", "teak", "mahogany", "ebony"}
 	sources  = []string{"openlibrary", "google", "goodreads"}
+	iconName = regexp.MustCompile(`^[0-9a-f]{16}$`)
 )
 
 // Validate checks every value and tidies what can be tidied.
@@ -78,6 +81,9 @@ func (s *Settings) Validate() error {
 	}
 	if len([]rune(s.Name)) > 80 {
 		return fmt.Errorf("the name is longer than 80 characters")
+	}
+	if s.Icon != "" && !iconName.MatchString(s.Icon) {
+		return fmt.Errorf("unknown icon %q", s.Icon)
 	}
 	if !slices.Contains([]string{"author", "title", "year"}, s.Sort) {
 		return fmt.Errorf("unknown sort %q", s.Sort)

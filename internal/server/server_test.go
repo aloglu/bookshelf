@@ -11,8 +11,11 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"testing/fstest"
 
 	"github.com/aloglu/bookshelf/internal/auth"
 	"github.com/aloglu/bookshelf/internal/backup"
@@ -26,6 +29,7 @@ type env struct {
 	owner   *http.Client // signed in
 	visitor *http.Client
 	st      *store.Store
+	dir     string
 }
 
 func setup(t *testing.T) *env {
@@ -41,16 +45,27 @@ func setup(t *testing.T) *env {
 		t.Fatal(err)
 	}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	s := &Server{Store: st, Auth: a, Lookup: lookup.New("", "test"), Backups: backup.New(dir, st, "test", log), DataDir: dir, Version: "test", Log: log}
+	s := &Server{Store: st, Auth: a, Lookup: lookup.New("", "test"), Backups: backup.New(dir, st, "test", log), DataDir: dir, Version: "test", Log: log,
+		Web: fstest.MapFS{"index.html": {Data: []byte(testPage)}}}
 	srv := httptest.NewServer(s.Handler())
 	t.Cleanup(srv.Close)
 	jar, _ := cookiejar.New(nil)
-	e := &env{t: t, srv: srv, owner: &http.Client{Jar: jar}, visitor: &http.Client{}, st: st}
+	e := &env{t: t, srv: srv, owner: &http.Client{Jar: jar}, visitor: &http.Client{}, st: st, dir: dir}
 	if code, _ := e.do(e.owner, "POST", "/api/session", map[string]string{"user": "admin", "password": "secret"}); code != 200 {
 		t.Fatalf("sign in: %d", code)
 	}
 	return e
 }
+
+// testPage has the built page's head, as the server rewrites it.
+const testPage = `<!doctype html>
+<head>
+  <title>Bookshelf</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="manifest" href="/manifest.json">
+</head>`
 
 // do sends JSON (or raw bytes) the way the site's own page does, and decodes the answer.
 func (e *env) do(c *http.Client, method, path string, body any) (int, map[string]any) {
@@ -262,6 +277,60 @@ func TestPeriodicalIssues(t *testing.T) {
 	code, d := e.do(e.owner, "GET", "/api/lookup?id=977-2146023007", nil)
 	if code != 200 || d["periodical"] != true || d["issn"] != "2146023X" || d["identifier"] != "ISSN 2146-023X" {
 		t.Fatalf("lookup of a 977 barcode: %d %v", code, d)
+	}
+}
+
+func TestTheOwnersOwnIcon(t *testing.T) {
+	e := setup(t)
+	get := func(path string) (int, string) {
+		resp, err := e.visitor.Get(e.srv.URL + path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		raw, _ := io.ReadAll(resp.Body)
+		return resp.StatusCode, string(raw)
+	}
+	e.do(e.owner, "PATCH", "/api/settings", map[string]any{"name": "Our <books>"})
+	if _, page := get("/"); !strings.Contains(page, "<title>Our &lt;books&gt;</title>") || !strings.Contains(page, `href="/favicon.svg"`) {
+		t.Fatalf("the page before an icon: %s", page)
+	}
+	code, st := e.do(e.owner, "PUT", "/api/icon", png1(t))
+	name, _ := st["icon"].(string)
+	if code != 200 || len(name) != 16 {
+		t.Fatalf("upload: %d %v", code, st)
+	}
+	_, page := get("/9780679723424") // every address of the app is written the same way
+	if strings.Contains(page, "favicon.svg") || !strings.Contains(page, `href="/icon/`+name+`-32.png"`) || !strings.Contains(page, `href="/icon/`+name+`-180.png"`) {
+		t.Fatalf("the page with an icon: %s", page)
+	}
+	for _, size := range []string{"32", "180", "192", "512"} {
+		if code, _ := get("/icon/" + name + "-" + size + ".png"); code != 200 {
+			t.Fatalf("icon %s: %d", size, code)
+		}
+	}
+	if code, _ := get("/icon/" + name + "-64.png"); code != 404 {
+		t.Fatal("an icon size that doesn't exist was served")
+	}
+	_, man := get("/manifest.json")
+	if !strings.Contains(man, `"name":"Our \u003cbooks\u003e"`) || !strings.Contains(man, "/icon/"+name+"-512.png") {
+		t.Fatalf("manifest: %s", man)
+	}
+	// Back to Bookshelf's own: the files go, and the page links Bookshelf's icon again.
+	if code, st := e.do(e.owner, "DELETE", "/api/icon", nil); code != 200 || st["icon"] != "" {
+		t.Fatalf("back: %d %v", code, st)
+	}
+	if code, _ := get("/icon/" + name + "-32.png"); code != 404 {
+		t.Fatal("the old icon is still served")
+	}
+	if entries, _ := os.ReadDir(filepath.Join(e.dir, "icon")); len(entries) != 0 {
+		t.Fatalf("the old icon's files are left: %v", entries)
+	}
+	if _, page := get("/"); !strings.Contains(page, `href="/favicon.svg"`) {
+		t.Fatal("the page doesn't link Bookshelf's icon again")
+	}
+	if code, _ := e.do(e.visitor, "PUT", "/api/icon", png1(t)); code != 401 {
+		t.Fatal("a visitor set the icon")
 	}
 }
 

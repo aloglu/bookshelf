@@ -20,7 +20,7 @@ export const data = {
 // What the interface around the shelf shows.
 export const ui = $state({
   ready: false, gated: false, name: "Bookshelf", owner: false, user: "",
-  view: "shelf", query: "", sort: "author", selecting: false, chosen: 0,
+  view: "shelf", query: "", sort: "author", desc: false, selecting: false, chosen: 0,
   update: null, // for the owner: the version running, and a newer one if it's out
 });
 
@@ -69,7 +69,13 @@ export async function reload({ animate = false, fade = false } = {}) {
 }
 
 export function setQuery(q) { ui.query = q; view.query = q; }
-export function setSort(s) { ui.sort = s; view.sort = s; relayout(); }
+// Choosing the sort the shelf already has turns it round (Z to A, newest first); another starts the usual way.
+export function setSort(s) {
+  ui.desc = s === ui.sort ? !ui.desc : false;
+  ui.sort = s;
+  Object.assign(view, { sort: s, desc: ui.desc });
+  relayout();
+}
 
 /* ---------- Signing in ---------- */
 export async function signIn(user, password) {
@@ -182,3 +188,21 @@ export async function patchSettings(patch) {
   return st;
 }
 export const countText = (n) => plural(n, "book");
+
+/* ---------- The icon ---------- */
+// The library's icon: the owner's own (in sizes 32 to 512), or Bookshelf's.
+export const iconURL = (st, size = 192) => (st?.icon ? `/icon/${st.icon}-${size}.png` : size <= 32 ? "/favicon.svg" : "/icon.svg");
+// After a change, the browser tab shows the new icon at once (the server writes it into the page from then on).
+function showIconInTab(st) {
+  for (const link of document.querySelectorAll('link[rel="icon"], link[rel="apple-touch-icon"]')) link.remove();
+  const add = (rel, href, type, sizes) => document.head.append(Object.assign(document.createElement("link"), { rel, href, ...(type && { type }), ...(sizes && { sizes }) }));
+  if (st.icon) { add("icon", iconURL(st, 32), "image/png", "32x32"); add("apple-touch-icon", iconURL(st, 180)); }
+  else { add("icon", "/favicon.svg", "image/svg+xml"); add("icon", "/favicon-32.png", "image/png", "32x32"); add("apple-touch-icon", "/apple-touch-icon.png"); }
+}
+export async function setIcon(file) {
+  const st = await guard(() => (file ? api("PUT", "/api/icon", file) : api("DELETE", "/api/icon")));
+  library = { ...library, settings: st };
+  view.settings = st;
+  showIconInTab(st);
+  return st;
+}

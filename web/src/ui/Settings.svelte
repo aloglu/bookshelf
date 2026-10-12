@@ -1,7 +1,7 @@
 <script>
   // Settings: the site, its look, the library's files and backups, the account. Every change shows at once
   // and saves itself; dragging a color or a slider saves when it comes to rest.
-  import { ui, data, patchSettings, reload, signOut, setSort, checkUpdates } from "../lib/app.svelte.js";
+  import { ui, data, patchSettings, reload, signOut, setSort, checkUpdates, setIcon, iconURL } from "../lib/app.svelte.js";
   import { api } from "../lib/api.js";
   import { showPanel, hidePanel } from "../lib/panels.js";
   import { toast, savedToast } from "../lib/toast.js";
@@ -131,6 +131,14 @@
   const UPDATING = "https://github.com/aloglu/bookshelf/blob/main/docs/updating.md";
   const RELEASES = "https://github.com/aloglu/bookshelf/releases";
   const checked = (t) => new Date(t).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  // Any picture becomes the icon, cropped to a square at its middle.
+  async function pickIcon(file) {
+    try {
+      const next = await setIcon(file);
+      st.icon = next.icon;
+      savedToast(file ? "Saved. The new icon is in place." : "Saved. Bookshelf’s icon is back.");
+    } catch (err) { toast(err.message); }
+  }
   async function out() { await hidePanel(wrap); try { await signOut(); } catch (err) { toast(err.message); } }
 </script>
 
@@ -147,6 +155,16 @@
     {#if st}
     <section hidden={tab !== "site"}>
       <label class="lab">Name<input class="inp" autocomplete="off" value={st.name} oninput={(e) => change({ name: e.target.value }, { soon: true })}></label>
+      <div class="lab">Icon<small class="sub-lab">For the browser tab and a phone’s home screen; beside the name too, if you like.</small>
+        <div class="iconpick">
+          <img src={iconURL(st, 192)} alt="The library’s icon">
+          <div class="row-btns">
+            <label class="btn sm">{st.icon ? "Use another" : "Use your own"}<input type="file" accept="image/*" hidden onchange={(e) => { pickIcon(e.target.files[0]); e.target.value = ""; }}></label>
+            {#if st.icon}<button type="button" class="btn sm" onclick={() => pickIcon(null)}>Use Bookshelf’s</button>{/if}
+          </div>
+        </div>
+      </div>
+      <label class="toggle"><span><b>Show the icon beside the name</b><small>In the header, before the library’s name.</small></span><input type="checkbox" checked={st.iconShown} onchange={(e) => change({ iconShown: e.target.checked })}></label>
     </section>
     <section hidden={tab !== "site"}>
       <h3>What visitors see</h3>

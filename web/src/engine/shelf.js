@@ -1,9 +1,9 @@
 // The shelves. Each spine is created once and only ever moved: sorting, searching and resizing re-pack
 // the same elements, and FLIP animates the ones on screen. Nothing here is rendered by a framework.
-import { EASE, bindingOf, fold, hash, isPhone, lastName, motionOK, sorters, tone } from "./model.js";
+import { EASE, bindingOf, fold, hash, isPhone, lastName, motionOK, prefetch, sortBooks, tone } from "./model.js";
 
 // What the shelf shows, set by the app: the books, who is looking, the query and sort, the settings.
-export const view = { books: [], owner: false, query: "", sort: "author", selecting: false, settings: null, onOpen: null, onChoose: null };
+export const view = { books: [], owner: false, query: "", sort: "author", desc: false, selecting: false, settings: null, onOpen: null, onChoose: null };
 
 let shelvesEl = null;
 export const slots = new Map();
@@ -13,7 +13,7 @@ const EYE = `<svg class="eye" viewBox="0 0 24 24" fill="none" stroke="currentCol
 
 export function visibleBooks() {
   const q = fold(view.query.trim());
-  return view.books.filter((b) => (view.owner || !b.hidden) && (!q || b.haystack.includes(q))).sort(sorters[view.sort]);
+  return sortBooks(view.books.filter((b) => (view.owner || !b.hidden) && (!q || b.haystack.includes(q))), view.sort, view.desc);
 }
 
 function slotFor(b) {
@@ -144,6 +144,7 @@ export function setPeek(el) {
   peeked?.classList.remove("peek");
   peeked = el;
   if (el && !el.classList.contains("out")) el.classList.add("peek");
+  prefetch(el?.book);   // pointed at: it may well be opened next
 }
 
 /* ---------- Choosing several books ---------- */
@@ -171,6 +172,7 @@ export function mountShelves(el) {
     clearTimeout(leaveTimer);
     leaveTimer = setTimeout(() => setPeek(null), 60);   // bridges the 2px gaps between books
   });
+  el.addEventListener("pointerdown", (e) => prefetch(e.target.closest(".slot")?.book));   // a finger on a book, before the tap ends
   el.addEventListener("focusin", (e) => { const s = e.target.closest(".slot"); if (s && s.matches(":focus-visible")) setPeek(s); });
   el.addEventListener("focusout", () => setPeek(null));
   el.addEventListener("click", (e) => {
