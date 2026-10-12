@@ -60,4 +60,4 @@ Docker, are in **[docs](docs/README.md)**.
 
 ## License
 
-[MIT](LICENSE).
+Released under the [MIT License](https://github.com/aloglu/bookshelf/blob/4805ecdf62790aa468563182e9868b85852d807b/LICENSE).

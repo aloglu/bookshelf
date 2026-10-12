@@ -251,5 +251,5 @@ jobs:
           version="${{ needs.checks.outputs.version }}"
           gh release create "$GITHUB_REF_NAME" assets/* \
             --draft \
-            --title "Bookshelf $version" \
+            --title "v$version" \
             --notes "Docker: \`docker pull $IMAGE:$version\` (amd64 and arm64). Plain programs for Linux, macOS and Windows are attached. Setup guide: docs/README.md."
