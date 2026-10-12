@@ -157,8 +157,9 @@
     </div>
     {#if st}
     <section hidden={tab !== "site"}>
-      <label class="lab">Name<small class="sub-lab">Markdown works here: <code>[Our books](https://…)</code> makes the name a link somewhere else.</small><input class="inp" autocomplete="off" value={st.name} oninput={(e) => change({ name: e.target.value }, { soon: true })}></label>
-      <div class="lab">Icon<small class="sub-lab">For the browser tab and a phone’s home screen; beside the name too, if you like.</small>
+      <h3>Header</h3>
+      <label class="lab">Name<small class="sub-lab">Takes Markdown, such as a <code>[link](https://…)</code>.</small><input class="inp" autocomplete="off" value={st.name} oninput={(e) => change({ name: e.target.value }, { soon: true })}></label>
+      <div class="lab">Icon<small class="sub-lab">For the browser tab and home screens.</small>
         <div class="iconpick">
           <img src={iconURL(st, 192)} alt="The library’s icon">
           <div class="row-btns">
@@ -167,34 +168,8 @@
           </div>
         </div>
       </div>
-      <label class="toggle"><span><b>Show the icon beside the name</b><small>In the header, before the library’s name.</small></span><input type="checkbox" checked={st.iconShown} onchange={(e) => change({ iconShown: e.target.checked })}></label>
-    </section>
-    <section hidden={tab !== "site"}>
-      <h3>What visitors see</h3>
-      <label class="toggle"><span><b>Private library</b><small>Only you can see it. Visitors get a sign-in page.</small></span><input type="checkbox" checked={st.private} onchange={(e) => change({ private: e.target.checked }, { note: e.target.checked ? "Saved. Visitors now see a sign-in page." : "Saved. The library is open to visitors." })}></label>
-      <label class="toggle"><span><b>Statistics page</b><small>Let visitors see the numbers behind your library.</small></span><input type="checkbox" checked={st.stats} onchange={(e) => change({ stats: e.target.checked })}></label>
-      <p class="fine">Any book can be hidden from its own page. Your readings are never shown, and a note only when you make it public.</p>
-    </section>
-    <section hidden={tab !== "site"}>
-      <h3>How it opens</h3>
-      <!-- As on the shelf: choosing the sort again turns it round, and the shelf follows. -->
-      <div class="lab">Sorted by<div class="seg">
-        {#each [["author", "Author"], ["title", "Title"], ["year", "Year"]] as [k, name]}
-          {@const on = st.sort === k}
-          {@const desc = on && !!st.sortDesc}
-          <button type="button" aria-pressed={on} aria-label="{name}, {SORT_WAYS[k][desc ? 1 : 0]}" title={on ? `${SORT_WAYS[k][desc ? 1 : 0]}; again for ${SORT_WAYS[k][desc ? 0 : 1]}` : `Sort by ${name.toLowerCase()}`}
-            onclick={() => { const d = on ? !desc : false; change({ sort: k, sortDesc: d }); showSort(k, d); }}>{name}<svg class="dir" class:down={desc} class:shown={on} viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg></button>
-        {/each}
-      </div></div>
-      <div class="lab">Day or evening<div class="seg">
-        {#each [["system", "System"], ["light", "Day"], ["dark", "Evening"]] as [k, name]}
-          <button type="button" aria-pressed={st.theme === k} onclick={() => change({ theme: k })}>{name}</button>
-        {/each}
-      </div></div>
-    </section>
-    <section hidden={tab !== "site"}>
-      <h3>Elsewhere</h3>
-      <p class="fine">Shown under your library’s name. Paste a profile link or type a username.</p>
+      <label class="toggle"><span><b>Show the icon beside the name</b></span><input type="checkbox" checked={st.iconShown} onchange={(e) => change({ iconShown: e.target.checked })}></label>
+      <div class="lab">Elsewhere<small class="sub-lab">Shown under the name: a profile link or a username.</small></div>
       <div class="social">
         {#each Object.entries(NETS) as [k, n]}
           <label class="lab">{n.name}<input class="inp" class:bad={badSocial[k]} placeholder={k === "goodreads" ? "goodreads.com/user/show/…" : k === "instagram" ? "@username" : "Username"} autocomplete="off" spellcheck="false" bind:value={social[k]} oninput={() => typedSocial(k)}></label>
@@ -203,13 +178,19 @@
     </section>
     <section hidden={tab !== "site"}>
       <h3>Footer</h3>
-      <label class="toggle"><span><b>Show the footer</b><small>A line under the shelves.</small></span><input type="checkbox" checked={st.footer} onchange={(e) => change({ footer: e.target.checked })}></label>
-      <label class="lab" hidden={!st.footer}>What it says<small class="sub-lab">Markdown works: <code>[a link](https://…)</code>, <code>**bold**</code>, <code>*italic*</code>, and a new line for a new line.</small>
+      <label class="toggle"><span><b>Show the footer</b></span><input type="checkbox" checked={st.footer} onchange={(e) => change({ footer: e.target.checked })}></label>
+      <label class="lab" hidden={!st.footer}>Text<small class="sub-lab">Takes Markdown.</small>
         <textarea class="inp" rows="3" value={st.footerText} oninput={(e) => change({ footerText: e.target.value }, { soon: true })}></textarea></label>
       {#if st.footer && st.footerText !== ORIGINAL_FOOTER}<div class="row-btns"><button type="button" class="btn sm" onclick={() => change({ footerText: ORIGINAL_FOOTER })}>Use the original</button></div>{/if}
     </section>
     <section hidden={tab !== "site"}>
-      <h3>Links</h3>
+      <h3>Visitors</h3>
+      <label class="toggle"><span><b>Private library</b><small>Visitors see only a sign-in page.</small></span><input type="checkbox" checked={st.private} onchange={(e) => change({ private: e.target.checked }, { note: e.target.checked ? "Saved. Visitors now see a sign-in page." : "Saved. The library is open to visitors." })}></label>
+      <label class="toggle"><span><b>Statistics page</b><small>Visitors can see the numbers too.</small></span><input type="checkbox" checked={st.stats} onchange={(e) => change({ stats: e.target.checked })}></label>
+      <p class="fine">Hidden books and your readings are never shown, and a note only once you make it public.</p>
+    </section>
+    <section hidden={tab !== "site"}>
+      <h3>Book pages</h3>
       <div class="lab">Each book’s address
         <div class="radios">
           {#each [["isbn", eg?.isbn || eg?.slug], ["hyphens", hyphens], ["title", eg?.slug]] as [k, example]}
@@ -227,6 +208,24 @@
     </section>
 
     <section hidden={tab !== "look"}>
+      <h3>When it opens</h3>
+      <!-- As on the shelf: choosing the sort again turns it round, and the shelf follows. -->
+      <div class="lab">Sorted by<div class="seg">
+        {#each [["author", "Author"], ["title", "Title"], ["year", "Year"]] as [k, name]}
+          {@const on = st.sort === k}
+          {@const desc = on && !!st.sortDesc}
+          <button type="button" aria-pressed={on} aria-label="{name}, {SORT_WAYS[k][desc ? 1 : 0]}" title={on ? `${SORT_WAYS[k][desc ? 1 : 0]}; again for ${SORT_WAYS[k][desc ? 0 : 1]}` : `Sort by ${name.toLowerCase()}`}
+            onclick={() => { const d = on ? !desc : false; change({ sort: k, sortDesc: d }); showSort(k, d); }}>{name}<svg class="dir" class:down={desc} class:shown={on} viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg></button>
+        {/each}
+      </div></div>
+      <div class="lab">Day or evening<div class="seg">
+        {#each [["system", "System"], ["light", "Day"], ["dark", "Evening"]] as [k, name]}
+          <button type="button" aria-pressed={st.theme === k} onclick={() => change({ theme: k })}>{name}</button>
+        {/each}
+      </div></div>
+    </section>
+    <section hidden={tab !== "look"}>
+      <h3>Walls and wood</h3>
       <div class="lab">Wall color
         {#each [["wallDay", "l", "Day"], ["wallNight", "d", "Evening"]] as [key, m, when]}
           <div class="wallpick" data-m={m}>
@@ -242,9 +241,7 @@
           {/each}
         </div>
       </div>
-    </section>
-    <section hidden={tab !== "look"}>
-      <div class="lab">Wood<small class="sub-lab">For the shelves, and the bookcase when there is one.</small>
+      <div class="lab">Wood
         {#each [["woodDay", "Day"], ["woodNight", "Evening"]] as [key, when]}
           <div class="woodrow"><span class="when">{when} · <span>{WOODS[st[key]]}</span></span><div class="woods">
             {#each Object.entries(WOODS) as [k, name]}
@@ -253,9 +250,7 @@
           </div></div>
         {/each}
       </div>
-    </section>
-    <section hidden={tab !== "look"}>
-      <label class="toggle"><span><b>Bookcase</b><small>Stand the shelves in a bookcase of the same wood.</small></span><input type="checkbox" checked={st.bookcase} onchange={(e) => change({ bookcase: e.target.checked })}></label>
+      <label class="toggle"><span><b>Bookcase</b><small>Around the shelves, in the same wood.</small></span><input type="checkbox" checked={st.bookcase} onchange={(e) => change({ bookcase: e.target.checked })}></label>
       <div class="checks inline">
         {#each [["sides", "Sides"], ["top", "Top"], ["back", "Back panel"]] as [k, name]}
           <label><input type="checkbox" disabled={!st.bookcase} checked={st.caseParts[k]} onchange={(e) => change({ caseParts: { ...st.caseParts, [k]: e.target.checked } })}>{name}</label>
@@ -263,17 +258,8 @@
       </div>
     </section>
     <section hidden={tab !== "look"}>
-      <div class="lab">Reading ribbon<small class="sub-lab">Marks the books you are reading on the shelf.</small>
-        <div class="swatches ribbons">
-          {#each RIBBONS as [c, name]}
-            <button type="button" aria-label={name} title={name} style="--sw: {c}" aria-pressed={st.ribbon === c} onclick={() => change({ ribbon: c })}></button>
-          {/each}
-          <label class="well small" class:on={!RIBBONS.some(([c]) => c === st.ribbon)} title="Any color"><input type="color" aria-label="Ribbon color" value={st.ribbon} oninput={(e) => change({ ribbon: e.target.value }, { soon: true })}></label>
-        </div>
-      </div>
-    </section>
-    <section hidden={tab !== "look"}>
-      <label class="toggle"><span><b>Show bindings on the spines</b><small>Hardcover, cloth and leather each look like themselves, and stand a little taller.</small></span><input type="checkbox" checked={st.bindings} onchange={(e) => change({ bindings: e.target.checked })}></label>
+      <h3>Books</h3>
+      <label class="toggle"><span><b>Show bindings on the spines</b><small>Hardcover, cloth and leather look like themselves.</small></span><input type="checkbox" checked={st.bindings} onchange={(e) => change({ bindings: e.target.checked })}></label>
       <div class="bindprev" aria-hidden="true">
         {#each preview as p (p.k)}
           <figure>
@@ -282,10 +268,16 @@
           </figure>
         {/each}
       </div>
-    </section>
-    <section hidden={tab !== "look"}>
       <label class="lab">Book size <output>{st.bookSize}%</output><input type="range" min="70" max="130" step="5" value={st.bookSize} oninput={(e) => change({ bookSize: +e.target.value }, { soon: true })}></label>
       <label class="lab">Tallest spine <output>{st.maxHeight >= 100 ? "No limit" : st.maxHeight + "%"}</output><input type="range" min="70" max="100" step="5" value={st.maxHeight} oninput={(e) => change({ maxHeight: +e.target.value }, { soon: true })}></label>
+      <div class="lab">Reading ribbon<small class="sub-lab">Marks the books you’re reading.</small>
+        <div class="swatches ribbons">
+          {#each RIBBONS as [c, name]}
+            <button type="button" aria-label={name} title={name} style="--sw: {c}" aria-pressed={st.ribbon === c} onclick={() => change({ ribbon: c })}></button>
+          {/each}
+          <label class="well small" class:on={!RIBBONS.some(([c]) => c === st.ribbon)} title="Any color"><input type="color" aria-label="Ribbon color" value={st.ribbon} oninput={(e) => change({ ribbon: e.target.value }, { soon: true })}></label>
+        </div>
+      </div>
     </section>
 
     <section hidden={tab !== "library"}>
@@ -311,7 +303,7 @@
         <label class="lab">Back up<select class="inp" value={st.backupEvery} onchange={(e) => change({ backupEvery: e.target.value })}><option value="day">Every day</option><option value="week">Every week</option><option value="never">Only before imports and restores</option></select></label>
         <label class="lab">Keep the last<select class="inp" value={String(st.backupKeep)} onchange={(e) => change({ backupKeep: +e.target.value })}>{#each [7, 14, 30, 60, 90] as n}<option value={String(n)}>{n}</option>{/each}</select></label>
       </div>
-      <p class="fine">Saved in the <span class="tag">backups</span> folder of Bookshelf’s data folder (<span class="tag">/data/backups</span> in Docker). Keep the data folder on a volume or a folder on the host, and they outlive the container.</p>
+      <p class="fine">Kept in the data folder’s <span class="tag">backups</span> folder (<span class="tag">/data/backups</span> in Docker).</p>
       <ul class="backups">
         {#each backups as x (x.name)}
           <li>
@@ -351,7 +343,7 @@
         </p>
       {/if}
       {#if !ui.update?.dev}
-        <label class="toggle"><span><b>Check for updates</b><small>Bookshelf asks GitHub twice a day which version is the newest. Nothing about your library is sent.</small></span><input type="checkbox" checked={st.checkUpdates} onchange={(e) => toggleUpdates(e.target.checked)}></label>
+        <label class="toggle"><span><b>Check for updates</b><small>Twice a day, from GitHub. Nothing about your library is sent.</small></span><input type="checkbox" checked={st.checkUpdates} onchange={(e) => toggleUpdates(e.target.checked)}></label>
       {/if}
     </section>
     <section hidden={tab !== "account"}>

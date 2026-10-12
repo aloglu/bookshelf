@@ -102,27 +102,29 @@ note"), with the day you finished it and nothing else about your reading.
 
 The **Settings** icon (the sliders) opens Settings. Every change saves at once.
 
-- **Site:** the library's name, and its icon: Bookshelf's, or **Use your own**
-  with any picture (cropped to a square at its middle), for the browser tab, a
-  phone's home screen and, with **Show the icon beside the name**, the header.
-  The name takes Markdown: `[Our books](https://example.com)` makes it a link
-  somewhere else (the icon still leads home), and `**bold**` or `*italic*`
-  work too; the browser tab shows just the words.
-  **What visitors see:** a private library shows
-  visitors only a sign-in page; the statistics page can be yours alone. **How it
-  opens:** the sort visitors start with (choose it again for Z to A or newest
-  first), and day or evening. A visitor who switches between day and evening
-  keeps their choice while they're there. **Elsewhere:** your
-  Goodreads, The StoryGraph and Instagram, shown under the name. **Footer:** the
-  line under the shelves, shown or not, saying what you like in Markdown
-  (links, bold, italic, a new line for a new line); **Use the original** puts
-  Bookshelf's back. **Links:** each
-  book's address (`/9780679723424`, `/978-0-679-72342-4` or `/pale-fire`), and
-  where **Search on…** looks.
-- **Look:** the wall colors by day and by evening, the wood of the shelves, a
-  bookcase around them, the reading ribbon's color, whether the spines show
-  their bindings (hardcover, cloth, leather), the size of the books, and a limit
-  on the tallest spine.
+- **Site:**
+  - **Header:** the library's name, its icon (Bookshelf's, or **Use your own**
+    with any picture, cropped to a square), whether the icon stands beside the
+    name, and your Goodreads, The StoryGraph and Instagram, shown under it. The
+    name takes Markdown: `[Our books](https://example.com)` makes it a link
+    somewhere else (the icon still leads home); the browser tab shows just the
+    words.
+  - **Footer:** the line under the shelves, shown or not, saying what you like
+    in Markdown (links, bold, italic, a new line for a new line); **Use the
+    original** puts Bookshelf's back.
+  - **Visitors:** a private library shows visitors only a sign-in page; the
+    statistics page can be yours alone.
+  - **Book pages:** each book's address (`/9780679723424`, `/978-0-679-72342-4`
+    or `/pale-fire`), and where **Search on…** looks.
+- **Look:**
+  - **When it opens:** the sort visitors start with (choose it again for Z to A
+    or newest first), and day or evening. A visitor who switches between day
+    and evening keeps their choice while they're there.
+  - **Walls and wood:** the wall colors by day and by evening, the wood of the
+    shelves, and a bookcase around them.
+  - **Books:** whether the spines show their bindings (hardcover, cloth,
+    leather), the size of the books, a limit on the tallest spine, and the
+    reading ribbon's color.
 - **Library:** bring books in from a file, take them out as CSV, JSON or a full
   archive, and backups. See [Backups](backups.md).
 - **Account:** the version you're running and whether a newer one is out (see
