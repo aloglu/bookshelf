@@ -19,6 +19,7 @@ line that sounds most like you:
 | I have a **Synology** NAS | [Synology](synology.md) |
 | I have a **Raspberry Pi** (or want to use one) | [Raspberry Pi](raspberry-pi.md) |
 | I already use **Docker**, or want to on my computer or server | [Docker](docker.md) |
+| I rent a server (a **VPS** from Hetzner, DigitalOcean or the like) | [Docker](docker.md), then [Putting your shelf online](remote-access.md#your-own-reverse-proxy) |
 | I just want to try it on **my own computer**, without installing anything else | [Without Docker](without-docker.md) |
 
 Not sure? A computer or NAS that stays on is the best home for Bookshelf: your

@@ -6,9 +6,9 @@ and opens to its title page. Visitors browse your shelf; you sign in to add
 books by ISBN or barcode, keep track of what you're reading, write notes, and
 change how it all looks.
 
-Bookshelf runs on a computer you own: a home server or NAS (Unraid, Synology),
-a Raspberry Pi, any machine with Docker, or as a single program on your own
-computer. Nothing is stored anywhere else.
+Bookshelf runs on a computer of your own: a home server or NAS (Unraid,
+Synology), a Raspberry Pi, a rented server (a VPS), any machine with Docker, or
+as a single program on your own computer. Nothing is stored anywhere else.
 
 ## Quick start
 
