@@ -406,8 +406,8 @@ func TestSettingsPatchIsAllOrNothing(t *testing.T) {
 	if n := e.st.Snapshot().Settings.Name; n != "Bookshelf" {
 		t.Fatalf("a rejected patch changed the name to %q", n)
 	}
-	code, st := e.do(e.owner, "PATCH", "/api/settings", map[string]any{"caseParts": map[string]any{"back": false}})
-	if parts := st["caseParts"].(map[string]any); code != 200 || parts["back"] != false || parts["sides"] != true {
+	code, st := e.do(e.owner, "PATCH", "/api/settings", map[string]any{"caseParts": map[string]any{"sides": true}})
+	if parts := st["caseParts"].(map[string]any); code != 200 || parts["sides"] != true || parts["shelves"] != true || parts["back"] != false {
 		t.Fatalf("partial nested patch: %d %v", code, st)
 	}
 }

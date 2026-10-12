@@ -10,7 +10,7 @@ program.
 
 ## Automatic backups
 
-Sign in and open **Settings → Library → Backups**. You choose:
+Sign in and open **Settings → Your library → Backups**. You choose:
 
 - **Back up:** every day (the default), every week, or only before imports and
   restores.
@@ -43,7 +43,7 @@ just before replacing it, so a restore can be undone by restoring that one.
 
 ## Taking your books out
 
-**Settings → Library → Take them out** downloads:
+**Settings → Your library → Take them out** downloads:
 
 - **CSV**, for a spreadsheet: one row per book, with its ISBN hyphenated.
 - **JSON**, for other programs.
@@ -54,7 +54,7 @@ archive.
 
 ## Bringing books in
 
-**Settings → Library → Bring books in** takes a file (choose it, or drop it on
+**Settings → Your library → Bring books in** takes a file (choose it, or drop it on
 the box):
 
 - a **`.bookshelf` archive**, from a backup or another Bookshelf: the books with

@@ -1,6 +1,7 @@
 <script>
   // The phone menu stands in for the tools a phone has no room for; each row closes it and does the same thing.
   import { ui, signOut, setSelecting } from "../lib/app.svelte.js";
+  import { pill } from "../lib/pill.js";
   import SortButtons from "./SortButtons.svelte";
   import { root } from "../engine/model.js";
   import { showPanel, hidePanel } from "../lib/panels.js";
@@ -20,7 +21,7 @@
 <div class="modal" id="phone-menu" hidden bind:this={wrap}>
   <div class="modal-scrim" data-close></div>
   <section class="card menu-sheet" role="dialog" aria-modal="true" aria-label="Menu">
-    <div class="lab">Sort by<div class="seg">
+    <div class="lab">Sort by<div class="seg" use:pill>
       <SortButtons picked={() => hidePanel(wrap)} />
     </div></div>
     <div class="pm-list">

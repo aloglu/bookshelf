@@ -2,6 +2,7 @@
   // Marking a book as read (it was read before Bookshelf, or without "Reading now"), or correcting a past
   // reading: when it ended as precisely as the owner remembers (a day, a year, or not at all).
   import { markRead, correctReading } from "../lib/app.svelte.js";
+  import { pill } from "../lib/pill.js";
   import { when } from "../lib/api.js";
   import { isoDay, today } from "../lib/dates.js";
   import { showPanel, hidePanel } from "../lib/panels.js";
@@ -53,12 +54,12 @@
   <form class="card stack" role="dialog" aria-modal="true" aria-labelledby="mk-h" novalidate bind:this={form} onsubmit={submit}>
     <button type="button" class="btn icon x" data-close aria-label="Close"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
     <div><p class="wordmark">{book?.title}</p><h2 id="mk-h">{editing ? "Correct this reading" : book?.readCount ? "Mark as read again" : "Mark as read"}</h2></div>
-    <div class="lab" hidden={!editing}>How it ended<div class="seg">
+    <div class="lab" hidden={!editing}>How it ended<div class="seg" use:pill>
       <button type="button" aria-pressed={outcome === "finished"} onclick={() => (outcome = "finished")}>Finished</button>
       <button type="button" aria-pressed={outcome === "set_aside"} onclick={() => (outcome = "set_aside")}>Set aside</button>
     </div></div>
     <label class="lab" hidden={!editing}><span>Started <span class="opt">· if you know</span></span><input class="inp" type="date" name="start" max={today()} bind:value={start}></label>
-    <div class="lab"><span>{outcome === "set_aside" ? "Set aside" : "Finished"}</span><div class="seg">
+    <div class="lab"><span>{outcome === "set_aside" ? "Set aside" : "Finished"}</span><div class="seg" use:pill>
       <button type="button" aria-pressed={prec === "day"} onclick={() => (prec = "day")}>On a day</button>
       <button type="button" aria-pressed={prec === "year"} onclick={() => (prec = "year")}>In a year</button>
       <button type="button" aria-pressed={prec === "unknown"} onclick={() => (prec = "unknown")}>I don’t remember</button>

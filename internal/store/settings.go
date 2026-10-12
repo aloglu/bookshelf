@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-// Settings is everything in the Settings drawer.
+// Settings is everything in Settings.
 type Settings struct {
 	// Site
 	Name       string   `json:"name"` // may hold inline Markdown (a link, emphasis)
@@ -30,12 +30,14 @@ type Settings struct {
 	WallNight string    `json:"wallNight"`
 	WoodDay   string    `json:"woodDay"`
 	WoodNight string    `json:"woodNight"`
-	Bookcase  bool      `json:"bookcase"`
 	CaseParts CaseParts `json:"caseParts"`
-	Ribbon    string    `json:"ribbon"`
-	Bindings  bool      `json:"bindings"`
-	BookSize  int       `json:"bookSize"`  // percent, 70–130
-	MaxHeight int       `json:"maxHeight"` // percent, 70–100 (100: no limit)
+	// Bookcase is how Bookshelf before 2.0.5 stored the bookcase: one switch over its parts. It is only ever
+	// read, from settings and backups saved by those versions (see upgrade).
+	Bookcase  *bool  `json:"bookcase,omitempty"`
+	Ribbon    string `json:"ribbon"`
+	Bindings  bool   `json:"bindings"`
+	BookSize  int    `json:"bookSize"`  // percent, 70–130
+	MaxHeight int    `json:"maxHeight"` // percent, 70–100 (100: no limit)
 
 	// Library
 	BackupEvery string `json:"backupEvery"` // day, week, never (only before imports and restores)
@@ -52,11 +54,13 @@ type Social struct {
 	Instagram  string `json:"instagram"`
 }
 
-// CaseParts are the parts of the bookcase that are shown when it is on.
+// CaseParts are the parts of the bookcase, each shown on its own. With none of them, the books stand in
+// rows with nothing around or under them.
 type CaseParts struct {
-	Sides bool `json:"sides"`
-	Top   bool `json:"top"`
-	Back  bool `json:"back"`
+	Shelves bool `json:"shelves"` // the planks the books stand on
+	Sides   bool `json:"sides"`
+	Top     bool `json:"top"`
+	Back    bool `json:"back"`
 }
 
 // DefaultFooter is what the footer says until the owner changes it.
@@ -67,7 +71,7 @@ func DefaultSettings() Settings {
 	return Settings{
 		Name: "Bookshelf", Sort: "author", Theme: "system", Footer: true, FooterText: DefaultFooter, Stats: true, Permalink: "isbn", Sources: []string{"openlibrary"}, IconShown: true,
 		WallDay: "#e9e0d0", WallNight: "#17110d", WoodDay: "oak", WoodNight: "walnut",
-		CaseParts: CaseParts{Sides: true, Top: true, Back: true}, Ribbon: "#8e2532", Bindings: true, BookSize: 100, MaxHeight: 100,
+		CaseParts: CaseParts{Shelves: true}, Ribbon: "#8e2532", Bindings: true, BookSize: 100, MaxHeight: 100,
 		BackupEvery: "day", BackupKeep: 14, CheckUpdates: true,
 	}
 }
@@ -79,8 +83,19 @@ var (
 	iconName = regexp.MustCompile(`^[0-9a-f]{16}$`)
 )
 
+// upgrade brings settings saved before 2.0.5 up to date: there the bookcase's parts only showed while its
+// one switch was on, so with it off they all go off. Shelves were always shown then, and a setting missing
+// from what was saved keeps its default (on).
+func (s *Settings) upgrade() {
+	if s.Bookcase != nil && !*s.Bookcase {
+		s.CaseParts.Sides, s.CaseParts.Top, s.CaseParts.Back = false, false, false
+	}
+	s.Bookcase = nil
+}
+
 // Validate checks every value and tidies what can be tidied.
 func (s *Settings) Validate() error {
+	s.upgrade()
 	s.Name = strings.TrimSpace(s.Name)
 	if s.Name == "" {
 		s.Name = "Bookshelf"

@@ -3,6 +3,7 @@
 // re-rendered, so nothing redraws text on a layer while it flies.
 import { $, EASE, BINDING_NAMES, bestCover, bindingOf, cover, coverImg, isPhone, lastName, motionOK, root, settled, tone, touch } from "./model.js";
 import { onResize, scale, setPeek, slots, view, visibleBooks } from "./shelf.js";
+import { pickColor } from "../lib/colorpicker.js";
 
 const I = (d) => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
 const ICONS = {
@@ -88,7 +89,7 @@ const MARKUP = `
         <div class="lid-in"><figure class="plate" id="plate"></figure>
           <div class="ctools">
             <label class="ctool">${I(`<path d="M4 16l4-4 3 3 5-6 4 5M4 5h16v14H4z"/>`)}Replace cover<input type="file" accept="image/*" id="cover-file"></label>
-            <label class="ctool"><i class="dot"></i>Spine color<input type="color" id="spine-color"></label>
+            <button type="button" class="ctool" id="spine-color"><i class="dot"></i>Spine color</button>
             <button type="button" class="ctool" id="spine-auto">From cover</button>
           </div>
         </div>
@@ -486,7 +487,6 @@ function startEdit() {
   showIssue();
   $("perr").textContent = "";
   pform.querySelectorAll(".bad").forEach((el) => el.classList.remove("bad"));
-  $("spine-color").value = tone(b).c;
   reader.classList.add("editing");
   pform.querySelectorAll("textarea").forEach(fitText);
   page.scrollTop = 0;
@@ -560,7 +560,7 @@ export function mountReader(el) {
   scrim.addEventListener("click", closeBook);
   bar.querySelectorAll("[data-step]").forEach((b) => b.addEventListener("click", () => step(+b.dataset.step)));
   addEventListener("keydown", (e) => {
-    if (!isOpen() || e.defaultPrevented || e.target.closest?.("input, select, textarea, .modal, .drawer")) return;
+    if (!isOpen() || e.defaultPrevented || e.target.closest?.("input, select, textarea, .modal, .picker")) return;
     if (e.key === "Escape") { e.preventDefault(); closeBook(); }
     if (e.key === "ArrowRight") step(1);
     if (e.key === "ArrowLeft") step(-1);
@@ -611,17 +611,17 @@ export function mountReader(el) {
     if (!file) return;
     try { await hooks.replaceCover(current, file); } catch (err) { hooks.toast(err.message); return; }
     recover(current);
-    $("spine-color").value = tone(current).c;
     hooks.toast("New cover in place. The spine takes its color.");
   };
   $("cover-file").addEventListener("change", (e) => takeCover(e.target));
   $("cover-file-2").addEventListener("change", (e) => takeCover(e.target));
-  const spine = $("spine-color");
-  spine.addEventListener("input", (e) => paintSpine(e.target.value));
-  spine.addEventListener("change", async (e) => { try { await hooks.setSpine(current, e.target.value); } catch (err) { hooks.toast(err.message); } });
+  $("spine-color").addEventListener("click", (e) => pickColor(e.currentTarget, tone(current).c, {
+    input: paintSpine,
+    done: async (c) => { try { await hooks.setSpine(current, c); } catch (err) { hooks.toast(err.message); } },
+  }));
   $("spine-auto").addEventListener("click", async () => {
     try { await hooks.setSpine(current, ""); } catch (err) { hooks.toast(err.message); return; }
-    paintSpine(tone(current).c); spine.value = tone(current).c;
+    paintSpine(tone(current).c);
     hooks.toast("The spine follows the cover again");
   });
 }

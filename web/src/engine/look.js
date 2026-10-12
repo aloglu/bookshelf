@@ -13,8 +13,9 @@ export function applyLook(st) {
   if (st.theme !== themeSetting) { themeSetting = st.theme; applyTheme(st.theme); }
   applyWalls(st.wallDay, st.wallNight);
   applyWoods(st.woodDay, st.woodNight);
-  const parts = st.bookcase ? Object.keys(st.caseParts).filter((k) => st.caseParts[k]) : [];
+  const parts = ["sides", "top", "back"].filter((k) => st.caseParts[k]);
   if (parts.length) root.dataset.case = parts.join(" "); else delete root.dataset.case;
+  root.toggleAttribute("data-noshelves", !st.caseParts.shelves);
   root.style.setProperty("--ribbon", st.ribbon);
   root.toggleAttribute("data-plain", !st.bindings);
 }

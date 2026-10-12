@@ -1,38 +1,62 @@
 <script>
-  // Settings: the site, its look, the library's files and backups, the account. Every change shows at once
-  // and saves itself; dragging a color or a slider saves when it comes to rest.
+  // Settings: one sheet with its sections down the side (on a phone, the list of sections and then one at a
+  // time). Every change shows at once and saves itself; dragging a color or a slider saves when it comes to
+  // rest. The shelf section has a preview of the shelf, by day or by evening, drawn by the shelf's own rules.
+  import { tick } from "svelte";
   import { ui, data, patchSettings, reload, signOut, showSort, checkUpdates, setIcon, iconURL } from "../lib/app.svelte.js";
-  import { SORT_WAYS } from "../engine/model.js";
+  import { SORT_WAYS, isPhone, lastName, reheight, sortBooks } from "../engine/model.js";
   import { api } from "../lib/api.js";
   import { showPanel, hidePanel } from "../lib/panels.js";
   import { toast, savedToast } from "../lib/toast.js";
-  import { applyLook, presetOf, PRESETS, WOODS } from "../engine/look.js";
+  import { pill } from "../lib/pill.js";
+  import { pickColor } from "../lib/colorpicker.js";
+  import { applyLook, WOODS } from "../engine/look.js";
   import { relayout, view } from "../engine/shelf.js";
-  import { BINDING_NAMES, lastName, reheight, spineHeight } from "../engine/model.js";
 
   // The footer a library starts with (the server's DefaultFooter), to put back after changing it.
   const ORIGINAL_FOOTER = "Made by [alog.lu](https://alog.lu) · Code available on [GitHub](https://github.com/aloglu/bookshelf)";
-  let wrap, tab = $state("site"), st = $state(null);
-  let backups = $state([]), importNote = $state(""), over = $state(false), restoring = $state(null);
+  const SECTIONS = [
+    ["shelf", "Shelf", "How the shelf looks, by day and by evening."],
+    ["site", "Header and footer", "The name above the shelf and the line beneath it."],
+    ["visitors", "Visitors", "Who can see the library, and how it opens for them."],
+    ["library", "Your library", ""],
+    ["about", "Bookshelf", "The version you run, and your account."],
+  ];
   const NETS = {
     goodreads: { name: "Goodreads", host: /(^|\.)goodreads\.com$/, url: (v) => /^\d+(-[\w-]+)?$/.test(v) ? `https://www.goodreads.com/user/show/${v}` : `https://www.goodreads.com/${v}` },
     storygraph: { name: "The StoryGraph", host: /(^|\.)thestorygraph\.com$/, url: (v) => `https://app.thestorygraph.com/profile/${v}` },
     instagram: { name: "Instagram", host: /(^|\.)instagram\.com$/, url: (v) => `https://www.instagram.com/${v}/` },
   };
-  let social = $state({}), badSocial = $state({});
   const RIBBONS = [["#8e2532", "Crimson"], ["#23365e", "Navy"], ["#2e5a3c", "Forest"], ["#b8902f", "Old gold"], ["#1d1a19", "Black"]];
-  const PAIRS = [["linen", "Linen", "#e3d8c5", "#17110d"], ["tobacco", "Tobacco", "#c4a47d", "#2a1c12"], ["chestnut", "Chestnut", "#8d5d3b", "#3a2416"], ["umber", "Umber", "#4f3828", "#1e1510"], ["forest", "Forest green", "#364637", "#152018"]];
+  // Wall paints, each with its day and its evening color.
+  const PAINTS = [["Linen", "#e9e0d0", "#17110d"], ["Tobacco", "#cdb08a", "#2a1c12"], ["Chestnut", "#94633f", "#3a2416"], ["Umber", "#5b4130", "#1e1510"], ["Forest green", "#3d4c3e", "#152018"]];
+  const PARTS = [["shelves", "Shelves"], ["sides", "Sides"], ["top", "Top"], ["back", "Back panel"]];
+  const ADDRESS = [["isbn", "ISBN"], ["hyphens", "Hyphenated"], ["title", "Title"]];
+  const SOURCES = [["openlibrary", "Open Library"], ["google", "Google Books"], ["goodreads", "Goodreads"]];
 
-  export async function open(which = "site") {
+  let wrap, st = $state(null), section = $state("shelf"), inside = $state(true), mode = $state("day");
+  let backups = $state([]), importNote = $state(""), over = $state(false), restoring = $state(null);
+  let social = $state({}), badSocial = $state({});
+
+  // Opens on the first section on a wide screen, or on the list of sections on a phone.
+  export async function open() {
     if (!data.library) return;   // still loading; the button only shows once it has
-    tab = which;
     st = structuredClone($state.snapshot(data.library.settings));
     social = Object.fromEntries(Object.keys(NETS).map((k) => [k, (st.social[k] || "").replace(/^https:\/\/(www\.|app\.)?/, "")]));
     badSocial = {}; importNote = ""; restoring = null;
-    showPanel(wrap, "[data-close]");
+    section = "shelf"; inside = !isPhone(); settle();
+    mode = document.documentElement.dataset.theme === "dark" || (!document.documentElement.dataset.theme && matchMedia("(prefers-color-scheme: dark)").matches) ? "night" : "day";
+    await tick();   // the section is drawn before it takes focus
+    showPanel(wrap, inside ? ".spane-head [data-close]" : ".phone-x");
     loadBackups();
     checkUpdates();
   }
+  function go(k) { section = k; inside = true; pane?.scrollTo({ top: 0 }); settle(); }
+  let pane = $state();
+  // While a section is first drawn nothing animates (its switches and segments arrive as they are); only a
+  // change the owner makes slides.
+  let still = $state(false);
+  function settle() { still = true; requestAnimationFrame(() => requestAnimationFrame(() => (still = false))); }
   async function loadBackups() { try { backups = await api("GET", "/api/backups"); } catch { backups = []; } }
 
   // A change shows at once (on the shelf, the walls, the wood) and is saved: at once for a click, or once the
@@ -44,7 +68,7 @@
     const local = $state.snapshot(st);
     applyLook(local); view.settings = local;
     if ("bindings" in patch || "maxHeight" in patch) reheight(data.books, local);
-    if ("bindings" in patch || "maxHeight" in patch || "bookSize" in patch || "bookcase" in patch || "caseParts" in patch) relayout(false);
+    if ("bindings" in patch || "maxHeight" in patch || "bookSize" in patch || "caseParts" in patch) relayout(false);
     clearTimeout(timer);
     timer = setTimeout(() => commit(note), soon ? 450 : 0);
   }
@@ -71,22 +95,38 @@
     badSocial[net] = url === null;
     if (url !== null) change({ social: { ...st.social, [net]: url } }, { soon: true });
   }
-  // Walls: a named pair, or either wall on its own.
-  const preset = $derived(st ? presetOf(st.wallDay, st.wallNight) : null);
-  function hexTyped(key, e) {
-    let v = e.target.value.trim(); if (!v.startsWith("#")) v = "#" + v;
-    if (/^#[0-9a-f]{3}$/i.test(v)) v = "#" + [...v.slice(1)].map((x) => x + x).join("");
-    if (/^#[0-9a-f]{6}$/i.test(v) && v.toLowerCase() !== st[key]) change({ [key]: v.toLowerCase() }, { soon: true });
-  }
-  // The preview: one real book from the shelf in each binding, at the shelf's scale.
-  const preview = $derived(!st ? [] : Object.entries(BINDING_NAMES).map(([k, name], i) => {
-    const b = data.books.find((x) => x.binding === k) || data.books[i % Math.max(1, data.books.length)];
-    return b && { k, name, b, h: Math.round(spineHeight({ ...b, binding: k, seed: 3 }, st.bindings) * .8) };
-  }).filter(Boolean));
-  const eg = $derived(data.books.find((b) => b.isbn && !b.hidden) || data.books[0]);
-  const hyphens = $derived(eg?.isbn ? eg.identifier : eg?.slug);
 
-  /* ---------- Library ---------- */
+  /* ---------- The shelf ---------- */
+  // What's being chosen: the day's paint and wood, or the evening's.
+  const wallKey = $derived(mode === "day" ? "wallDay" : "wallNight");
+  const woodKey = $derived(mode === "day" ? "woodDay" : "woodNight");
+  const paint = (wall) => change({ [wallKey]: wall }, { soon: true });
+  // The preview: the library's own books, the first of the shelf, as many as fill most of its width, one of
+  // them being read if any is. They are drawn at the wide screen's shelf scale on every screen (where the
+  // lettering fits the spines as it should) and the whole shelf is zoomed down to a box of fixed height, sized
+  // for the tallest books the settings allow; so a setting never resizes the box (see .shelfpv).
+  let pvWidth = $state(0);
+  const pvZoom = () => parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--pvz")) || .5;
+  const pvBooks = $derived.by(() => {
+    if (!st) return [];
+    const k = 1.15 * st.bookSize / 100, room = (pvWidth / pvZoom()) * .82;
+    const shown = sortBooks(data.books.filter((b) => !b.hidden), st.sort, st.sortDesc);
+    const list = [];
+    let used = 0;
+    for (const b of shown) { const w = Math.round(b.t * k) + 2; if (used + w > room) break; list.push(b); used += w; }
+    const reader = shown.find((b) => b.reading);
+    if (reader && !list.includes(reader) && list.length) list[Math.floor(list.length / 2)] = reader;
+    return list.map((b) => ({ b, t: Math.round(b.t * k), h: Math.round(b.h * k) }));
+  });
+  const rowH = $derived(Math.max(0, ...pvBooks.map((p) => p.h)) + 4);
+  function picker(e, value, set) { pickColor(e.currentTarget, value, { input: set }); }
+
+  /* ---------- Visitors ---------- */
+  const eg = $derived(data.books.find((b) => b.isbn && !b.hidden) || data.books[0]);
+  const addressOf = (k) => "/" + ((k === "isbn" ? eg?.isbn || eg?.slug : k === "hyphens" ? (eg?.isbn ? eg.identifier : eg?.slug) : eg?.slug) || "…");
+  const sortWay = $derived(st ? SORT_WAYS[st.sort][st.sortDesc ? 1 : 0] : "");
+
+  /* ---------- Your library ---------- */
   const hidden = $derived(data.books.filter((b) => b.hidden).length);
   async function importFile(file) {
     if (!file) return;
@@ -129,6 +169,8 @@
     } catch (err) { toast(`${file.name}: ${err.message}`); }
     uploading = false;
   }
+
+  /* ---------- Bookshelf ---------- */
   // Turning the check on asks GitHub at once; the answer comes a moment later.
   function toggleUpdates(on) { change({ checkUpdates: on }); if (on) setTimeout(checkUpdates, 2500); }
   const UPDATING = "https://github.com/aloglu/bookshelf/blob/main/docs/updating.md";
@@ -143,214 +185,232 @@
     } catch (err) { toast(err.message); }
   }
   async function out() { await hidePanel(wrap); try { await signOut(); } catch (err) { toast(err.message); } }
+  const ICONS = {
+    shelf: `<path d="M3 20h18M5 20V6h3v14M10 20V4h3v16M15.5 20l-1-12 3-.4 1.4 12.4"/>`,
+    site: `<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M7 6.5h4"/>`,
+    visitors: `<circle cx="12" cy="8" r="3.5"/><path d="M5 20c.8-3.6 3.6-5.5 7-5.5s6.2 1.9 7 5.5"/>`,
+    library: `<path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19h14"/>`,
+    about: `<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5M12 8h.01"/>`,
+  };
 </script>
 
-<div class="drawer-wrap" id="drawer-wrap" hidden bind:this={wrap}>
-  <div class="drawer-scrim" data-close></div>
-  <aside class="drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-h">
-    <button type="button" class="btn icon x" data-close aria-label="Close"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
-    <h2 id="drawer-h">Settings</h2>
-    <div class="seg dtabs" role="tablist">
-      {#each [["site", "Site"], ["look", "Look"], ["library", "Library"], ["account", "Account"]] as [k, name]}
-        <button type="button" role="tab" aria-selected={tab === k} class:dot={k === "account" && ui.update?.newer} onclick={() => (tab = k)}>{name}</button>
+{#snippet sw(checked, onchange, label)}<input type="checkbox" class="switch" aria-label={label} {checked} onchange={(e) => onchange(e.target.checked)}>{/snippet}
+{#snippet name(text, hint)}<div class="sname">{text}{#if hint}<small>{hint}</small>{/if}</div>{/snippet}
+
+<div class="modal settings-wrap" id="settings" hidden bind:this={wrap}>
+  <div class="modal-scrim" data-close></div>
+  <section class="card settings" class:inside class:still role="dialog" aria-modal="true" aria-labelledby="settings-h">
+    <nav class="snav" aria-label="Settings">
+      <h2 id="settings-h">Settings</h2>
+      {#each SECTIONS as [k, title]}
+        <button type="button" aria-current={section === k && inside} class:dot={k === "about" && ui.update?.newer} onclick={() => go(k)}>
+          <svg class="i" viewBox="0 0 24 24" aria-hidden="true">{@html ICONS[k]}</svg><span>{title}</span>
+          <svg class="i chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
+        </button>
       {/each}
-    </div>
+      <span class="spacer"></span>
+      {#if ui.update?.version}<p class="ver">Bookshelf {ui.update.version}</p>{/if}
+      <button type="button" class="btn icon x phone-x" data-close aria-label="Close"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    </nav>
     {#if st}
-    <section hidden={tab !== "site"}>
-      <h3>Header</h3>
-      <label class="lab">Name<small class="sub-lab">Takes Markdown, such as a <code>[link](https://…)</code>.</small><input class="inp" autocomplete="off" value={st.name} oninput={(e) => change({ name: e.target.value }, { soon: true })}></label>
-      <div class="lab">Icon<small class="sub-lab">For the browser tab and home screens.</small>
-        <div class="iconpick">
-          <img src={iconURL(st, 192)} alt="The library’s icon">
-          <div class="row-btns">
+    {@const [, title, lede] = SECTIONS.find(([k]) => k === section)}
+    <div class="spane" bind:this={pane}>
+      <div class="spane-head">
+        <button type="button" class="btn icon back" aria-label="All settings" onclick={() => (inside = false)}><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg></button>
+        <h2>{title}</h2>
+        <button type="button" class="btn icon" data-close aria-label="Close"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+      </div>
+      {#if section === "library"}
+        <p class="slede">{data.books.length.toLocaleString("en-US")} book{data.books.length === 1 ? "" : "s"} on your shelves{hidden ? `, ${hidden} of them hidden from the website` : ""}.</p>
+      {:else}
+        <p class="slede">{lede}</p>
+      {/if}
+
+      <div class="sbody">
+      {#if section === "shelf"}
+        <div class="pvbox">
+          <div class="seg modeswitch" role="group" aria-label="Choose the paint and wood for" use:pill>
+            <button type="button" aria-pressed={mode === "day"} onclick={() => (mode = "day")}><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></svg>Day</button>
+            <button type="button" aria-pressed={mode === "night"} onclick={() => (mode = "night")}><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/></svg>Evening</button>
+          </div>
+          <div class="shelfpv" class:night={mode === "night"} aria-hidden="true" bind:clientWidth={pvWidth}
+            style="--pwall: {st[wallKey]}; --wood: var(--wood-{mode}); --wood-v: var(--wood-{mode}-v, none); --wood-back: var(--wood-{mode}-back, none)">
+            <div class="zoom"><div class="shelves"><div class="shelf"><div class="books" style="--row-h: {rowH}px">
+              {#each pvBooks as p (p.b.key)}
+                <div class="slot" class:reading={p.b.reading} data-b={p.b.binding in { hardcover: 1, cloth: 1, leather: 1 } ? p.b.binding : "paperback"} style="--t: {p.t}px; --h: {p.h}px; --c: {p.b.spine.color}; --fg: {p.b.spine.text}"><div class="spine"><span class="st">{p.b.title}</span><span class="sa">{lastName(p.b.author)}</span></div></div>
+              {/each}
+            </div><div class="plank"></div></div></div></div>
+          </div>
+        </div>
+        <div class="sgroup"><h3>Paint and wood</h3>
+          <div class="srow stack">{@render name("Wall")}<div class="sctl">
+            <div class="swatches walls">
+              {#each PAINTS as [n, d, e]}
+                {@const c = mode === "day" ? d : e}
+                <button type="button" title={n} aria-label={n} style="--sw: {c}" aria-pressed={st[wallKey] === c} onclick={() => paint(c)}></button>
+              {/each}
+              <button type="button" class="well" title="Your own" aria-label="Your own wall color" style="--pick: {st[wallKey]}" onclick={(e) => picker(e, st[wallKey], paint)}></button>
+            </div>
+          </div></div>
+          <div class="srow stack">{@render name("Wood", WOODS[st[woodKey]])}<div class="sctl"><div class="woods">
+            {#each Object.entries(WOODS) as [k, n]}
+              <button type="button" title={n} aria-label={n} style="--wood: var(--w-{k})" aria-pressed={st[woodKey] === k} onclick={() => change({ [woodKey]: k })}></button>
+            {/each}
+          </div></div></div>
+        </div>
+        <div class="sgroup"><h3>Bookcase</h3>
+          <p class="sdesc">Each part on its own, in the shelves’ wood: the shelves the books stand on, the sides, a top and a back panel. With all of them off, the books stand on their own.</p>
+          {#each PARTS as [k, n]}
+            <div class="srow">{@render name(n)}<div class="sctl">{@render sw(st.caseParts[k], (on) => change({ caseParts: { ...st.caseParts, [k]: on } }), n)}</div></div>
+          {/each}
+        </div>
+        <div class="sgroup"><h3>Books</h3>
+          <div class="srow">{@render name("Binding details", "Hardcovers show their boards, cloth its weave, leather its bands and gilt")}<div class="sctl">{@render sw(st.bindings, (on) => change({ bindings: on }), "Binding details")}</div></div>
+          <div class="srow">{@render name("Size")}<div class="sctl"><div class="range"><input type="range" min="70" max="130" step="5" aria-label="Size" value={st.bookSize} oninput={(e) => change({ bookSize: +e.target.value }, { soon: true })}><output>{st.bookSize}%</output></div></div></div>
+          <div class="srow">{@render name("Spine height", "The tallest a spine may stand")}<div class="sctl"><div class="range"><input type="range" min="70" max="100" step="5" aria-label="Spine height" value={st.maxHeight} oninput={(e) => change({ maxHeight: +e.target.value }, { soon: true })}><output>{st.maxHeight >= 100 ? "No limit" : st.maxHeight + "%"}</output></div></div></div>
+          <div class="srow stack">{@render name("Ribbon", "On the books you’re reading")}<div class="sctl"><div class="swatches">
+            {#each RIBBONS as [c, n]}
+              <button type="button" title={n} aria-label={n} style="--sw: {c}" aria-pressed={st.ribbon === c} onclick={() => change({ ribbon: c })}></button>
+            {/each}
+            <button type="button" class="well small" class:on={!RIBBONS.some(([c]) => c === st.ribbon)} title="Any color" aria-label="Any ribbon color" onclick={(e) => picker(e, st.ribbon, (c) => change({ ribbon: c }, { soon: true }))}></button>
+          </div></div></div>
+        </div>
+
+      {:else if section === "site"}
+        <div class="sgroup"><h3>Header</h3>
+          <div class="srow">{@render name("Name")}<div class="sctl"><input class="inp" autocomplete="off" aria-label="Name" value={st.name} oninput={(e) => change({ name: e.target.value }, { soon: true })}></div></div>
+          <div class="srow">{@render name("Icon")}<div class="sctl iconpick">
+            <img src={iconURL(st, 192)} alt="The library’s icon">
             <label class="btn sm">{st.icon ? "Use another" : "Use your own"}<input type="file" accept="image/*" hidden onchange={(e) => { pickIcon(e.target.files[0]); e.target.value = ""; }}></label>
             {#if st.icon}<button type="button" class="btn sm" onclick={() => pickIcon(null)}>Use Bookshelf’s</button>{/if}
-          </div>
-        </div>
-      </div>
-      <label class="toggle"><span><b>Show the icon beside the name</b></span><input type="checkbox" checked={st.iconShown} onchange={(e) => change({ iconShown: e.target.checked })}></label>
-      <div class="lab">Elsewhere<small class="sub-lab">Shown under the name: a profile link or a username.</small></div>
-      <div class="social">
-        {#each Object.entries(NETS) as [k, n]}
-          <label class="lab">{n.name}<input class="inp" class:bad={badSocial[k]} placeholder={k === "goodreads" ? "goodreads.com/user/show/…" : k === "instagram" ? "@username" : "Username"} autocomplete="off" spellcheck="false" bind:value={social[k]} oninput={() => typedSocial(k)}></label>
-        {/each}
-      </div>
-    </section>
-    <section hidden={tab !== "site"}>
-      <h3>Footer</h3>
-      <label class="toggle"><span><b>Show the footer</b></span><input type="checkbox" checked={st.footer} onchange={(e) => change({ footer: e.target.checked })}></label>
-      <label class="lab" hidden={!st.footer}>Text<small class="sub-lab">Takes Markdown.</small>
-        <textarea class="inp" rows="3" value={st.footerText} oninput={(e) => change({ footerText: e.target.value }, { soon: true })}></textarea></label>
-      {#if st.footer && st.footerText !== ORIGINAL_FOOTER}<div class="row-btns"><button type="button" class="btn sm" onclick={() => change({ footerText: ORIGINAL_FOOTER })}>Use the original</button></div>{/if}
-    </section>
-    <section hidden={tab !== "site"}>
-      <h3>Visitors</h3>
-      <label class="toggle"><span><b>Private library</b><small>Visitors see only a sign-in page.</small></span><input type="checkbox" checked={st.private} onchange={(e) => change({ private: e.target.checked }, { note: e.target.checked ? "Saved. Visitors now see a sign-in page." : "Saved. The library is open to visitors." })}></label>
-      <label class="toggle"><span><b>Statistics page</b><small>Visitors can see the numbers too.</small></span><input type="checkbox" checked={st.stats} onchange={(e) => change({ stats: e.target.checked })}></label>
-      <p class="fine">Hidden books and your readings are never shown, and a note only once you make it public.</p>
-    </section>
-    <section hidden={tab !== "site"}>
-      <h3>Book pages</h3>
-      <div class="lab">Each book’s address
-        <div class="radios">
-          {#each [["isbn", eg?.isbn || eg?.slug], ["hyphens", hyphens], ["title", eg?.slug]] as [k, example]}
-            <label><input type="radio" name="permalink" value={k} checked={st.permalink === k} onchange={() => change({ permalink: k })}><code>/<span>{example || "…"}</span></code></label>
-          {/each}
-        </div>
-      </div>
-      <div class="lab">Search the book on
-        <div class="checks">
-          {#each [["openlibrary", "Open Library"], ["google", "Google Books"], ["goodreads", "Goodreads"]] as [k, name]}
-            <label><input type="checkbox" checked={st.sources.includes(k)} onchange={(e) => change({ sources: e.target.checked ? [...st.sources, k] : st.sources.filter((x) => x !== k) })}>{name}</label>
-          {/each}
-        </div>
-      </div>
-    </section>
-
-    <section hidden={tab !== "look"}>
-      <h3>When it opens</h3>
-      <!-- As on the shelf: choosing the sort again turns it round, and the shelf follows. -->
-      <div class="lab">Sorted by<div class="seg">
-        {#each [["author", "Author"], ["title", "Title"], ["year", "Year"]] as [k, name]}
-          {@const on = st.sort === k}
-          {@const desc = on && !!st.sortDesc}
-          <button type="button" aria-pressed={on} aria-label="{name}, {SORT_WAYS[k][desc ? 1 : 0]}" title={on ? `${SORT_WAYS[k][desc ? 1 : 0]}; again for ${SORT_WAYS[k][desc ? 0 : 1]}` : `Sort by ${name.toLowerCase()}`}
-            onclick={() => { const d = on ? !desc : false; change({ sort: k, sortDesc: d }); showSort(k, d); }}>{name}<svg class="dir" class:down={desc} class:shown={on} viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg></button>
-        {/each}
-      </div></div>
-      <div class="lab">Day or evening<div class="seg">
-        {#each [["system", "System"], ["light", "Day"], ["dark", "Evening"]] as [k, name]}
-          <button type="button" aria-pressed={st.theme === k} onclick={() => change({ theme: k })}>{name}</button>
-        {/each}
-      </div></div>
-    </section>
-    <section hidden={tab !== "look"}>
-      <h3>Walls and wood</h3>
-      <div class="lab">Wall color
-        {#each [["wallDay", "l", "Day"], ["wallNight", "d", "Evening"]] as [key, m, when]}
-          <div class="wallpick" data-m={m}>
-            <label class="well" title="Pick the {when.toLowerCase()} wall" style:--pick={st[key]}><input type="color" aria-label="{when} wall color" value={st[key]} oninput={(e) => change({ [key]: e.target.value }, { soon: true })}></label>
-            <input class="inp hex" maxlength="7" spellcheck="false" autocomplete="off" aria-label="{when} wall as a hex code" value={st[key].toUpperCase()} oninput={(e) => hexTyped(key, e)}>
-            <span class="when">{when}</span>
-          </div>
-        {/each}
-        <div class="swatches" id="walls">
-          <span class="fine">Or start from a pair</span>
-          {#each PAIRS as [k, name, sw, sn]}
-            <button type="button" aria-label={name} title={name} style="--sw: {sw}; --sn: {sn}" aria-pressed={preset === k} onclick={() => change({ wallDay: PRESETS[k][0], wallNight: PRESETS[k][1] })}></button>
-          {/each}
-        </div>
-      </div>
-      <div class="lab">Wood
-        {#each [["woodDay", "Day"], ["woodNight", "Evening"]] as [key, when]}
-          <div class="woodrow"><span class="when">{when} · <span>{WOODS[st[key]]}</span></span><div class="woods">
-            {#each Object.entries(WOODS) as [k, name]}
-              <button type="button" title={name} aria-label={name} style="--wood: var(--w-{k})" aria-pressed={st[key] === k} onclick={() => change({ [key]: k })}></button>
-            {/each}
           </div></div>
-        {/each}
-      </div>
-      <label class="toggle"><span><b>Bookcase</b><small>Around the shelves, in the same wood.</small></span><input type="checkbox" checked={st.bookcase} onchange={(e) => change({ bookcase: e.target.checked })}></label>
-      <div class="checks inline">
-        {#each [["sides", "Sides"], ["top", "Top"], ["back", "Back panel"]] as [k, name]}
-          <label><input type="checkbox" disabled={!st.bookcase} checked={st.caseParts[k]} onchange={(e) => change({ caseParts: { ...st.caseParts, [k]: e.target.checked } })}>{name}</label>
-        {/each}
-      </div>
-    </section>
-    <section hidden={tab !== "look"}>
-      <h3>Books</h3>
-      <label class="toggle"><span><b>Show bindings on the spines</b><small>Hardcover, cloth and leather look like themselves.</small></span><input type="checkbox" checked={st.bindings} onchange={(e) => change({ bindings: e.target.checked })}></label>
-      <div class="bindprev" aria-hidden="true">
-        {#each preview as p (p.k)}
-          <figure>
-            <div class="lie" style="--t: 30px; --h: {p.h}px"><div class="slot" data-b={p.k} style="--c: {p.b.spine.color}; --fg: {p.b.spine.text}; --t: 30px; --h: {p.h}px"><div class="spine"><span class="st">{p.b.title}</span><span class="sa">{lastName(p.b.author)}</span></div></div></div>
-            <figcaption>{p.name}</figcaption>
-          </figure>
-        {/each}
-      </div>
-      <label class="lab">Book size <output>{st.bookSize}%</output><input type="range" min="70" max="130" step="5" value={st.bookSize} oninput={(e) => change({ bookSize: +e.target.value }, { soon: true })}></label>
-      <label class="lab">Tallest spine <output>{st.maxHeight >= 100 ? "No limit" : st.maxHeight + "%"}</output><input type="range" min="70" max="100" step="5" value={st.maxHeight} oninput={(e) => change({ maxHeight: +e.target.value }, { soon: true })}></label>
-      <div class="lab">Reading ribbon<small class="sub-lab">Marks the books you’re reading.</small>
-        <div class="swatches ribbons">
-          {#each RIBBONS as [c, name]}
-            <button type="button" aria-label={name} title={name} style="--sw: {c}" aria-pressed={st.ribbon === c} onclick={() => change({ ribbon: c })}></button>
-          {/each}
-          <label class="well small" class:on={!RIBBONS.some(([c]) => c === st.ribbon)} title="Any color"><input type="color" aria-label="Ribbon color" value={st.ribbon} oninput={(e) => change({ ribbon: e.target.value }, { soon: true })}></label>
+          <div class="srow">{@render name("Icon beside the name")}<div class="sctl">{@render sw(st.iconShown, (on) => change({ iconShown: on }), "Icon beside the name")}</div></div>
         </div>
-      </div>
-    </section>
+        <div class="sgroup"><h3>Links under the name</h3>
+          {#each Object.entries(NETS) as [k, n]}
+            <div class="srow">{@render name(n.name)}<div class="sctl"><input class="inp" class:bad={badSocial[k]} aria-label={n.name} placeholder={k === "goodreads" ? "Profile link" : k === "instagram" ? "@username" : "Username"} autocomplete="off" spellcheck="false" bind:value={social[k]} oninput={() => typedSocial(k)}></div></div>
+          {/each}
+        </div>
+        <div class="sgroup"><h3>Footer</h3>
+          <div class="srow full"><div class="sctl">
+            <textarea class="inp" rows="3" aria-label="Footer text" value={st.footerText} oninput={(e) => change({ footerText: e.target.value }, { soon: true })}></textarea>
+            {#if st.footerText !== ORIGINAL_FOOTER}<button type="button" class="btn sm" onclick={() => change({ footerText: ORIGINAL_FOOTER })}>Use the original</button>{/if}
+          </div></div>
+          <div class="srow">{@render name("Show the footer")}<div class="sctl">{@render sw(st.footer, (on) => change({ footer: on }), "Show the footer")}</div></div>
+        </div>
 
-    <section hidden={tab !== "library"}>
-      <p class="lede">{data.books.length.toLocaleString("en-US")} book{data.books.length === 1 ? "" : "s"} on your shelves{hidden ? `, ${hidden} of them hidden from the website` : ""}.</p>
-      <h3>Bring books in</h3>
-      <label class="drop" class:over ondragover={(e) => { e.preventDefault(); over = true; }} ondragleave={() => (over = false)} ondrop={(e) => { e.preventDefault(); over = false; importFile(e.dataTransfer.files[0]); }}>
-        <span><b>Choose a file</b> or drop it here</span><span class="fine">CSV, JSON or a .bookshelf archive</span>
-        <input type="file" accept=".csv,.json,.bookshelf,.zip" hidden onchange={(e) => { importFile(e.target.files[0]); e.target.value = ""; }}>
-      </label>
-      <p class="fine" hidden={!importNote}>{importNote}</p>
-    </section>
-    <section hidden={tab !== "library"}>
-      <h3>Take them out</h3>
-      <div class="row-btns">
-        <a class="btn sm" href="/api/export?format=csv" download>CSV</a>
-        <a class="btn sm" href="/api/export?format=json" download>JSON</a>
-        <a class="btn sm" href="/api/export?format=archive" download>Full archive with covers</a>
-      </div>
-    </section>
-    <section hidden={tab !== "library"}>
-      <h3>Backups</h3>
-      <div class="pair">
-        <label class="lab">Back up<select class="inp" value={st.backupEvery} onchange={(e) => change({ backupEvery: e.target.value })}><option value="day">Every day</option><option value="week">Every week</option><option value="never">Only before imports and restores</option></select></label>
-        <label class="lab">Keep the last<select class="inp" value={String(st.backupKeep)} onchange={(e) => change({ backupKeep: +e.target.value })}>{#each [7, 14, 30, 60, 90] as n}<option value={String(n)}>{n}</option>{/each}</select></label>
-      </div>
-      <p class="fine">Kept in the data folder’s <span class="tag">backups</span> folder (<span class="tag">/data/backups</span> in Docker).</p>
-      <ul class="backups">
-        {#each backups as x (x.name)}
-          <li>
-            <span>{stamp(x.createdAt)}<small>{KINDS[x.kind] || x.kind} · {x.books.toLocaleString("en-US")} book{x.books === 1 ? "" : "s"}</small></span>
-            {#if restoring === x.name}
-              <span class="row-btns"><button type="button" class="btn sm danger solid" onclick={() => restore(x)}>Restore it</button><button type="button" class="btn sm" onclick={() => (restoring = null)}>Cancel</button></span>
+      {:else if section === "visitors"}
+        <div class="sgroup"><h3>Access</h3>
+          <div class="srow">{@render name("Private library", "Visitors see only a sign-in page")}<div class="sctl">{@render sw(st.private, (on) => change({ private: on }, { note: on ? "Saved. Visitors now see a sign-in page." : "Saved. The library is open to visitors." }), "Private library")}</div></div>
+          <div class="srow">{@render name("Statistics", "Visitors can open the numbers")}<div class="sctl">{@render sw(st.stats, (on) => change({ stats: on }), "Statistics")}</div></div>
+          <p class="fine">Hidden books and your readings are never shown to visitors, nor private notes.</p>
+        </div>
+        <div class="sgroup aligned"><h3>When they arrive</h3>
+          <div class="srow">{@render name("Theme")}<div class="sctl"><div class="seg" role="group" aria-label="Theme" use:pill>
+            {#each [["system", "Automatic"], ["light", "Day"], ["dark", "Evening"]] as [k, n]}
+              <button type="button" aria-pressed={st.theme === k} onclick={() => change({ theme: k })}>{n}</button>
+            {/each}
+          </div></div></div>
+          <!-- As on the shelf: choosing the sort again turns it round, and the shelf follows. -->
+          <div class="srow">{@render name("Sorted by", sortWay[0].toUpperCase() + sortWay.slice(1))}<div class="sctl"><div class="seg" role="group" aria-label="Sorted by" use:pill>
+            {#each [["author", "Author"], ["title", "Title"], ["year", "Year"]] as [k, n]}
+              {@const on = st.sort === k}
+              {@const desc = on && !!st.sortDesc}
+              <button type="button" aria-pressed={on} aria-label="{n}, {SORT_WAYS[k][desc ? 1 : 0]}" title={on ? `${SORT_WAYS[k][desc ? 1 : 0]}; again for ${SORT_WAYS[k][desc ? 0 : 1]}` : `Sort by ${n.toLowerCase()}`}
+                onclick={() => { const d = on ? !desc : false; change({ sort: k, sortDesc: d }); showSort(k, d); }}>{n}<svg class="dir" class:down={desc} class:shown={on} viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg></button>
+            {/each}
+          </div></div></div>
+        </div>
+        <div class="sgroup aligned"><h3>A book’s page</h3>
+          <div class="srow">{@render name("Address", addressOf(st.permalink))}<div class="sctl"><div class="seg" role="group" aria-label="Address" use:pill>
+            {#each ADDRESS as [k, n]}
+              <button type="button" aria-pressed={st.permalink === k} title={addressOf(k)} onclick={() => change({ permalink: k })}>{n}</button>
+            {/each}
+          </div></div></div>
+        </div>
+        <div class="sgroup"><h3>Search links</h3>
+          {#each SOURCES as [k, n]}
+            <div class="srow">{@render name(n)}<div class="sctl">{@render sw(st.sources.includes(k), (on) => change({ sources: on ? [...st.sources, k] : st.sources.filter((x) => x !== k) }), n)}</div></div>
+          {/each}
+          <p class="fine">On each book’s page, to look the book up elsewhere.</p>
+        </div>
+
+      {:else if section === "library"}
+        <div class="sgroup"><h3>Bring books in</h3>
+          <div class="srow full"><div class="sctl">
+            <label class="drop" class:over ondragover={(e) => { e.preventDefault(); over = true; }} ondragleave={() => (over = false)} ondrop={(e) => { e.preventDefault(); over = false; importFile(e.dataTransfer.files[0]); }}>
+              <span><b>Choose a file</b> or drop it here</span><span class="fine">CSV, JSON or a .bookshelf archive</span>
+              <input type="file" accept=".csv,.json,.bookshelf,.zip" hidden onchange={(e) => { importFile(e.target.files[0]); e.target.value = ""; }}>
+            </label>
+          </div></div>
+          {#if importNote}<p class="fine">{importNote}</p>{/if}
+        </div>
+        <div class="sgroup"><h3>Take them out</h3>
+          <div class="srow">{@render name("Export")}<div class="sctl">
+            <a class="btn sm" href="/api/export?format=csv" download>CSV</a>
+            <a class="btn sm" href="/api/export?format=json" download>JSON</a>
+            <a class="btn sm" href="/api/export?format=archive" download>Full archive with covers</a>
+          </div></div>
+        </div>
+        <div class="sgroup"><h3>Backups</h3>
+          <div class="srow">{@render name("Back up")}<div class="sctl"><select class="inp" aria-label="Back up" value={st.backupEvery} onchange={(e) => change({ backupEvery: e.target.value })}><option value="day">Every day</option><option value="week">Every week</option><option value="never">Only before imports and restores</option></select></div></div>
+          <div class="srow">{@render name("Keep", "The newest are kept")}<div class="sctl"><select class="inp" aria-label="Keep" value={String(st.backupKeep)} onchange={(e) => change({ backupKeep: +e.target.value })}>{#each [7, 14, 30, 60, 90] as n}<option value={String(n)}>{n}</option>{/each}</select></div></div>
+          <div class="srow full"><div class="sctl"><ul class="backups">
+            {#each backups as x (x.name)}
+              <li>
+                <span>{stamp(x.createdAt)}<small>{KINDS[x.kind] || x.kind} · {x.books.toLocaleString("en-US")} book{x.books === 1 ? "" : "s"}</small></span>
+                {#if restoring === x.name}
+                  <span class="row-btns"><button type="button" class="btn sm danger solid" onclick={() => restore(x)}>Restore it</button><button type="button" class="btn sm" onclick={() => (restoring = null)}>Cancel</button></span>
+                {:else}
+                  <span class="row-btns"><a class="btn sm" href="/api/backups/{encodeURIComponent(x.name)}" download>Download</a><button type="button" class="btn sm" onclick={() => (restoring = x.name)}>Restore</button></span>
+                {/if}
+              </li>
             {:else}
-              <span class="row-btns"><a class="btn sm" href="/api/backups/{encodeURIComponent(x.name)}" download>Download</a><button type="button" class="btn sm" onclick={() => (restoring = x.name)}>Restore</button></span>
-            {/if}
-          </li>
-        {:else}
-          <li><span class="fine">No backups yet.</span></li>
-        {/each}
-      </ul>
-      <div class="row-btns"><button type="button" class="btn sm" onclick={backupNow}>Back up now</button>
-        <label class="btn sm">Restore from a file<input type="file" accept=".bookshelf,.zip" hidden onchange={(e) => { upload = e.target.files[0] || null; e.target.value = ""; }}></label></div>
-      {#if upload}
-        <div class="rd-ask"><span>Replace your whole library with {upload.name}? What’s here now is backed up first.</span>
-          <button type="button" class="btn sm danger solid" disabled={uploading} onclick={restoreFile}>{uploading ? "Restoring…" : "Restore it"}</button><button type="button" class="btn sm" disabled={uploading} onclick={() => (upload = null)}>Cancel</button></div>
-      {/if}
-    </section>
+              <li><span class="fine">No backups yet.</span></li>
+            {/each}
+          </ul></div></div>
+          <div class="srow">{@render name("")}<div class="sctl">
+            <button type="button" class="btn sm" onclick={backupNow}>Back up now</button>
+            <label class="btn sm">Restore from a file<input type="file" accept=".bookshelf,.zip" hidden onchange={(e) => { upload = e.target.files[0] || null; e.target.value = ""; }}></label>
+          </div></div>
+          {#if upload}
+            <div class="rd-ask"><span>Replace your whole library with {upload.name}? What’s here now is backed up first.</span>
+              <button type="button" class="btn sm danger solid" disabled={uploading} onclick={restoreFile}>{uploading ? "Restoring…" : "Restore it"}</button><button type="button" class="btn sm" disabled={uploading} onclick={() => (upload = null)}>Cancel</button></div>
+          {/if}
+          <p class="fine">Kept in the data folder’s <span class="tag">backups</span> folder (<span class="tag">/data/backups</span> in Docker).</p>
+        </div>
 
-    <section hidden={tab !== "account"}>
-      <h3>Updates</h3>
-      {#if ui.update?.dev}
-        <p class="fine">This is a development build of Bookshelf ({ui.update.version}), so it isn’t checked for updates.</p>
-      {:else if ui.update?.newer}
-        <p class="lede update-news"><b>Bookshelf {ui.update.latest} is out.</b> You have {ui.update.version}.</p>
-        <div class="row-btns"><a class="btn sm" href={ui.update.url} target="_blank" rel="noopener">What’s new</a><a class="btn sm" href={UPDATING} target="_blank" rel="noopener">How to update</a></div>
-      {:else if ui.update}
-        <p class="fine">
-          Bookshelf {ui.update.version}.
-          {#if !st.checkUpdates}Checking is off; new versions are listed on the <a class="link" href={RELEASES} target="_blank" rel="noopener">releases page</a>.
-          {:else if ui.update.problem && !ui.update.checkedAt}The last check didn’t work: {ui.update.problem}.
-          {:else if ui.update.checkedAt}Up to date (checked {checked(ui.update.checkedAt)}).
-          {:else}Not checked yet.{/if}
-        </p>
+      {:else if section === "about"}
+        <div class="sgroup"><h3>Version</h3>
+          {#if ui.update?.dev}
+            <div class="srow">{@render name(`Bookshelf ${ui.update.version}`, "A development build, so it isn’t checked for updates")}<div class="sctl"></div></div>
+          {:else if ui.update?.newer}
+            <div class="srow">{@render name(`Bookshelf ${ui.update.latest} is out`, `You have ${ui.update.version}`)}<div class="sctl">
+              <a class="btn sm" href={ui.update.url} target="_blank" rel="noopener">What’s new</a><a class="btn sm" href={UPDATING} target="_blank" rel="noopener">How to update</a>
+            </div></div>
+          {:else if ui.update}
+            <div class="srow">{@render name(`Bookshelf ${ui.update.version}`)}<div class="sctl"><span class="status" class:ok={st.checkUpdates && ui.update.checkedAt}>
+              {#if !st.checkUpdates}Not checked{:else if ui.update.problem && !ui.update.checkedAt}The last check didn’t work{:else if ui.update.checkedAt}Up to date{:else}Not checked yet{/if}
+            </span></div></div>
+          {/if}
+          {#if !ui.update?.dev}
+            <div class="srow">{@render name("Check for updates", "Asks GitHub; nothing about your library is sent")}<div class="sctl">{@render sw(st.checkUpdates, toggleUpdates, "Check for updates")}</div></div>
+            {#if ui.update && !ui.update.newer}
+              <p class="fine">
+                {#if !st.checkUpdates}New versions are listed on the <a class="link" href={RELEASES} target="_blank" rel="noopener">releases page</a>.
+                {:else if ui.update.problem && !ui.update.checkedAt}{ui.update.problem}.
+                {:else if ui.update.checkedAt}Checked {checked(ui.update.checkedAt)}.{/if}
+              </p>
+            {/if}
+          {/if}
+        </div>
+        <div class="sgroup"><h3>Account</h3>
+          <div class="srow">{@render name(`Signed in as ${ui.user}`)}<div class="sctl"><button type="button" class="btn sm" onclick={out}>Sign out</button></div></div>
+          <p class="fine">To change the password, change <span class="tag">BOOKSHELF_ADMIN_PASSWORD</span> where Bookshelf runs (or run <span class="tag">bookshelf set-password</span> again) and restart it.</p>
+        </div>
       {/if}
-      {#if !ui.update?.dev}
-        <label class="toggle"><span><b>Check for updates</b><small>Twice a day, from GitHub. Nothing about your library is sent.</small></span><input type="checkbox" checked={st.checkUpdates} onchange={(e) => toggleUpdates(e.target.checked)}></label>
-      {/if}
-    </section>
-    <section hidden={tab !== "account"}>
-      <h3>Account</h3>
-      <p class="fine">Signed in as <b>{ui.user}</b>. To change the password, change <span class="tag">BOOKSHELF_ADMIN_PASSWORD</span> where Bookshelf runs (or run <span class="tag">bookshelf set-password</span> again) and restart it.</p>
-      <div class="row-btns"><button type="button" class="btn sm" onclick={out}>Sign out</button></div>
-    </section>
+      </div>
+    </div>
     {/if}
-  </aside>
+  </section>
 </div>

@@ -281,6 +281,40 @@ func TestSettingsAreValidated(t *testing.T) {
 	}
 }
 
+// Settings saved before 2.0.5 had one bookcase switch over the parts: off, none of them showed. They open
+// looking the same, with the shelves still under the books.
+func TestOlderBookcaseSettingsOpenTheSame(t *testing.T) {
+	for _, c := range []struct {
+		saved string
+		want  CaseParts
+	}{
+		{`{"name":"Ours","bookcase":false,"caseParts":{"sides":true,"top":true,"back":true}}`, CaseParts{Shelves: true}},
+		{`{"name":"Ours","bookcase":true,"caseParts":{"sides":true,"top":false,"back":true}}`, CaseParts{Shelves: true, Sides: true, Back: true}},
+	} {
+		dir := t.TempDir()
+		s, err := Open(dir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := s.db.ExecContext(ctx, `INSERT INTO settings (key, value) VALUES ('settings', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`, c.saved); err != nil {
+			t.Fatal(err)
+		}
+		s.Close()
+		if s, err = Open(dir); err != nil {
+			t.Fatal(err)
+		}
+		st := s.Snapshot().Settings
+		if st.CaseParts != c.want || st.Bookcase != nil || st.Name != "Ours" {
+			t.Fatalf("%s opened as %+v (bookcase %v)", c.saved, st.CaseParts, st.Bookcase)
+		}
+		// Saving again keeps the parts and drops the old switch.
+		if st, err = s.UpdateSettings(ctx, func(st *Settings) { st.CaseParts.Top = true }); err != nil || st.Bookcase != nil || !st.CaseParts.Top || st.CaseParts.Shelves != c.want.Shelves {
+			t.Fatalf("saved again: %+v %v", st, err)
+		}
+		s.Close()
+	}
+}
+
 // Hundreds of concurrent readers while changes are made: every read is
 // answered from memory, and the process holds a single file lock throughout.
 func TestConcurrentReadsHoldOneLock(t *testing.T) {

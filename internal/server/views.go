@@ -92,7 +92,6 @@ type publicSettings struct {
 	WallNight  string          `json:"wallNight"`
 	WoodDay    string          `json:"woodDay"`
 	WoodNight  string          `json:"woodNight"`
-	Bookcase   bool            `json:"bookcase"`
 	CaseParts  store.CaseParts `json:"caseParts"`
 	Ribbon     string          `json:"ribbon"`
 	Bindings   bool            `json:"bindings"`
@@ -104,7 +103,7 @@ type publicSettings struct {
 
 func public(st store.Settings) publicSettings {
 	return publicSettings{st.Name, st.Sort, st.SortDesc, st.Theme, st.Footer, st.FooterText, st.Stats, st.Permalink, st.Sources, st.Social,
-		st.WallDay, st.WallNight, st.WoodDay, st.WoodNight, st.Bookcase, st.CaseParts, st.Ribbon, st.Bindings, st.BookSize, st.MaxHeight,
+		st.WallDay, st.WallNight, st.WoodDay, st.WoodNight, st.CaseParts, st.Ribbon, st.Bindings, st.BookSize, st.MaxHeight,
 		st.Icon, st.IconShown}
 }
 

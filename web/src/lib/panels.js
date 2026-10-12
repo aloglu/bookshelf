@@ -1,15 +1,15 @@
-// Cards, sheets and the drawer: how they come and go, which one Esc closes, and how typing works in them
+// Cards and sheets (Settings among them): how they come and go, which one Esc closes, and how typing works in them
 // on a touch screen. One set of rules for every layer.
 import { EASE, curve, isPhone, motionOK, root, settled, touch } from "../engine/model.js";
 
 export function showPanel(wrap, focus) {
   if (!wrap.hidden && !wrap.closing) return;
   wrap.hidden = false;
-  const card = wrap.querySelector(".card, .drawer"), drawer = card.classList.contains("drawer");
+  const card = wrap.querySelector(".card");
   if (motionOK()) {
-    const from = isPhone() ? "translateY(100%)" : drawer ? "translateX(100%)" : null;
+    const from = isPhone() ? "translateY(100%)" : null;
     card.animate(from ? [{ transform: from }, { transform: "none" }] : [{ opacity: 0, transform: "translateY(12px) scale(.985)" }, { opacity: 1, transform: "none" }], { duration: from ? 400 : 260, easing: from ? curve : EASE });
-    wrap.querySelector(".modal-scrim, .drawer-scrim").animate([{ opacity: 0 }, { opacity: 1 }], { duration: 240 });
+    wrap.querySelector(".modal-scrim").animate([{ opacity: 0 }, { opacity: 1 }], { duration: 240 });
   }
   // On a touch screen the keyboard should only open from the reader's own tap, once the card has settled
   // (focusing a field as the card slides in makes iOS raise the keyboard over it); the card itself takes focus.
@@ -20,10 +20,10 @@ export function showPanel(wrap, focus) {
 export async function hidePanel(wrap) {
   if (!wrap || wrap.hidden || wrap.closing) return;
   wrap.closing = true;
-  const card = wrap.querySelector(".card, .drawer"), drawer = card.classList.contains("drawer");
+  const card = wrap.querySelector(".card");
   if (motionOK()) {
-    const to = isPhone() ? "translateY(100%)" : drawer ? "translateX(100%)" : null;
-    wrap.querySelector(".modal-scrim, .drawer-scrim").animate([{ opacity: 1 }, { opacity: 0 }], { duration: 200, fill: "forwards" });
+    const to = isPhone() ? "translateY(100%)" : null;
+    wrap.querySelector(".modal-scrim").animate([{ opacity: 1 }, { opacity: 0 }], { duration: 200, fill: "forwards" });
     await settled(card.animate(to ? [{ transform: "none" }, { transform: to }] : [{ opacity: 1 }, { opacity: 0, transform: "translateY(8px) scale(.985)" }], { duration: to ? 260 : 160, easing: "ease-in", fill: "forwards" }), 260);
   }
   wrap.hidden = true; wrap.closing = false;
@@ -31,17 +31,17 @@ export async function hidePanel(wrap) {
   wrap.dispatchEvent(new Event("panelclose"));   // anything the panel had running (the camera) stops
 }
 // The panel on top, if any (the last one opened that is still open).
-export const openPanel = () => [...document.querySelectorAll(".modal, .drawer-wrap")].filter((p) => !p.hidden && !p.closing).pop() || null;
+export const openPanel = () => [...document.querySelectorAll(".modal")].filter((p) => !p.hidden && !p.closing).pop() || null;
 
 /* Typing on a touch screen:
    1. nothing focuses a field for the reader (see showPanel, Edit and the Add-a-book steps);
    2. tapping a field's caption doesn't select it; only the field itself does (the search box, whose
       caption is its own magnifying glass, opens on a tap as it should);
    3. tapping anything that isn't a field puts the keyboard away;
-   4. the field in use is brought to the top of the layer it is in (the book's page, the drawer; cards are short),
+   4. the field in use is brought to the top of the layer it is in (the book's page, the settings; other cards are short),
       so the keyboard never has anything to cover and iOS has no reason to move the screen. */
 const TEXT = "input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=file]), textarea, select";
-const layerOf = (el) => el.closest(".t-page, .drawer");
+const layerOf = (el) => el.closest(".t-page, .spane");
 export function typingRules() {
   document.addEventListener("click", (e) => {
     if (!touch()) return;
@@ -77,6 +77,6 @@ export function typingRules() {
   // Anything marked data-close closes the panel it is in.
   document.addEventListener("click", (e) => {
     const x = e.target.closest("[data-close]");
-    if (x) hidePanel(x.closest(".modal, .drawer-wrap"));
+    if (x) hidePanel(x.closest(".modal"));
   });
 }

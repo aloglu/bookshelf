@@ -2,6 +2,7 @@
   // The header: the library's name, the tools (search, sort, day or evening, stats, and the owner's), what
   // is being read now, and the owner's links elsewhere.
   import { ui, data, setQuery, signOut, setSelecting, iconURL } from "../lib/app.svelte.js";
+  import { pill } from "../lib/pill.js";
   import SortButtons from "./SortButtons.svelte";
   import { motionOK, root } from "../engine/model.js";
   import { toast } from "../lib/toast.js";
@@ -76,7 +77,7 @@
         <input id="q" type="search" placeholder="Title, author, publisher, year" autocomplete="off" aria-label="Search books" bind:value={q} oninput={typed} onkeydown={searchKeys}>
       </label>
     </div>
-    <div class="seg sort-seg" id="sort" role="group" aria-label="Sort by">
+    <div class="seg sort-seg" id="sort" role="group" aria-label="Sort by" use:pill>
       <SortButtons />
     </div>
     <button type="button" class="btn icon" id="mode" aria-label="Switch between day and evening" onclick={flip}><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/></svg></button>

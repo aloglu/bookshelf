@@ -93,7 +93,7 @@ The computer running Bookshelf needs internet access for lookups.
 
 **The shelf looks empty to visitors, but I see my books.**
 Your books are hidden from the website, or the library is private. Check
-**Settings → Site → What visitors see**, and **Show on website** on each book's
+**Settings → Visitors**, and **Show on website** on each book's
 page (or **Select** several, then **Show**).
 
 ## Still stuck?

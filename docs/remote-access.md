@@ -95,6 +95,6 @@ really your proxy: Bookshelf believes what they say about visitors.
 ## Whichever way you choose
 
 - Use a long password of your own.
-- Decide what visitors may see in **Settings → Site → What visitors see**: a
+- Decide what visitors may see in **Settings → Visitors**: a
   private library shows them only a sign-in page.
 - Keep backups (see [Backups](backups.md)).
