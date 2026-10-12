@@ -465,3 +465,31 @@ func TestBackupExportImportRestore(t *testing.T) {
 		t.Fatal("a visitor exported the library")
 	}
 }
+
+// The name may be Markdown: the page title and a phone's home screen get its words.
+func TestAMarkdownName(t *testing.T) {
+	e := setup(t)
+	if code, st := e.do(e.owner, "PATCH", "/api/settings", map[string]any{"name": "[Our **books**](https://alog.lu)"}); code != 200 || st["name"] != "[Our **books**](https://alog.lu)" {
+		t.Fatalf("name: %d %v", code, st)
+	}
+	resp, _ := e.visitor.Get(e.srv.URL + "/")
+	page, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if !strings.Contains(string(page), "<title>Our books</title>") {
+		t.Fatalf("the page's title: %s", page)
+	}
+	resp, _ = e.visitor.Get(e.srv.URL + "/manifest.json")
+	var m map[string]any
+	json.NewDecoder(resp.Body).Decode(&m)
+	resp.Body.Close()
+	if m["name"] != "Our books" {
+		t.Fatalf("the manifest's name: %v", m["name"])
+	}
+	if code, _ := e.do(e.owner, "PATCH", "/api/settings", map[string]any{"name": "[ ](https://alog.lu)"}); code != 422 {
+		t.Fatalf("a name of only formatting: %d", code)
+	}
+	_, lib := e.do(e.visitor, "GET", "/api/library", nil)
+	if st := lib["settings"].(map[string]any); st["footer"] != true || !strings.HasPrefix(st["footerText"].(string), "Made by [alog.lu]") || st["sortDesc"] != false {
+		t.Fatalf("visitors' settings: %v", st)
+	}
+}

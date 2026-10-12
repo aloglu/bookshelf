@@ -11,16 +11,19 @@ import (
 // Settings is everything in the Settings drawer.
 type Settings struct {
 	// Site
-	Name      string   `json:"name"`
-	Private   bool     `json:"private"`
-	Sort      string   `json:"sort"`      // author, title, year
-	Theme     string   `json:"theme"`     // system, light, dark
-	Stats     bool     `json:"stats"`     // visitors may see the stats page
-	Permalink string   `json:"permalink"` // isbn, hyphens, title
-	Sources   []string `json:"sources"`   // openlibrary, google, goodreads
-	Icon      string   `json:"icon"`      // the owner's own icon (its name in the data folder), or "" for Bookshelf's
-	IconShown bool     `json:"iconShown"` // the icon stands beside the library's name in the header
-	Social    Social   `json:"social"`
+	Name       string   `json:"name"` // may hold inline Markdown (a link, emphasis)
+	Private    bool     `json:"private"`
+	Sort       string   `json:"sort"`       // author, title, year
+	SortDesc   bool     `json:"sortDesc"`   // Z to A, newest first
+	Theme      string   `json:"theme"`      // system, light, dark
+	Footer     bool     `json:"footer"`     // the line under the shelves is shown
+	FooterText string   `json:"footerText"` // what it says, in inline Markdown
+	Stats      bool     `json:"stats"`      // visitors may see the stats page
+	Permalink  string   `json:"permalink"`  // isbn, hyphens, title
+	Sources    []string `json:"sources"`    // openlibrary, google, goodreads
+	Icon       string   `json:"icon"`       // the owner's own icon (its name in the data folder), or "" for Bookshelf's
+	IconShown  bool     `json:"iconShown"`  // the icon stands beside the library's name in the header
+	Social     Social   `json:"social"`
 
 	// Look
 	WallDay   string    `json:"wallDay"`
@@ -56,10 +59,13 @@ type CaseParts struct {
 	Back  bool `json:"back"`
 }
 
+// DefaultFooter is what the footer says until the owner changes it.
+const DefaultFooter = "Made by [alog.lu](https://alog.lu) · Code available on [GitHub](https://github.com/aloglu/bookshelf)"
+
 // DefaultSettings are a new library's settings.
 func DefaultSettings() Settings {
 	return Settings{
-		Name: "Bookshelf", Sort: "author", Theme: "system", Stats: true, Permalink: "isbn", Sources: []string{"openlibrary"}, IconShown: true,
+		Name: "Bookshelf", Sort: "author", Theme: "system", Footer: true, FooterText: DefaultFooter, Stats: true, Permalink: "isbn", Sources: []string{"openlibrary"}, IconShown: true,
 		WallDay: "#e9e0d0", WallNight: "#17110d", WoodDay: "oak", WoodNight: "walnut",
 		CaseParts: CaseParts{Sides: true, Top: true, Back: true}, Ribbon: "#8e2532", Bindings: true, BookSize: 100, MaxHeight: 100,
 		BackupEvery: "day", BackupKeep: 14, CheckUpdates: true,
@@ -79,8 +85,15 @@ func (s *Settings) Validate() error {
 	if s.Name == "" {
 		s.Name = "Bookshelf"
 	}
-	if len([]rune(s.Name)) > 80 {
-		return fmt.Errorf("the name is longer than 80 characters")
+	if len([]rune(s.Name)) > 200 {
+		return fmt.Errorf("the name is longer than 200 characters")
+	}
+	if PlainText(s.Name) == "" {
+		return fmt.Errorf("the name needs some words, not only formatting")
+	}
+	s.FooterText = strings.TrimSpace(s.FooterText)
+	if len([]rune(s.FooterText)) > 1000 {
+		return fmt.Errorf("the footer is longer than 1,000 characters")
 	}
 	if s.Icon != "" && !iconName.MatchString(s.Icon) {
 		return fmt.Errorf("unknown icon %q", s.Icon)

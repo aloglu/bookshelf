@@ -347,3 +347,19 @@ func locksHeld(t *testing.T, dir string) int {
 	}
 	return n
 }
+
+func TestPlainText(t *testing.T) {
+	for in, want := range map[string]string{
+		"Bookshelf":                             "Bookshelf",
+		"[Ali’s books](https://alog.lu)":        "Ali’s books",
+		"**Our** *shelf* of `books`":            "Our shelf of books",
+		"__Big__ _small_ snake_case_name":       "Big small snake_case_name",
+		"See <https://alog.lu>\nand more":       "See https://alog.lu and more",
+		"2 * 3 * 4":                             "2 * 3 * 4",
+		"[a](https://x.y) and [b](https://z.w)": "a and b",
+	} {
+		if got := PlainText(in); got != want {
+			t.Errorf("PlainText(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

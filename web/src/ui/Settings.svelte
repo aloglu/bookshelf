@@ -1,7 +1,8 @@
 <script>
   // Settings: the site, its look, the library's files and backups, the account. Every change shows at once
   // and saves itself; dragging a color or a slider saves when it comes to rest.
-  import { ui, data, patchSettings, reload, signOut, setSort, checkUpdates, setIcon, iconURL } from "../lib/app.svelte.js";
+  import { ui, data, patchSettings, reload, signOut, showSort, checkUpdates, setIcon, iconURL } from "../lib/app.svelte.js";
+  import { SORT_WAYS } from "../engine/model.js";
   import { api } from "../lib/api.js";
   import { showPanel, hidePanel } from "../lib/panels.js";
   import { toast, savedToast } from "../lib/toast.js";
@@ -9,6 +10,8 @@
   import { relayout, view } from "../engine/shelf.js";
   import { BINDING_NAMES, lastName, reheight, spineHeight } from "../engine/model.js";
 
+  // The footer a library starts with (the server's DefaultFooter), to put back after changing it.
+  const ORIGINAL_FOOTER = "Made by [alog.lu](https://alog.lu) · Code available on [GitHub](https://github.com/aloglu/bookshelf)";
   let wrap, tab = $state("site"), st = $state(null);
   let backups = $state([]), importNote = $state(""), over = $state(false), restoring = $state(null);
   const NETS = {
@@ -154,7 +157,7 @@
     </div>
     {#if st}
     <section hidden={tab !== "site"}>
-      <label class="lab">Name<input class="inp" autocomplete="off" value={st.name} oninput={(e) => change({ name: e.target.value }, { soon: true })}></label>
+      <label class="lab">Name<small class="sub-lab">Markdown works here: <code>[Our books](https://…)</code> makes the name a link somewhere else.</small><input class="inp" autocomplete="off" value={st.name} oninput={(e) => change({ name: e.target.value }, { soon: true })}></label>
       <div class="lab">Icon<small class="sub-lab">For the browser tab and a phone’s home screen; beside the name too, if you like.</small>
         <div class="iconpick">
           <img src={iconURL(st, 192)} alt="The library’s icon">
@@ -174,9 +177,13 @@
     </section>
     <section hidden={tab !== "site"}>
       <h3>How it opens</h3>
+      <!-- As on the shelf: choosing the sort again turns it round, and the shelf follows. -->
       <div class="lab">Sorted by<div class="seg">
         {#each [["author", "Author"], ["title", "Title"], ["year", "Year"]] as [k, name]}
-          <button type="button" aria-pressed={st.sort === k} onclick={() => { change({ sort: k }); if (ui.sort !== k) setSort(k); }}>{name}</button>
+          {@const on = st.sort === k}
+          {@const desc = on && !!st.sortDesc}
+          <button type="button" aria-pressed={on} aria-label="{name}, {SORT_WAYS[k][desc ? 1 : 0]}" title={on ? `${SORT_WAYS[k][desc ? 1 : 0]}; again for ${SORT_WAYS[k][desc ? 0 : 1]}` : `Sort by ${name.toLowerCase()}`}
+            onclick={() => { const d = on ? !desc : false; change({ sort: k, sortDesc: d }); showSort(k, d); }}>{name}<svg class="dir" class:down={desc} class:shown={on} viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg></button>
         {/each}
       </div></div>
       <div class="lab">Day or evening<div class="seg">
@@ -193,6 +200,13 @@
           <label class="lab">{n.name}<input class="inp" class:bad={badSocial[k]} placeholder={k === "goodreads" ? "goodreads.com/user/show/…" : k === "instagram" ? "@username" : "Username"} autocomplete="off" spellcheck="false" bind:value={social[k]} oninput={() => typedSocial(k)}></label>
         {/each}
       </div>
+    </section>
+    <section hidden={tab !== "site"}>
+      <h3>Footer</h3>
+      <label class="toggle"><span><b>Show the footer</b><small>A line under the shelves.</small></span><input type="checkbox" checked={st.footer} onchange={(e) => change({ footer: e.target.checked })}></label>
+      <label class="lab" hidden={!st.footer}>What it says<small class="sub-lab">Markdown works: <code>[a link](https://…)</code>, <code>**bold**</code>, <code>*italic*</code>, and a new line for a new line.</small>
+        <textarea class="inp" rows="3" value={st.footerText} oninput={(e) => change({ footerText: e.target.value }, { soon: true })}></textarea></label>
+      {#if st.footer && st.footerText !== ORIGINAL_FOOTER}<div class="row-btns"><button type="button" class="btn sm" onclick={() => change({ footerText: ORIGINAL_FOOTER })}>Use the original</button></div>{/if}
     </section>
     <section hidden={tab !== "site"}>
       <h3>Links</h3>

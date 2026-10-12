@@ -78,29 +78,32 @@ type libraryView struct {
 
 // publicSettings are the settings a visitor's page needs.
 type publicSettings struct {
-	Name      string          `json:"name"`
-	Sort      string          `json:"sort"`
-	Theme     string          `json:"theme"`
-	Stats     bool            `json:"stats"`
-	Permalink string          `json:"permalink"`
-	Sources   []string        `json:"sources"`
-	Social    store.Social    `json:"social"`
-	WallDay   string          `json:"wallDay"`
-	WallNight string          `json:"wallNight"`
-	WoodDay   string          `json:"woodDay"`
-	WoodNight string          `json:"woodNight"`
-	Bookcase  bool            `json:"bookcase"`
-	CaseParts store.CaseParts `json:"caseParts"`
-	Ribbon    string          `json:"ribbon"`
-	Bindings  bool            `json:"bindings"`
-	BookSize  int             `json:"bookSize"`
-	MaxHeight int             `json:"maxHeight"`
-	Icon      string          `json:"icon"`
-	IconShown bool            `json:"iconShown"`
+	Name       string          `json:"name"`
+	Sort       string          `json:"sort"`
+	SortDesc   bool            `json:"sortDesc"`
+	Theme      string          `json:"theme"`
+	Footer     bool            `json:"footer"`
+	FooterText string          `json:"footerText"`
+	Stats      bool            `json:"stats"`
+	Permalink  string          `json:"permalink"`
+	Sources    []string        `json:"sources"`
+	Social     store.Social    `json:"social"`
+	WallDay    string          `json:"wallDay"`
+	WallNight  string          `json:"wallNight"`
+	WoodDay    string          `json:"woodDay"`
+	WoodNight  string          `json:"woodNight"`
+	Bookcase   bool            `json:"bookcase"`
+	CaseParts  store.CaseParts `json:"caseParts"`
+	Ribbon     string          `json:"ribbon"`
+	Bindings   bool            `json:"bindings"`
+	BookSize   int             `json:"bookSize"`
+	MaxHeight  int             `json:"maxHeight"`
+	Icon       string          `json:"icon"`
+	IconShown  bool            `json:"iconShown"`
 }
 
 func public(st store.Settings) publicSettings {
-	return publicSettings{st.Name, st.Sort, st.Theme, st.Stats, st.Permalink, st.Sources, st.Social,
+	return publicSettings{st.Name, st.Sort, st.SortDesc, st.Theme, st.Footer, st.FooterText, st.Stats, st.Permalink, st.Sources, st.Social,
 		st.WallDay, st.WallNight, st.WoodDay, st.WoodNight, st.Bookcase, st.CaseParts, st.Ribbon, st.Bindings, st.BookSize, st.MaxHeight,
 		st.Icon, st.IconShown}
 }

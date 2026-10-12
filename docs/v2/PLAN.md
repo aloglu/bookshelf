@@ -223,6 +223,11 @@ Guides for people running Bookshelf, step by step, saying what they should see, 
   - The icon beside the library's name in the header (Settings → Site → Show the icon beside the name, on by default), and the owner's own icon: any picture, cropped to its middle square and written as PNGs at 32, 180, 192 and 512 under a new name each time. The server writes the chosen icon (and the library's name) into the page and into a generated `manifest.json`, since tabs and home screens read them before any script runs; Use Bookshelf's goes back and deletes the files.
   - A test that judged covers by a fixed clock (2026-10-12 09:00) started failing once that time had passed; it now starts from the real time.
   - Released as **2.0.1**, a bug-fix release. The per-book notes page (notes and highlights as entries of their own, the readings beside them) is being designed in the study and will come as 2.1.0.
+- 2026-10-12, for **2.0.2** (from the owner's phone):
+  - Day or evening chosen with the header's button (or the phone menu) no longer flips back after a change such as setting the page: every reload re-applied the library's setting. The setting is now applied when the library first loads and when it changes.
+  - Choosing books on a phone: the bar is one row across the foot of the screen (its buttons used to wrap into a box); while asking to remove, the question takes the full width.
+  - Settings → How it opens keeps the sort's direction too (`sortDesc`): choosing the active sort again turns it round, as on the shelf, and visitors start that way.
+  - The footer can be hidden and rewritten (`footer`, `footerText`, starting as the original credit), and the library's name can hold Markdown, so it can link elsewhere (the icon still leads home). Both take inline Markdown only: links (web, email, this site), bold, italic, code, and new lines in the footer; everything else is escaped. The page title and the web app manifest get the name as words (`store.PlainText`); a name of formatting alone is refused. The name may be 200 characters, room for a link.
 
 ## Follow-ups
 

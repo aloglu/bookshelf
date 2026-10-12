@@ -5,6 +5,7 @@
   import SortButtons from "./SortButtons.svelte";
   import { motionOK, root } from "../engine/model.js";
   import { toast } from "../lib/toast.js";
+  import { inline, hasLink } from "../lib/markdown.js";
 
   let { setView, openShelved, onSearch, onSignIn, onAdd, onSettings, onMenu } = $props();
 
@@ -60,7 +61,13 @@
 
 <header>
   <div class="brand">
-    <h1><a href="/" class="home" id="site-title" onclick={home}>{#if data.library?.settings.iconShown}<img class="brand-icon" src={iconURL(data.library.settings)} alt="">{/if}<span>{ui.name}</span></a></h1>
+    <!-- The name links home, unless it holds a link of its own; then only the icon does. -->
+    {#snippet icon()}{#if data.library?.settings.iconShown}<img class="brand-icon" src={iconURL(data.library.settings)} alt="">{/if}{/snippet}
+    {#if hasLink(ui.nameMd)}
+      <h1><span class="home own-link">{#if data.library?.settings.iconShown}<a href="/" class="home" id="site-title" aria-label="Home" onclick={home}>{@render icon()}</a>{/if}<span>{@html inline(ui.nameMd)}</span></span></h1>
+    {:else}
+      <h1><a href="/" class="home" id="site-title" onclick={home}>{@render icon()}<span>{@html inline(ui.nameMd)}</span></a></h1>
+    {/if}
   </div>
   <div class="tools">
     <div class="search" class:has-query={!!q} id="search">

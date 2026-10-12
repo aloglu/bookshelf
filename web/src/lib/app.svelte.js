@@ -3,6 +3,7 @@
 // book are brought up to date in place.
 import { api, when } from "./api.js";
 import { toast } from "./toast.js";
+import { plain } from "./markdown.js";
 import { shelfBooks, plural } from "../engine/model.js";
 import { applyLook } from "../engine/look.js";
 import { picked, relayout, refreshSlot, view, lift, markChosen } from "../engine/shelf.js";
@@ -19,7 +20,8 @@ export const data = {
 };
 // What the interface around the shelf shows.
 export const ui = $state({
-  ready: false, gated: false, name: "Bookshelf", owner: false, user: "",
+  ready: false, gated: false, owner: false, user: "",
+  name: "Bookshelf", nameMd: "Bookshelf", // the library's name as words, and as written (it may hold Markdown)
   view: "shelf", query: "", sort: "author", desc: false, selecting: false, chosen: 0,
   update: null, // for the owner: the version running, and a newer one if it's out
 });
@@ -33,7 +35,8 @@ export async function load() {
     lib = await api("GET", "/api/library");
   } catch (err) {
     if (err.status === 403 && err.data?.private) {
-      Object.assign(ui, { ready: true, gated: true, owner: false, name: err.data.name || "Bookshelf" });
+      Object.assign(ui, { ready: true, gated: true, owner: false });
+      setName(err.data.name || "Bookshelf");
       document.title = ui.name;
       return;
     }
@@ -43,14 +46,18 @@ export async function load() {
   const first = !library;
   library = lib; readings = rs;
   books = shelfBooks(lib, rs, lib.settings);
-  if (first) ui.sort = lib.settings.sort;
-  Object.assign(ui, { ready: true, gated: false, owner: lib.owner, user: lib.user || "", name: lib.settings.name });
-  document.title = ui.name;
+  if (first) Object.assign(ui, { sort: lib.settings.sort, desc: !!lib.settings.sortDesc });
+  Object.assign(ui, { ready: true, gated: false, owner: lib.owner, user: lib.user || "" });
+  setName(lib.settings.name);
   applyLook(lib.settings);
-  Object.assign(view, { books, owner: lib.owner, settings: lib.settings, query: ui.query, sort: ui.sort });
+  Object.assign(view, { books, owner: lib.owner, settings: lib.settings, query: ui.query, sort: ui.sort, desc: ui.desc });
   if (!lib.owner && ui.selecting) setSelecting(false);
   if (lib.owner && !ui.update) checkUpdates();
   if (!lib.owner) ui.update = null;
+}
+function setName(md) {
+  ui.nameMd = md; ui.name = plain(md);
+  document.title = ui.name;
 }
 // Whether a newer Bookshelf is out, as the server last heard from GitHub.
 export async function checkUpdates() {
@@ -70,10 +77,10 @@ export async function reload({ animate = false, fade = false } = {}) {
 
 export function setQuery(q) { ui.query = q; view.query = q; }
 // Choosing the sort the shelf already has turns it round (Z to A, newest first); another starts the usual way.
-export function setSort(s) {
-  ui.desc = s === ui.sort ? !ui.desc : false;
-  ui.sort = s;
-  Object.assign(view, { sort: s, desc: ui.desc });
+export function setSort(s) { showSort(s, s === ui.sort ? !ui.desc : false); }
+export function showSort(s, desc) {
+  Object.assign(ui, { sort: s, desc });
+  Object.assign(view, { sort: s, desc });
   relayout();
 }
 
@@ -183,7 +190,7 @@ export async function patchSettings(patch) {
   const st = await guard(() => api("PATCH", "/api/settings", patch));
   library = { ...library, settings: st };
   view.settings = st;
-  ui.name = st.name; document.title = st.name;
+  setName(st.name);
   applyLook(st);
   return st;
 }
