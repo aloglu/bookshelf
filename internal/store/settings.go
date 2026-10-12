@@ -35,6 +35,9 @@ type Settings struct {
 	// Library
 	BackupEvery string `json:"backupEvery"` // day, week, never (only before imports and restores)
 	BackupKeep  int    `json:"backupKeep"`
+
+	// About
+	CheckUpdates bool `json:"checkUpdates"` // ask GitHub twice a day whether a newer Bookshelf is out
 }
 
 // Social links, stored as full profile URLs.
@@ -57,7 +60,7 @@ func DefaultSettings() Settings {
 		Name: "Bookshelf", Sort: "author", Theme: "system", Stats: true, Permalink: "isbn", Sources: []string{"openlibrary"},
 		WallDay: "#e9e0d0", WallNight: "#17110d", WoodDay: "oak", WoodNight: "walnut",
 		CaseParts: CaseParts{Sides: true, Top: true, Back: true}, Ribbon: "#8e2532", Bindings: true, BookSize: 100, MaxHeight: 100,
-		BackupEvery: "day", BackupKeep: 14,
+		BackupEvery: "day", BackupKeep: 14, CheckUpdates: true,
 	}
 }
 

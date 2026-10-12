@@ -1,7 +1,7 @@
 <script>
   // Settings: the site, its look, the library's files and backups, the account. Every change shows at once
   // and saves itself; dragging a color or a slider saves when it comes to rest.
-  import { ui, data, patchSettings, reload, signOut, setSort } from "../lib/app.svelte.js";
+  import { ui, data, patchSettings, reload, signOut, setSort, checkUpdates } from "../lib/app.svelte.js";
   import { api } from "../lib/api.js";
   import { showPanel, hidePanel } from "../lib/panels.js";
   import { toast, savedToast } from "../lib/toast.js";
@@ -21,12 +21,14 @@
   const PAIRS = [["linen", "Linen", "#e3d8c5", "#17110d"], ["tobacco", "Tobacco", "#c4a47d", "#2a1c12"], ["chestnut", "Chestnut", "#8d5d3b", "#3a2416"], ["umber", "Umber", "#4f3828", "#1e1510"], ["forest", "Forest green", "#364637", "#152018"]];
 
   export async function open(which = "site") {
+    if (!data.library) return;   // still loading; the button only shows once it has
     tab = which;
     st = structuredClone($state.snapshot(data.library.settings));
     social = Object.fromEntries(Object.keys(NETS).map((k) => [k, (st.social[k] || "").replace(/^https:\/\/(www\.|app\.)?/, "")]));
     badSocial = {}; importNote = ""; restoring = null;
     showPanel(wrap, "[data-close]");
     loadBackups();
+    checkUpdates();
   }
   async function loadBackups() { try { backups = await api("GET", "/api/backups"); } catch { backups = []; } }
 
@@ -124,6 +126,11 @@
     } catch (err) { toast(`${file.name}: ${err.message}`); }
     uploading = false;
   }
+  // Turning the check on asks GitHub at once; the answer comes a moment later.
+  function toggleUpdates(on) { change({ checkUpdates: on }); if (on) setTimeout(checkUpdates, 2500); }
+  const UPDATING = "https://github.com/aloglu/bookshelf/blob/main/docs/updating.md";
+  const RELEASES = "https://github.com/aloglu/bookshelf/releases";
+  const checked = (t) => new Date(t).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
   async function out() { await hidePanel(wrap); try { await signOut(); } catch (err) { toast(err.message); } }
 </script>
 
@@ -134,7 +141,7 @@
     <h2 id="drawer-h">Settings</h2>
     <div class="seg dtabs" role="tablist">
       {#each [["site", "Site"], ["look", "Look"], ["library", "Library"], ["account", "Account"]] as [k, name]}
-        <button type="button" role="tab" aria-selected={tab === k} onclick={() => (tab = k)}>{name}</button>
+        <button type="button" role="tab" aria-selected={tab === k} class:dot={k === "account" && ui.update?.newer} onclick={() => (tab = k)}>{name}</button>
       {/each}
     </div>
     {#if st}
@@ -296,7 +303,28 @@
     </section>
 
     <section hidden={tab !== "account"}>
-      <p class="fine">Signed in as <b>{ui.user}</b>. To change the password, set <span class="tag">BOOKSHELF_ADMIN_PASSWORD</span> in Bookshelf’s settings and restart it.</p>
+      <h3>Updates</h3>
+      {#if ui.update?.dev}
+        <p class="fine">This is a development build of Bookshelf ({ui.update.version}), so it isn’t checked for updates.</p>
+      {:else if ui.update?.newer}
+        <p class="lede update-news"><b>Bookshelf {ui.update.latest} is out.</b> You have {ui.update.version}.</p>
+        <div class="row-btns"><a class="btn sm" href={ui.update.url} target="_blank" rel="noopener">What’s new</a><a class="btn sm" href={UPDATING} target="_blank" rel="noopener">How to update</a></div>
+      {:else if ui.update}
+        <p class="fine">
+          Bookshelf {ui.update.version}.
+          {#if !st.checkUpdates}Checking is off; new versions are listed on the <a class="link" href={RELEASES} target="_blank" rel="noopener">releases page</a>.
+          {:else if ui.update.problem && !ui.update.checkedAt}The last check didn’t work: {ui.update.problem}.
+          {:else if ui.update.checkedAt}Up to date (checked {checked(ui.update.checkedAt)}).
+          {:else}Not checked yet.{/if}
+        </p>
+      {/if}
+      {#if !ui.update?.dev}
+        <label class="toggle"><span><b>Check for updates</b><small>Bookshelf asks GitHub twice a day which version is the newest. Nothing about your library is sent.</small></span><input type="checkbox" checked={st.checkUpdates} onchange={(e) => toggleUpdates(e.target.checked)}></label>
+      {/if}
+    </section>
+    <section hidden={tab !== "account"}>
+      <h3>Account</h3>
+      <p class="fine">Signed in as <b>{ui.user}</b>. To change the password, change <span class="tag">BOOKSHELF_ADMIN_PASSWORD</span> where Bookshelf runs (or run <span class="tag">bookshelf set-password</span> again) and restart it.</p>
       <div class="row-btns"><button type="button" class="btn sm" onclick={out}>Sign out</button></div>
     </section>
     {/if}

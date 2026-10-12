@@ -3,9 +3,19 @@
 Updating never touches your library: it replaces only the program. Still, it's
 a good habit to **Back up now** first (Settings → Library → Backups).
 
-New versions are listed on the
-[releases page](https://github.com/aloglu/bookshelf/releases). Then follow the
-steps for your setup below.
+## Knowing when a new version is out
+
+**Settings → Account → Updates** shows the version you're running. When a
+newer one is out, it says so there, with **What's new** (the release notes) and
+**How to update** (this guide), and the Settings icon gets a small dot (on a
+phone, the menu button).
+
+To know, Bookshelf asks GitHub at most twice a day which version is the
+latest. Nothing about your library is sent. You can turn this off with **Check
+for updates**; new versions are always listed on the
+[releases page](https://github.com/aloglu/bookshelf/releases).
+
+Then follow the steps for your setup below.
 
 ## Docker Compose (also Raspberry Pi)
 

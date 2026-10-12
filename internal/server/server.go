@@ -18,6 +18,7 @@ import (
 	"github.com/aloglu/bookshelf/internal/backup"
 	"github.com/aloglu/bookshelf/internal/lookup"
 	"github.com/aloglu/bookshelf/internal/store"
+	"github.com/aloglu/bookshelf/internal/updates"
 )
 
 // Server is the HTTP side of Bookshelf.
@@ -26,6 +27,7 @@ type Server struct {
 	Auth    *auth.Auth
 	Lookup  *lookup.Client
 	Backups *backup.Backups
+	Updates *updates.Checker // nil: no update check
 	DataDir string
 	Version string
 	Web     fs.FS // the built frontend; nil serves a placeholder
@@ -74,6 +76,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/export", s.owner(s.export))
 
 	mux.HandleFunc("GET /api/settings", s.owner(s.getSettings))
+	mux.HandleFunc("GET /api/updates", s.owner(s.getUpdates))
 	mux.HandleFunc("PATCH /api/settings", s.owner(s.patchSettings))
 
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) { fail(w, http.StatusNotFound, "No such address.") })

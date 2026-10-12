@@ -156,7 +156,7 @@ func TestPrivateLibrary(t *testing.T) {
 func TestOwnerOnly(t *testing.T) {
 	e := setup(t)
 	for _, c := range []struct{ method, path string }{
-		{"POST", "/api/books"}, {"PATCH", "/api/settings"}, {"GET", "/api/readings"}, {"GET", "/api/lookup?id=9780679723424"}, {"DELETE", "/api/books/x"},
+		{"POST", "/api/books"}, {"PATCH", "/api/settings"}, {"GET", "/api/readings"}, {"GET", "/api/lookup?id=9780679723424"}, {"GET", "/api/updates"}, {"DELETE", "/api/books/x"},
 	} {
 		if code, _ := e.do(e.visitor, c.method, c.path, map[string]any{}); code != 401 {
 			t.Errorf("%s %s by a visitor: %d", c.method, c.path, code)

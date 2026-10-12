@@ -21,6 +21,7 @@ export const data = {
 export const ui = $state({
   ready: false, gated: false, name: "Bookshelf", owner: false, user: "",
   view: "shelf", query: "", sort: "author", selecting: false, chosen: 0,
+  update: null, // for the owner: the version running, and a newer one if it's out
 });
 
 // The settings as they are now: the owner's full set, or what visitors are given.
@@ -48,6 +49,12 @@ export async function load() {
   applyLook(lib.settings);
   Object.assign(view, { books, owner: lib.owner, settings: lib.settings, query: ui.query, sort: ui.sort });
   if (!lib.owner && ui.selecting) setSelecting(false);
+  if (lib.owner && !ui.update) checkUpdates();
+  if (!lib.owner) ui.update = null;
+}
+// Whether a newer Bookshelf is out, as the server last heard from GitHub.
+export async function checkUpdates() {
+  try { ui.update = await api("GET", "/api/updates"); } catch { /* shown again next time */ }
 }
 // After a change: fetch the library again, re-lay the shelves (moving only what moved), and show the
 // open book as it is now.

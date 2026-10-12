@@ -16,6 +16,7 @@ import (
 	"github.com/aloglu/bookshelf/internal/isbn"
 	"github.com/aloglu/bookshelf/internal/lookup"
 	"github.com/aloglu/bookshelf/internal/store"
+	"github.com/aloglu/bookshelf/internal/updates"
 )
 
 // ---------------------------------------------------------------- session
@@ -443,6 +444,15 @@ func (s *Server) getSettings(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, s.Store.Snapshot().Settings)
 }
 
+// getUpdates says which version runs and whether a newer one is out.
+func (s *Server) getUpdates(w http.ResponseWriter, r *http.Request) {
+	st := updates.Status{Version: s.Version}
+	if s.Updates != nil {
+		st = s.Updates.Status()
+	}
+	writeJSON(w, http.StatusOK, st)
+}
+
 // patchSettings applies the fields given and leaves the rest as they are.
 func (s *Server) patchSettings(w http.ResponseWriter, r *http.Request) {
 	raw, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 64<<10))
@@ -470,6 +480,9 @@ func (s *Server) patchSettings(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		s.failErr(w, r, err)
 		return
+	}
+	if st.CheckUpdates && s.Updates != nil && !s.Updates.Status().CheckedAt.After(time.Now().Add(-updates.Every)) {
+		s.Updates.CheckSoon() // turned on (or never answered): look now rather than in half a day
 	}
 	writeJSON(w, http.StatusOK, st)
 }

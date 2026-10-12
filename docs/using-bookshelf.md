@@ -112,4 +112,5 @@ The **Settings** icon (the sliders) opens Settings. Every change saves at once.
   on the tallest spine.
 - **Library:** bring books in from a file, take them out as CSV, JSON or a full
   archive, and backups. See [Backups](backups.md).
-- **Account:** who is signed in, and **Sign out**.
+- **Account:** the version you're running and whether a newer one is out (see
+  [Updating](updating.md)), who is signed in, and **Sign out**.

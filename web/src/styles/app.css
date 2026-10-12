@@ -127,7 +127,12 @@ header .elsewhere { grid-area: links; justify-self: end; align-self: center; }
 .seg button { padding: 0 12px; border-radius: 5px; color: var(--muted); font-size: .86rem; font-weight: 500; transition: background-color .2s, color .2s; }
 .seg button[aria-pressed="true"], .seg button[aria-selected="true"] { background: color-mix(in oklab, var(--accent) 16%, transparent); color: var(--ink); }
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; white-space: nowrap; height: 40px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); font-size: .88rem; font-weight: 500; }
-a.btn { color: var(--ink); text-decoration: none; }   /* downloads look like the buttons beside them */
+a.btn { color: var(--ink); text-decoration: none; }
+/* A new version is out: a small dot on Settings (and on the phone's menu), in the accent so red stays the ribbon's. */
+.btn.dot, .pm-list .dot, .dtabs .dot { position: relative; }
+.dtabs .dot::after { content: ""; position: absolute; top: 6px; right: 8px; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+.btn.dot::after, .pm-list .dot::after { content: ""; position: absolute; top: 7px; right: 7px; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 2px var(--surface); }
+.pm-list .dot::after { top: 50%; right: 14px; translate: 0 -50%; }   /* downloads look like the buttons beside them */
 .btn.icon { width: 40px; padding: 0; }
 .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
 .btn:active { transform: translateY(1px); }

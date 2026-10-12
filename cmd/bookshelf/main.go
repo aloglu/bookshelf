@@ -25,6 +25,7 @@ import (
 	"github.com/aloglu/bookshelf/internal/lookup"
 	"github.com/aloglu/bookshelf/internal/server"
 	"github.com/aloglu/bookshelf/internal/store"
+	"github.com/aloglu/bookshelf/internal/updates"
 	"golang.org/x/term"
 )
 
@@ -115,14 +116,16 @@ Options:
 		return err
 	}
 	backups := backup.New(*dataDir, st, version, log)
+	checker := updates.New(version, func() bool { return st.Snapshot().Settings.CheckUpdates }, log)
 	srv := &server.Server{Store: st, Auth: a, Lookup: lookup.New(os.Getenv("BOOKSHELF_GOOGLE_API_KEY"), version), Backups: backups,
-		DataDir: *dataDir, Version: version, Web: webFS(), Log: log}
+		Updates: checker, DataDir: *dataDir, Version: version, Web: webFS(), Log: log}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	go housekeeping(ctx, st, log)
 	go backups.Run(ctx) // scheduled backups and the unused-cover cleanup
+	go checker.Run(ctx) // whether a newer Bookshelf is out, twice a day
 
 	httpServer := &http.Server{
 		Addr:              net.JoinHostPort(*host, strconv.Itoa(*port)),
