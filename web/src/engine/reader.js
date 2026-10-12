@@ -1,4 +1,4 @@
-// The open book: the flight out of the shelf (or up from a cover on the stats page), the title page,
+// The open book: the flight out of the shelf (or up from a cover on the stats page or a notes page), the title page,
 // stepping between books, putting it back. Its markup is made here and only ever filled in, never
 // re-rendered, so nothing redraws text on a layer while it flies.
 import { $, EASE, BINDING_NAMES, bestCover, bindingOf, cover, coverImg, isPhone, lastName, motionOK, root, settled, tone, touch } from "./model.js";
@@ -11,6 +11,7 @@ const ICONS = {
   show: I(`<path d="M2.5 12C3.5 10.2 7 6 12 6s8.5 4.2 9.5 6c-1 1.8-4.5 6-9.5 6s-8.5-4.2-9.5-6Z"/><circle cx="12" cy="12" r="3"/>`),
   hide: I(`<path d="M3 3l18 18M10.6 6.1A9.8 9.8 0 0 1 12 6c5 0 8.5 4.2 9.5 6-.4.8-1.3 2.1-2.6 3.3M6.3 7.4C4.4 8.7 3 10.7 2.5 12c1 1.8 4.5 6 9.5 6 1.7 0 3.2-.5 4.5-1.2"/>`),
   search: I(`<circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/>`),
+  notes: I(`<path d="M6 3.5h8.5L18 7v13.5H6zM9 11h6M9 14.5h6M9 18h3.5"/>`),
 };
 const MARKUP = `
 <div class="scrim" id="scrim"></div>
@@ -44,6 +45,7 @@ const MARKUP = `
             <button type="button" class="act" id="copy">${I(`<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>`)}Copy link</button>
             <a class="act" id="search-one" target="_blank" rel="noopener" hidden></a>
             <button type="button" class="act" id="search-many" hidden>${ICONS.search}Search on…</button>
+            <button type="button" class="act" id="notes-btn">${ICONS.notes}Notes</button>
             <button type="button" class="act owner-only" id="edit">${I(`<path d="M4 20h4L19 9l-4-4L4 16v4ZM14 6l4 4"/>`)}Edit</button>
             <button type="button" class="act owner-only" id="reading"></button>
             <button type="button" class="act owner-only" id="reading2"></button>
@@ -105,7 +107,7 @@ const MARKUP = `
 // What the app does for the open book. Each returns once the server has answered.
 export const hooks = {
   save: async () => {}, startReading: async () => {}, finishReading: async () => {}, setAside: async () => {},
-  markRead: () => {}, openReadings: () => {}, setHidden: async () => {}, remove: async () => {},
+  markRead: () => {}, openNotes: () => {}, setHidden: async () => {}, remove: async () => {},
   replaceCover: async () => {}, setSpine: async () => {}, toast: () => {}, opened: () => {}, closed: () => {},
 };
 
@@ -220,16 +222,11 @@ export function fill(b) {
   showCover(b);
   const list = visibleBooks(), i = list.findIndex((x) => x.key === b.key);
   [list[(i + 1) % list.length], list[(i - 1 + list.length) % list.length]].forEach((n) => n && cover(n.cover));   // the neighbours, ready for stepping
-  // The line above the title: the binding, whether it's being read, and how often it was read (for the
-  // owner) or its public notes (for visitors), which open them.
-  const kick = $("d-kicker"), times = b.readCount || 0, notes = b.notes?.length || 0;
-  kick.textContent = BINDING_NAMES[bindingOf(b)] + (b.reading ? (view.owner ? " · Reading now" : " · Currently reading") : "");
-  if (view.owner ? b.history.length : notes) {
-    const label = view.owner ? (times ? timesText(times) : "Readings") : notes === 1 ? "A note" : `${notes} notes`;
-    const link = Object.assign(document.createElement("button"), { type: "button", className: "head-link", textContent: label });
-    link.addEventListener("click", () => hooks.openReadings(b));
-    kick.append(" · ", link);
-  }
+  // The line above the title: the binding, and whether it's being read or (for the owner) how often it was.
+  const times = b.readCount || 0;
+  $("d-kicker").textContent = [BINDING_NAMES[bindingOf(b)], b.reading ? (view.owner ? "Reading now" : "Currently reading") : view.owner && times ? timesText(times) : ""].filter(Boolean).join(" · ");
+  // Its notes page: always the owner's to write in; for visitors, once something on it is public.
+  $("notes-btn").hidden = !view.owner && !b.entries;
   $("reading").innerHTML = b.reading ? `${ICONS.finished}Finished reading` : `${ICONS.read}Reading now`;
   $("reading2").innerHTML = b.reading ? `${ICONS.aside}Set aside` : `${ICONS.mark}Mark as read`;
   // "Title: Subtitle" sets the subtitle on its own line; long titles step down in size so they fit the page.
@@ -256,7 +253,7 @@ const stop = (...els) => els.forEach((el) => el.getAnimations().forEach((a) => a
 // Click: the book comes out of the shelf, flies to the middle turning to show its cover, then opens.
 const faded = () => getComputedStyle(root).getPropertyValue("--faded").trim();   // animations want the literal filter
 let flight = null;   // the opening's animations, kept so Esc can rewind them mid-air
-let soloFrom = null;   // the stats-page cover a book rose from, if it did
+let soloFrom = null;   // the cover on the page (stats or notes) a book rose from, if it did
 // Where the eye stands for a book over a cover: straight in front of it, so on the way up (and back down)
 // only its face shows, never the edges of its pages.
 const coverEye = (img) => { const r = img.getBoundingClientRect(); return `${Math.round(r.left + r.width / 2)}px ${Math.round(r.top + r.height / 2)}px`; };
@@ -274,7 +271,7 @@ export async function openBook(b, from) {
   // A hovered spine stands a few pixels proud of the row, and the flight takes off from right there.
   const lifted = !!from?.classList?.contains("peek"), lift = lifted ? parseFloat(getComputedStyle(from).getPropertyValue("--lift")) || 0 : 0;
   setPeek(null);
-  const solo = root.dataset.view === "stats";
+  const solo = !!root.dataset.view;   // the stats page or a notes page: no shelf to fly from
   reader.classList.toggle("solo", solo);
   reader.hidden = false;
   measure(); fill(b);
@@ -383,6 +380,19 @@ export async function closeBook() {
     await settled(back, wait + (toCover ? 480 : p ? fly : 260));
   }
   putAway(b);
+}
+// The book closes onto a cover on a page put beneath it (its notes page), as it goes back to the stats
+// page. under() shows that page and returns the cover; it returns false when the book can't close.
+export async function closeOnto(under) {
+  if (!isOpen() || busy) return false;
+  if (reader.classList.contains("editing")) { hooks.toast("Save or cancel your changes first"); return false; }
+  const img = await under();
+  if (soloFrom) soloFrom.style.visibility = "";
+  reader.classList.add("solo");
+  soloFrom = returnFocus = img || null;
+  if (img) img.style.visibility = "hidden";
+  await closeBook();
+  return true;
 }
 // Next and previous swap the book in your hands: the cover plate changes at once, the page fades through.
 function step(dir) {
@@ -600,6 +610,7 @@ export function mountReader(el) {
   });
   $("reading").addEventListener("click", () => current.reading ? hooks.finishReading(current) : hooks.startReading(current));
   $("reading2").addEventListener("click", () => current.reading ? hooks.setAside(current) : hooks.markRead(current));
+  $("notes-btn").addEventListener("click", () => hooks.openNotes(current));
   $("hide").addEventListener("click", () => hooks.setHidden(current, !current.hidden));
   $("remove").addEventListener("click", () => { reader.classList.add("asking"); $("remove-no").focus({ preventScroll: true }); });
   $("remove-no").addEventListener("click", () => reader.classList.remove("asking"));

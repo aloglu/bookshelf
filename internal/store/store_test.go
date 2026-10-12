@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"os"
 	"path/filepath"
@@ -179,7 +180,7 @@ func TestSeveralBooksInProgress(t *testing.T) {
 	}
 }
 
-func TestRereadsAndNotes(t *testing.T) {
+func TestRereads(t *testing.T) {
 	s, _ := open(t)
 	b := add(t, s, "Pride and Prejudice", "9780141439518", 435)
 
@@ -195,16 +196,7 @@ func TestRereadsAndNotes(t *testing.T) {
 	s.SetPage(ctx, cur.ID, 50)
 	s.SetPage(ctx, cur.ID, 120)
 
-	if _, err := s.SetNote(ctx, cur.ID, "Halfway thoughts", false); err == nil {
-		t.Fatal("a note was allowed on a reading in progress")
-	}
-	if _, err := s.SetNote(ctx, old.ID, "Better than I remembered.", true); err != nil {
-		t.Fatal(err)
-	}
 	if _, err := s.EndReading(ctx, cur.ID, OutcomeFinished); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := s.SetNote(ctx, cur.ID, "Second time round: Mr Collins is funnier.", false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -218,19 +210,16 @@ func TestRereadsAndNotes(t *testing.T) {
 			tracked = r
 		}
 	}
-	if tracked.Page() != 120 || len(tracked.Progress) != 2 || tracked.Note == nil || tracked.Note.Public {
+	if tracked.Page() != 120 || len(tracked.Progress) != 2 || tracked.Outcome != OutcomeFinished {
 		t.Fatalf("tracked reading: %+v", tracked)
-	}
-	if r, _ := s.Snapshot().Reading(old.ID); r.Note == nil || r.Note.Text != "Better than I remembered." || !r.Note.Public {
-		t.Fatalf("the first reading lost its note: %+v", r)
 	}
 
 	// Correcting and deleting.
 	if _, err := s.CorrectReading(ctx, old.ID, When{Precision: Unknown}, When{Time: time.Date(2014, 6, 3, 0, 0, 0, 0, time.UTC), Precision: Day}, OutcomeFinished); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.CorrectReading(ctx, old.ID, When{Precision: Unknown}, When{Precision: Unknown}, OutcomeSetAside); err == nil {
-		t.Fatal("a reading with a note was set aside")
+	if _, err := s.CorrectReading(ctx, cur.ID, When{Precision: Unknown}, When{Precision: Unknown}, OutcomeSetAside); err != nil {
+		t.Fatal(err)
 	}
 	if err := s.DeleteReading(ctx, old.ID); err != nil {
 		t.Fatal(err)
@@ -242,17 +231,120 @@ func TestRereadsAndNotes(t *testing.T) {
 		t.Fatal("a reading in the future was accepted")
 	}
 
-	// Deleting the book takes its readings and notes with it.
+	// Deleting the book takes its readings with it.
 	if _, err := s.DeleteBooks(ctx, []string{b.ID}); err != nil {
 		t.Fatal(err)
 	}
 	if n := len(s.Snapshot().Readings[b.ID]); n != 0 {
 		t.Fatalf("readings left after deleting the book: %d", n)
 	}
+}
+
+func TestNotesAndHighlights(t *testing.T) {
+	s, _ := open(t)
+	b := add(t, s, "The Great Gatsby", "9780743273565", 180)
+	other := add(t, s, "Stoner", "9781590171998", 278)
+	r, _ := s.MarkRead(ctx, b.ID, When{Time: time.Date(2025, 8, 3, 0, 0, 0, 0, time.UTC), Precision: Day})
+	theirs, _ := s.MarkRead(ctx, other.ID, When{Precision: Unknown})
+
+	note, err := s.AddEntry(ctx, b.ID, EntryInput{Kind: KindNote, Text: "  Sadder than I remembered.  ", Quote: "dropped", Page: intp(3), ReadingID: r.ID, Public: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if note.Text != "Sadder than I remembered." || note.Quote != "" || note.Page != nil || note.ReadingID != r.ID || !note.Public {
+		t.Fatalf("note: %+v", note)
+	}
+	hl, err := s.AddEntry(ctx, b.ID, EntryInput{Kind: KindHighlight, Quote: "So we beat on, boats against the current.", Page: intp(180)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, in := range map[string]EntryInput{
+		"an empty note":            {Kind: KindNote, Text: "  "},
+		"a highlight with no text": {Kind: KindHighlight, Text: "A thought, but no passage"},
+		"an unknown kind":          {Kind: "quote", Text: "x"},
+		"a page past the end":      {Kind: KindHighlight, Quote: "x", Page: intp(181)},
+		"page zero":                {Kind: KindHighlight, Quote: "x", Page: intp(0)},
+		"another book's reading":   {Kind: KindNote, Text: "x", ReadingID: theirs.ID},
+		"a date in the future":     {Kind: KindNote, Text: "x", CreatedAt: ptr(time.Now().Add(48 * time.Hour))},
+	} {
+		if _, err := s.AddEntry(ctx, b.ID, in); err == nil {
+			t.Errorf("%s was accepted", name)
+		}
+	}
+	if _, err := s.AddEntry(ctx, "nope", EntryInput{Kind: KindNote, Text: "x"}); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("a missing book: %v", err)
+	}
+
+	// Editing keeps when it was first written; putting one back (undo) keeps its date.
+	edited, err := s.UpdateEntry(ctx, hl.ID, EntryInput{Kind: KindHighlight, Quote: hl.Quote, Text: "The last line.", Page: intp(180), Public: true, CreatedAt: ptr(time.Unix(0, 0))})
+	if err != nil || !edited.CreatedAt.Equal(hl.CreatedAt) || edited.Text != "The last line." || !edited.Public {
+		t.Fatalf("edited: %+v %v", edited, err)
+	}
+	if err := s.DeleteEntry(ctx, note.ID); err != nil {
+		t.Fatal(err)
+	}
+	back, err := s.AddEntry(ctx, b.ID, EntryInput{Kind: note.Kind, Text: note.Text, ReadingID: note.ReadingID, Public: note.Public, CreatedAt: &note.CreatedAt})
+	if err != nil || !back.CreatedAt.Equal(note.CreatedAt) {
+		t.Fatalf("put back: %+v %v", back, err)
+	}
+	if list := s.Snapshot().Entries[b.ID]; len(list) != 2 || list[0].ID != back.ID {
+		t.Fatalf("entries are kept oldest first: %+v", list)
+	}
+
+	// Deleting a reading keeps what was written during it; deleting the book doesn't.
+	if err := s.DeleteReading(ctx, r.ID); err != nil {
+		t.Fatal(err)
+	}
+	if e, _ := s.Snapshot().Entry(back.ID); e.ReadingID != "" {
+		t.Fatalf("still tied to a deleted reading: %+v", e)
+	}
+	if _, err := s.DeleteBooks(ctx, []string{b.ID}); err != nil {
+		t.Fatal(err)
+	}
 	var count int
-	s.db.QueryRow(`SELECT COUNT(*) FROM notes`).Scan(&count)
-	if count != 0 {
-		t.Fatalf("notes left after deleting the book: %d", count)
+	s.db.QueryRow(`SELECT COUNT(*) FROM entries`).Scan(&count)
+	if count != 0 || len(s.Snapshot().Entries[b.ID]) != 0 {
+		t.Fatalf("entries left after deleting the book: %d", count)
+	}
+}
+
+// A 2.0 library's notes (one on each finished reading) become notes tied to
+// their readings when 2.1 opens it.
+func TestOpeningA20Library(t *testing.T) {
+	dir := t.TempDir()
+	db, err := sql.Open("sqlite", "file:"+filepath.Join(dir, DatabaseName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, q := range []string{schemaV1, "PRAGMA user_version = 1",
+		`INSERT INTO books (id, title, slug, added_at, updated_at) VALUES ('b1', 'Stoner', 'stoner', '2024-01-01T00:00:00.000000000Z', '2024-01-01T00:00:00.000000000Z')`,
+		`INSERT INTO readings (id, book_id, started_precision, ended_at, ended_precision, outcome) VALUES ('r1', 'b1', 'unknown', '2024-03-12', 'day', 'finished')`,
+		`INSERT INTO notes (reading_id, text, public, created_at, updated_at) VALUES ('r1', 'Better the second time.', 1, '2024-03-12T10:00:00.000000000Z', '2024-03-13T10:00:00.000000000Z')`,
+	} {
+		if _, err := db.Exec(q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	db.Close()
+
+	s, err := Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	list := s.Snapshot().Entries["b1"]
+	if len(list) != 1 {
+		t.Fatalf("entries: %+v", list)
+	}
+	e := list[0]
+	if e.Kind != KindNote || e.Text != "Better the second time." || !e.Public || e.ReadingID != "r1" || len(e.ID) != 16 ||
+		!e.CreatedAt.Equal(time.Date(2024, 3, 12, 10, 0, 0, 0, time.UTC)) || !e.UpdatedAt.Equal(time.Date(2024, 3, 13, 10, 0, 0, 0, time.UTC)) {
+		t.Fatalf("moved note: %+v", e)
+	}
+	var notes int
+	s.db.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE name = 'notes'`).Scan(&notes)
+	if notes != 0 {
+		t.Fatal("the old notes table is still there")
 	}
 }
 
@@ -347,3 +439,5 @@ func locksHeld(t *testing.T, dir string) int {
 	}
 	return n
 }
+
+func ptr[T any](v T) *T { return &v }

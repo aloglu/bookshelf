@@ -575,29 +575,8 @@ select.inp { appearance: none; background-image: linear-gradient(45deg, transpar
 @keyframes spin { to { rotate: 1turn; } }
 .check2 { display: flex; align-items: center; gap: 8px; font-size: .88rem; color: var(--ink); }
 .check2 input { accent-color: var(--accent); width: 16px; height: 16px; }
-/* A book's readings: each with its dates, how long it took, and its note. */
-.rd-list { display: grid; margin: 18px 0 0; padding: 0; list-style: none; }
-.rd { display: grid; gap: 10px; padding: 14px 0; border-top: 1px solid var(--line); }
-.rd-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 14px; }
-.rd-top b { font-weight: 600; }
-.rd-meta { color: var(--muted); font-size: .84rem; }
-.rd-tools { display: flex; gap: 14px; margin-left: auto; font-size: .84rem; }
-.rd-note { display: grid; justify-items: start; gap: 6px; font-size: .84rem; }
-.rd-note p { margin: 0; font-family: var(--display); font-size: 1.05rem; font-style: italic; line-height: 1.5; white-space: pre-wrap; }
-.rd .link { color: var(--muted); }
-.rd-note .foot { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; }
-.rd-note .pub { color: var(--muted); }
-.rd-edit .toggle { padding-block: 2px; }
-@media (hover: hover) { .rd .link:hover { color: var(--ink); } }
-.rd-ask, .rd-btns { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
-.rd-ask span { margin-right: auto; font-size: .88rem; }
-.rd-edit { display: grid; gap: 8px; }
-textarea.inp { height: auto; min-height: 92px; padding: 10px 12px; line-height: 1.45; resize: vertical; }
 .btn.danger { background: #a3321f; color: #fff; border-color: transparent; }
 .lab .opt { color: var(--muted); font-weight: 400; }
-.head-link { padding: 0; border: 0; background: none; font: inherit; letter-spacing: inherit; text-transform: inherit; color: inherit; cursor: pointer;
-  text-decoration: underline; text-underline-offset: 3px; text-decoration-color: color-mix(in oklab, currentColor 40%, transparent); }
-@media (hover: hover) { .head-link:hover { color: var(--paper-accent); } }
 .wordmark { margin: 0 0 18px; font-family: var(--display); font-size: .82rem; font-style: italic; color: var(--muted); }
 
 /* The scanner: a viewfinder with corner marks and a sweeping line. */
@@ -793,6 +772,103 @@ body:has(.drawer-wrap:not([hidden])) .toast.saved { left: calc(100% - min(420px,
 :root[data-motion="reduce"] .spine, :root[data-motion="reduce"] .spine::after, :root[data-motion="reduce"] .slot::before { transition: none; }
 :root[data-motion="reduce"] .slot.peek .spine { inset: 0; }
 @media (prefers-reduced-motion: reduce) { .spine, .spine::after { transition: none; } .slot.peek .spine { inset: 0; } }
+/* ---------- A book's notes ---------- */
+/* One page per book for everything kept about it: notes and highlights, any number of each, newest first or
+   in page order, each public or only the owner's and tied to the reading it came from; beside them, the
+   owner's readings. Visitors see the book and its public entries, never the readings. */
+:root[data-view="notes"] .case, :root[data-view="notes"] .nowreading, :root[data-view="notes"] .elsewhere, :root[data-view="notes"] .sort-seg { display: none !important; }
+.nb { padding-block: 26px 120px; }
+.nb-head { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 28px; align-items: end; padding-bottom: 28px; margin-bottom: 26px; border-bottom: 1px solid var(--line); }
+.nb-cover { display: block; width: 112px; border-radius: 3px; box-shadow: 0 14px 28px -14px rgba(0,0,0,.6); cursor: pointer; }
+.nb-kick { margin: 0 0 10px; color: var(--muted); font-size: .74rem; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; }
+.nb-head h2 { margin: 0; font-family: var(--display); font-weight: 600; font-size: clamp(1.9rem, 4.6vw, 2.8rem); line-height: 1.05; letter-spacing: -.012em; font-variation-settings: "opsz" 72; text-wrap: balance; }
+.nb-by { margin: 8px 0 0; font-family: var(--display); font-size: 1.12rem; font-style: italic; font-variation-settings: "opsz" 36; }
+.nb-facts { margin: 14px 0 0; color: var(--muted); font-size: .86rem; }
+.nb-cols { display: grid; grid-template-columns: minmax(0, 1fr) 290px; gap: 56px; align-items: start; }
+:root:not([data-owner]) .nb-cols { grid-template-columns: minmax(0, 44rem); }
+:root:not([data-owner]) :is(.nb-compose, .nb-side) { display: none; }
+.nb h3 { margin: 0; color: var(--muted); font-size: .74rem; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; }
+.nb-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; min-height: 34px; margin-bottom: 14px; }
+.nb-bar h3 { margin-right: auto; }
+.nb .seg { height: 34px; }
+.nb .seg button { padding: 0 10px; font-size: .8rem; }
+/* Writing: one field to start; a highlight adds the passage and its page; the rest shows once begun. */
+.nb-compose { display: grid; gap: 12px; margin-bottom: 6px; padding: 12px 16px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.nb-compose:focus-within { border-color: color-mix(in oklab, var(--accent) 45%, var(--line)); }
+.nb-compose .seg { justify-self: start; height: 30px; padding: 2px; }
+.nb-compose .seg button { padding: 0 9px; font-size: .78rem; }
+.nb-compose textarea { display: block; width: 100%; min-height: 1.5em; padding: 0; border: 0; background: none; color: var(--ink); resize: none; field-sizing: content; font-family: var(--display); font-size: 1.05rem; line-height: 1.5; font-variation-settings: "opsz" 24; }
+.nb-compose textarea:focus { outline: none; }
+.nb-compose textarea::placeholder { color: var(--muted); opacity: .8; }
+.nb-compose [name="quote"] { padding-left: 16px; border-left: 2px solid var(--ribbon); font-size: 1.15rem; }
+.nb-compose:not(.hl) .hl-only, .nb-compose:not(.open) .nb-more { display: none; }
+.nb-more { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding-top: 12px; border-top: 1px solid var(--line); color: var(--muted); font-size: .82rem; }
+.nb-more label { display: inline-flex; align-items: center; gap: 7px; }
+.nb-more input, .nb-more select { height: 32px; padding: 0 9px; border: 1px solid var(--line); border-radius: 6px; background: var(--field); color: var(--ink); font: inherit; font-size: .84rem; }
+.nb-more input { width: 4.6em; font-variant-numeric: tabular-nums; }
+.nb-more select { appearance: none; padding-right: 26px; background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%); background-position: calc(100% - 15px) 14px, calc(100% - 10px) 14px; background-size: 5px 5px; background-repeat: no-repeat; }
+.nb-vis { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border: 1px solid var(--line); border-radius: 99px; color: var(--muted); font-size: .8rem; }
+.nb-vis[aria-pressed="true"] { color: var(--ink); border-color: color-mix(in oklab, var(--accent) 45%, transparent); background: color-mix(in oklab, var(--accent) 12%, transparent); }
+.nb-vis .i { width: 15px; height: 15px; }
+.nb-btns { display: flex; gap: 8px; margin-left: auto; }
+.nb-err { flex-basis: 100%; margin: 0; color: var(--danger); font-size: .82rem; }
+.nb-err:empty { display: none; }
+/* The entries: no cards, only hairlines; a passage carries the ribbon's color down its edge. */
+.nb-list { margin: 0; padding: 0; list-style: none; }
+.nb-e { display: grid; gap: 10px; padding: 22px 0; border-bottom: 1px solid var(--line); }
+.nb-e > .nb-compose { margin: -8px 0 0; }
+.nb-e blockquote { margin: 0; padding-left: 18px; border-left: 2px solid var(--ribbon); font-family: var(--display); font-size: 1.18rem; line-height: 1.5; font-variation-settings: "opsz" 24; white-space: pre-wrap; text-wrap: pretty; }
+.nb-e .txt { margin: 0; font-family: var(--display); font-size: 1.04rem; line-height: 1.55; font-variation-settings: "opsz" 18; white-space: pre-wrap; text-wrap: pretty; }
+.nb-e blockquote + .txt { padding-left: 20px; font-style: italic; }
+.nb-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; color: var(--muted); font-size: .8rem; }
+.nb-meta .only { display: inline-flex; align-items: center; gap: 4px; }
+.nb-meta .only .i { width: 13px; height: 13px; }
+.nb-tools { display: flex; gap: 14px; margin-left: auto; }
+.nb-tools button { color: var(--muted); }
+@media (hover: hover) { .nb-tools button:hover, .nb-r .r-tools button:hover, .nb-sum:hover { color: var(--ink); } }
+.nb-empty { margin: 0; padding: 24px 0; color: var(--muted); font-size: .92rem; line-height: 1.5; }
+/* The readings: a quiet timeline, newest at the top. */
+.nb-sum { display: none; }
+.nb-rd { margin: 16px 0 0; padding: 0; list-style: none; }
+.nb-r { position: relative; display: grid; gap: 3px; padding: 0 0 22px 24px; }
+.nb-r::before { content: ""; position: absolute; left: 0; top: 5px; width: 7px; height: 7px; border-radius: 50%; border: 2px solid var(--muted); background: var(--wall); }
+.nb-r::after { content: ""; position: absolute; left: 5px; top: 18px; bottom: 2px; width: 1px; background: var(--line); }
+.nb-r:last-child::after { display: none; }
+.nb-r.now::before { border-color: var(--ribbon); background: var(--ribbon); }
+.nb-r.aside::before { border-style: dashed; }
+.nb-r b { font-size: .92rem; font-weight: 600; }
+.nb-r .m { color: var(--muted); font-size: .82rem; line-height: 1.5; }
+.nb-r .meter { margin: 8px 0 2px; }
+.nb-r .meter .bar { height: 6px; }
+.nb-r .meter .bar i { background: var(--ribbon); }
+.nb-r .pg { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: .82rem; }
+.nb-r .pg input { width: 4.6em; height: 30px; padding: 0 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--field); color: var(--ink); font: inherit; font-variant-numeric: tabular-nums; }
+.nb-r .r-tools { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 4px; font-size: .8rem; }
+.nb-r .r-tools button { color: var(--muted); }
+.nb-side .acts { display: flex; flex-wrap: wrap; gap: 8px; }
+.nb-side .none { margin: 14px 0 16px; color: var(--muted); font-size: .86rem; line-height: 1.5; }
+@media (max-width: 720px) {
+  .nb { padding-top: 18px; }
+  .nb-head { grid-template-columns: 76px minmax(0, 1fr); gap: 18px; align-items: center; padding-bottom: 20px; margin-bottom: 4px; }
+  :root:not([data-owner]) .nb-head { margin-bottom: 22px; }
+  .nb-cover { width: 76px; }
+  .nb-head h2 { font-size: 1.7rem; }
+  .nb-by { font-size: 1rem; }
+  .nb-facts { margin-top: 8px; font-size: .8rem; }
+  .nb-cols, :root:not([data-owner]) .nb-cols { grid-template-columns: minmax(0, 1fr); gap: 22px; }
+  /* On a phone the readings fold into one line above the notes, and open under it. */
+  .nb-side { order: -1; border-bottom: 1px solid var(--line); }
+  .nb-side > h3 { display: none; }
+  .nb-sum { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 48px; color: var(--muted); font-size: .88rem; }
+  .nb-sum b { color: var(--ink); font-weight: 600; }
+  .nb-sum .i { transition: transform .25s var(--ease); }
+  .nb-side.open .nb-sum .i { transform: rotate(180deg); }
+  .nb-side:not(.open) .nb-fold { display: none; }
+  .nb-fold { padding-bottom: 18px; }
+  .nb-rd { margin-top: 8px; }
+  .nb-compose textarea, .nb-more input, .nb-more select, .nb-r .pg input { font-size: 16px; }
+  .nb-tools { margin-left: 0; width: 100%; }
+}
 </style>
 
 <div class="wrap">
@@ -847,6 +923,49 @@ body:has(.drawer-wrap:not([hidden])) .toast.saved { left: calc(100% - min(420px,
       <article class="chart wide" data-chart="extremes"><header><h3>At the edges</h3><p>The oldest, newest, longest and shortest</p></header><div class="plot"></div></article>
     </div>
   </section>
+  <section class="nb" id="notes" hidden aria-labelledby="nb-title">
+    <header class="nb-head">
+      <img class="nb-cover" id="nb-cover" alt="Open the book">
+      <div>
+        <p class="nb-kick" id="nb-kick"></p>
+        <h2 id="nb-title"></h2>
+        <p class="nb-by" id="nb-by"></p>
+        <p class="nb-facts" id="nb-facts"></p>
+      </div>
+    </header>
+    <div class="nb-cols">
+      <div class="nb-main">
+        <div class="nb-bar">
+          <h3 id="nb-count">Notes and highlights</h3>
+          <div class="seg" id="nb-filter" role="group" aria-label="Show"><button type="button" data-v="all">All</button><button type="button" data-v="note">Notes</button><button type="button" data-v="highlight">Highlights</button></div>
+          <div class="seg" id="nb-order" role="group" aria-label="Order"><button type="button" data-v="new">Newest</button><button type="button" data-v="page">By page</button></div>
+        </div>
+        <form class="nb-compose" id="nb-compose" novalidate>
+          <div class="seg" id="nb-kind" role="group" aria-label="Kind"><button type="button" data-v="note">Note</button><button type="button" data-v="highlight">Highlight</button></div>
+          <textarea name="quote" class="hl-only" rows="1" placeholder="The passage, as printed" aria-label="Passage"></textarea>
+          <textarea name="text" rows="1" placeholder="Write a note" aria-label="Note"></textarea>
+          <div class="nb-more">
+            <label class="hl-only">Page<input name="page" inputmode="numeric" autocomplete="off"></label>
+            <label id="nb-from-l">Reading<select name="reading"></select></label>
+            <button type="button" class="nb-vis" id="nb-vis" aria-pressed="false"></button>
+            <span class="nb-btns"><button type="button" class="btn sm" id="nb-cancel">Cancel</button><button type="submit" class="btn sm primary" id="nb-save">Save</button></span>
+            <p class="nb-err" id="nb-err" role="alert"></p>
+          </div>
+        </form>
+        <ol class="nb-list" id="nb-list"></ol>
+        <p class="nb-empty" id="nb-empty" hidden></p>
+      </div>
+      <aside class="nb-side" id="nb-side" aria-labelledby="nb-rd-h">
+        <h3 id="nb-rd-h">Readings</h3>
+        <button type="button" class="nb-sum" id="nb-sum" aria-expanded="false"><span></span><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+        <div class="nb-fold">
+          <ol class="nb-rd" id="nb-rd"></ol>
+          <p class="none" id="nb-rd-none" hidden>Not read yet. Start a reading to keep its dates and the pages you reach, or mark it as read if you read it before.</p>
+          <div class="acts" id="nb-rd-acts"><button type="button" class="btn sm" id="nb-start">Reading now</button><button type="button" class="btn sm" id="nb-mark">Mark as read</button></div>
+        </div>
+      </aside>
+    </div>
+  </section>
   <div class="tip" id="tip" role="tooltip" hidden></div>
   <main class="case" aria-label="Bookshelves"><div class="shelves" id="shelves"></div></main>
 </div>
@@ -882,6 +1001,7 @@ body:has(.drawer-wrap:not([hidden])) .toast.saved { left: calc(100% - min(420px,
               <button type="button" class="act" id="copy"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>Copy link</button>
               <a class="act" id="search-one" target="_blank" rel="noopener" hidden></a>
               <button type="button" class="act" id="search-many" hidden><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></svg>Search on…</button>
+              <button type="button" class="act" id="notes-btn"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3.5h8.5L18 7v13.5H6zM9 11h6M9 14.5h6M9 18h3.5"/></svg>Notes</button>
               <button type="button" class="act owner-only" id="edit"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4ZM14 6l4 4"/></svg>Edit</button>
               <button type="button" class="act owner-only" id="reading"></button>
               <button type="button" class="act owner-only" id="reading2"></button>
@@ -978,15 +1098,6 @@ body:has(.drawer-wrap:not([hidden])) .toast.saved { left: calc(100% - min(420px,
   </form>
 </div>
 
-<div class="modal" id="readings" hidden>
-  <div class="modal-scrim" data-close></div>
-  <section class="card wide" role="dialog" aria-modal="true" aria-labelledby="rd-h">
-    <button type="button" class="btn icon x" data-close aria-label="Close"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
-    <div><p class="wordmark" id="rd-count"></p><h2 id="rd-h"></h2></div>
-    <ol class="rd-list" id="rd-list"></ol>
-  </section>
-</div>
-
 <div class="modal" id="marker" hidden>
   <div class="modal-scrim" data-close></div>
   <form class="card stack" id="mk-form" role="dialog" aria-modal="true" aria-labelledby="mk-h" novalidate>
@@ -997,8 +1108,6 @@ body:has(.drawer-wrap:not([hidden])) .toast.saved { left: calc(100% - min(420px,
     <div class="lab"><span id="mk-when-t">Finished</span><div class="seg" id="mk-prec"><button type="button" data-v="day">On a day</button><button type="button" data-v="year">In a year</button><button type="button" data-v="unknown">I don’t remember</button></div></div>
     <label class="lab" id="mk-day-l">Date<input class="inp" type="date" name="day"></label>
     <label class="lab" id="mk-year-l" hidden>Year<input class="inp" name="year" inputmode="numeric" maxlength="4" placeholder="2019"></label>
-    <label class="lab" id="mk-note-l"><span>Note <span class="opt">· optional</span></span><textarea class="inp" name="note" rows="3"></textarea></label>
-    <label class="toggle" id="mk-public-l"><span><b>Public note</b><small>Visitors can read it on the book’s page.</small></span><input type="checkbox" name="public"></label>
     <p class="err" id="mk-err" role="alert"></p>
     <button type="submit" class="btn primary" id="mk-go">Mark as read</button>
   </form>
@@ -1063,7 +1172,7 @@ body:has(.drawer-wrap:not([hidden])) .toast.saved { left: calc(100% - min(420px,
       <h3>What visitors see</h3>
       <label class="toggle"><span><b>Private library</b><small>Only you can see it. Visitors get a sign-in page.</small></span><input type="checkbox" id="set-private"></label>
       <label class="toggle"><span><b>Statistics page</b><small>Let visitors see the numbers behind your library.</small></span><input type="checkbox" id="set-stats" checked></label>
-      <p class="fine">Any book can be hidden from its own page. Your readings are never shown, and a note only when you make it public.</p>
+      <p class="fine">Any book can be hidden from its own page. Your readings are never shown, and notes and highlights only when you make them public.</p>
     </section>
     <section data-tab="site">
       <h3>How it opens</h3>
@@ -1347,19 +1456,39 @@ const libraries = {
   sample: SAMPLE.filter((b) => !LOOKUP.has(b.isbn)).map((b) => makeBook(b, 0)),
   1000: Array.from({ length: 1000 }, (_, i) => makeBook(SAMPLE[i % SAMPLE.length], Math.floor(i / SAMPLE.length))),
 };
-// Demo readings. A book being read keeps its reading on itself (reading, readingSince, page); finished and
-// set-aside readings are its history, each with its own dates and note, as the server keeps them.
+// Demo readings. A book being read keeps its reading on itself (reading, readingId, readingSince, page);
+// finished and set-aside readings are its history, each with its own dates, as the server keeps them.
 const DAY = 864e5, daysAgo = (d) => Date.now() - d * DAY, on = (y, m, d) => new Date(y, m - 1, d).getTime();
 let readingIds = 0;
-const demo = (isbn, o) => { const b = libraries.sample.find((x) => x.isbn === isbn); Object.assign(b, o); b.history?.forEach((r) => { r.id = ++readingIds; }); };
+const demo = (isbn, o) => { const b = libraries.sample.find((x) => x.isbn === isbn); Object.assign(b, o); b.history?.forEach((r) => { r.id = ++readingIds; }); if (b.reading) b.readingId = ++readingIds; };
 demo("9780375756566", { reading: true, readingSince: daysAgo(9), page: 112 });   // Austerlitz, nine days in
 demo("9780141180144", { reading: true, readingSince: daysAgo(3), page: 41 });    // The Master and Margarita, just begun
 demo("9781590171998", { history: [                                              // Stoner, read twice
-  { outcome: "finished", start: on(2024, 2, 23), end: on(2024, 3, 12), endPrec: "day", note: "Better the second time. I hadn’t noticed how much of it is about work, and how little he asks of anyone.", public: true },
-  { outcome: "finished", start: null, end: on(2016, 1, 1), endPrec: "year", note: "" },
+  { outcome: "finished", start: on(2024, 2, 23), end: on(2024, 3, 12), endPrec: "day" },
+  { outcome: "finished", start: null, end: on(2016, 1, 1), endPrec: "year" },
 ] });
-demo("9780156453806", { history: [{ outcome: "set_aside", start: on(2025, 9, 20), end: on(2025, 10, 1), endPrec: "day", page: 64, note: "" }] });   // Invisible Cities
-demo("9780375706868", { history: [{ outcome: "finished", start: null, end: null, endPrec: "unknown", note: "" }] });   // Snow, read long ago
+demo("9780156453806", { history: [{ outcome: "set_aside", start: on(2025, 9, 20), end: on(2025, 10, 1), endPrec: "day", page: 64 }] });   // Invisible Cities
+demo("9780375706868", { history: [{ outcome: "finished", start: null, end: null, endPrec: "unknown" }] });   // Snow, read long ago
+demo("9780743273565", { history: [                                              // The Great Gatsby, read twice
+  { outcome: "finished", start: on(2025, 7, 27), end: on(2025, 8, 3), endPrec: "day" },
+  { outcome: "finished", start: null, end: on(2011, 1, 1), endPrec: "year" },
+] });
+// Demo notes and highlights, each its own entry: a kind, the owner's words, a passage and its page (for a
+// highlight), the reading it came from (or none), public or not, and when it was written.
+let entryIds = 0;
+const entries = (isbn, list) => {
+  const b = libraries.sample.find((x) => x.isbn === isbn), r = (i) => i === "now" ? b.readingId : b.history[i].id;
+  b.entries = list.map(([kind, at, reading, pub, text, quote = "", page = null]) => ({ id: ++entryIds, kind, at, reading: reading == null ? null : r(reading), public: pub, text, quote, page }));
+};
+entries("9780743273565", [
+  ["note", on(2011, 4, 18), 1, false, "Read for school. All I kept was the green light."],
+  ["highlight", on(2025, 7, 27) + 9e6, 0, true, "He says this on the first page, then spends the rest of the book judging everyone.", "“Whenever you feel like criticizing any one,” he told me, “just remember that all the people in this world haven’t had the advantages that you’ve had.”", 1],
+  ["highlight", on(2025, 7, 29) + 5e6, 0, true, "", "I was within and without, simultaneously enchanted and repelled by the inexhaustible variety of life.", 35],
+  ["highlight", on(2025, 8, 3) + 3e6, 0, false, "", "So we beat on, boats against the current, borne back ceaselessly into the past.", 180],
+  ["note", on(2025, 8, 3) + 4e6, 0, true, "Shorter than I remembered, and sadder. The parties read like a man waiting by the phone."],
+]);
+entries("9781590171998", [["note", on(2024, 3, 12) + 7e6, 0, true, "Better the second time. I hadn’t noticed how much of it is about work, and how little he asks of anyone."]]);
+entries("9780375756566", [["note", daysAgo(2), "now", false, "The sentences don’t stop for breath. I’m reading it slower than anything in years, and I don’t mind."]]);
 const state = { size: "sample", sort: "author", query: "", owner: false, selecting: false };
 // The owner's settings. The server keeps these; here they live for the visit.
 const settings = {
@@ -1382,18 +1511,29 @@ function visibleBooks() {
   return books().filter((b) => (state.owner || !b.hidden) && (!q || b.haystack.includes(q))).sort(sorters[state.sort]);
 }
 /* ---------- The stats page ---------- */
-// The shelf and the stats page share one header; #stats opens the page directly.
+// The shelf, the stats page and a book's notes share one header; #stats and #notes/<book> open the pages directly.
 const statsOpen = () => state.owner || settings.stats;
-function setView(v) {
+function setView(v, b = null) {
   if (v === "stats" && !statsOpen()) v = "shelf";
-  const stats = v === "stats";
-  if (stats) root.dataset.view = "stats"; else delete root.dataset.view;
-  $("stats").hidden = !stats;
-  $("stats-btn").setAttribute("aria-pressed", String(stats));
-  if (stats) { renderStats(); scrollTo({ top: 0 }); if (location.hash !== "#stats") history.replaceState(null, "", "#stats"); }
-  else if (location.hash === "#stats") history.replaceState(null, "", location.pathname + location.search);
+  if (v === "notes" && !(b && notesOpen(b))) v = "shelf";
+  if (v === "shelf") delete root.dataset.view; else root.dataset.view = v;
+  $("stats").hidden = v !== "stats"; $("notes").hidden = v !== "notes";
+  $("stats-btn").setAttribute("aria-pressed", String(v === "stats"));
+  if (v === "stats") renderStats();
+  if (v === "notes") {
+    if (nbBook !== b) { nb.filter = "all"; nb.order = "new"; $("nb-side").classList.remove("open"); $("nb-sum").setAttribute("aria-expanded", "false"); }
+    nbBook = b; resetComposer(); renderNotes();
+  }
+  if (v !== "shelf") scrollTo({ top: 0 });
+  const hash = v === "stats" ? "#stats" : v === "notes" ? `#notes/${encodeURIComponent(b.key)}` : "";
+  if (location.hash !== hash) history.replaceState(null, "", hash || location.pathname + location.search);
 }
-addEventListener("hashchange", () => setView(location.hash === "#stats" ? "stats" : "shelf"));
+function viewFromHash() {
+  const m = location.hash.match(/^#notes\/(.+)$/);
+  if (m) return setView("notes", books().find((b) => b.key === decodeURIComponent(m[1])));
+  setView(location.hash === "#stats" ? "stats" : "shelf");
+}
+addEventListener("hashchange", viewFromHash);
 const fmt = (n) => n.toLocaleString();
 function statBooks() { return books().filter((b) => state.owner || !b.hidden); }
 function renderStats() {
@@ -1864,17 +2004,10 @@ function fill(b) {
   $("thumb").src = b.cover;
   const list = visibleBooks(), i = list.findIndex((x) => x.key === b.key);
   [list[(i + 1) % list.length], list[(i - 1 + list.length) % list.length]].forEach((n) => n && cover(n.cover));   // a real library would fetch these here
-  // The line above the title: the binding, whether it's being read, and (for the owner) how often it was
-  // read, which opens its readings.
-  const kick = $("d-kicker"), times = readCount(b);
-  kick.textContent = (b.binding || "Book") + (b.reading ? (state.owner ? " · Reading now" : " · Currently reading") : "");
-  const notes = publicNotes(b).length;
-  if (state.owner ? b.history?.length : notes) {
-    const label = state.owner ? (times ? timesText(times) : "Readings") : notes === 1 ? "A note" : `${notes} notes`;
-    const link = Object.assign(document.createElement("button"), { type: "button", className: "head-link", textContent: label });
-    link.addEventListener("click", () => openReadings(b));
-    kick.append(" · ", link);
-  }
+  // The line above the title: the binding, and whether it's being read or (for the owner) how often it was.
+  const times = readCount(b);
+  $("d-kicker").textContent = [b.binding || "Book", b.reading ? (state.owner ? "Reading now" : "Currently reading") : state.owner && times ? timesText(times) : ""].filter(Boolean).join(" · ");
+  $("notes-btn").hidden = !notesOpen(b);
   $("reading").innerHTML = b.reading
     ? `<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10v16l-5-4-5 4z"/><path d="m9.5 9.5 2 2 3.5-3.5"/></svg>Finished reading`
     : `<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10v16l-5-4-5 4z"/></svg>Reading now`;
@@ -1927,7 +2060,7 @@ async function openBook(b, from) {
   // A hovered spine stands a few pixels proud of the row, and the flight takes off from right there.
   const lifted = !!from?.classList.contains("peek"), lift = lifted ? parseFloat(getComputedStyle(from).getPropertyValue("--lift")) || 0 : 0;
   setPeek(null);
-  const solo = root.dataset.view === "stats";
+  const solo = !!root.dataset.view;   // the stats page or a book's notes
   reader.classList.toggle("solo", solo);
   reader.hidden = false;
   measure(); fill(b);
@@ -2138,9 +2271,13 @@ const timesText = (n) => n === 1 ? "Read once" : n === 2 ? "Read twice" : `Read 
 const longDate = new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", year: "numeric" });
 const whenText = (t, prec) => t == null || prec === "unknown" ? "" : prec === "year" ? String(new Date(t).getFullYear()) : longDate.format(t);
 const nDays = (n) => `${fmt(n)} day${n === 1 ? "" : "s"}`;
-function changedReading(b) { refreshSlot(b); renderSummary(); if (current === b && !reader.hidden) fill(b); }
+function changedReading(b) {
+  refreshSlot(b); renderSummary();
+  if (current === b && !reader.hidden) fill(b);
+  if (root.dataset.view === "notes" && nbBook === b) renderNotes();
+}
 function endReading(b, outcome) {
-  const r = { id: ++readingIds, outcome, start: b.readingSince, end: Date.now(), endPrec: "day", page: b.page || 0, note: "" };
+  const r = { id: b.readingId, outcome, start: b.readingSince, end: Date.now(), endPrec: "day", page: b.page || 0 };
   (b.history ||= []).unshift(r);
   b.reading = false;
   changedReading(b);
@@ -2148,103 +2285,261 @@ function endReading(b, outcome) {
 }
 function finishReading(b) {
   const r = endReading(b, "finished");
-  toast(`Finished “${b.title}”`, { label: "Add a note", run: () => openReadings(b, r.id) });
+  toast(`Finished “${b.title}”`, { label: "Add a note", run: () => noteFor(b, r.id) });
 }
-$("reading").addEventListener("click", () => {
-  const b = current;
-  if (b.reading) { finishReading(b); return; }
-  Object.assign(b, { reading: true, readingSince: Date.now(), page: 0 });
+function startReading(b) {
+  Object.assign(b, { reading: true, readingId: ++readingIds, readingSince: Date.now(), page: 0 });
   changedReading(b);
   toast(`Now reading “${b.title}”`);
-});
-$("reading2").addEventListener("click", () => {
-  const b = current;
-  if (!b.reading) { openMarker(b); return; }
-  const was = { readingSince: b.readingSince, page: b.page }, r = endReading(b, "set_aside");
+}
+function setAside(b) {
+  const was = { readingId: b.readingId, readingSince: b.readingSince, page: b.page }, r = endReading(b, "set_aside");
   toast(`Set aside “${b.title}”`, { label: "Undo", run: () => { b.history.splice(b.history.indexOf(r), 1); Object.assign(b, was, { reading: true }); changedReading(b); } });
-});
+}
+$("reading").addEventListener("click", () => { if (current.reading) finishReading(current); else startReading(current); });
+$("reading2").addEventListener("click", () => { if (current.reading) setAside(current); else openMarker(current); });
 
-// The readings of a book, newest first: the one in progress, then each finished or set-aside reading with its
-// dates, how long it took and (once finished) its note. Each can be corrected or deleted.
-let rdBook = null, visitorView = false;
-const publicNotes = (b) => (b.history || []).filter((r) => r.outcome === "finished" && r.note && r.public);
-function openReadings(b, noteFor) {
-  rdBook = b; visitorView = !state.owner;
-  renderReadings(noteFor);
-  if ($("readings").hidden) showPanel($("readings"));
-  if (noteFor) $("rd-list").querySelector("textarea")?.focus({ preventScroll: true });
+/* ---------- A book's notes ---------- */
+// Notes and highlights are entries of their own, any number to a book: a note is the owner's words; a
+// highlight is a passage as printed, its page if there is one, and a thought on it if they like. Each is
+// public or only the owner's, and can name the reading it came from. The readings sit beside them, for the
+// owner only. The page opens from the book's own page (the book closes onto the page's cover) or #notes/<book>.
+let nbBook = null;
+const nb = { filter: "all", order: "new", kind: "note", pub: false, editing: null };
+const nbForm = $("nb-compose");
+const publicEntries = (b) => (b.entries || []).filter((e) => e.public);
+const shownEntries = (b) => state.owner ? b.entries || [] : publicEntries(b);
+const notesOpen = (b) => state.owner || (!b.hidden && publicEntries(b).length > 0);
+const shortDate = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" });
+const ORDINALS = ["First", "Second", "Third", "Fourth", "Fifth", "Sixth", "Seventh", "Eighth", "Ninth", "Tenth"];
+const PRIVATE = `<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>`;
+const SEEN = `<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12C3.5 10.2 7 6 12 6s8.5 4.2 9.5 6c-1 1.8-4.5 6-9.5 6s-8.5-4.2-9.5-6Z"/><circle cx="12" cy="12" r="3"/></svg>`;
+const kindsText = (list) => {
+  const n = list.filter((e) => e.kind === "note").length, h = list.length - n;
+  return [n && plural(n, "note"), h && plural(h, "highlight")].filter(Boolean).join(" and ");
+};
+const endOrder = (r) => r.end ?? -Infinity;   // a reading with no date sorts as the oldest
+// Every reading of a book, oldest first; the one in progress is the newest. With two or more, each is named
+// by its place ("Second reading"); one alone needs no name.
+function readingsOf(b) {
+  const past = [...(b.history || [])].sort((x, y) => endOrder(x) - endOrder(y));
+  return b.reading ? [...past, { id: b.readingId, now: true, start: b.readingSince }] : past;
 }
-const endOrder = (r) => r.end ?? -Infinity;
-function renderReadings(noteFor) {
-  const b = rdBook, n = readCount(b);
-  $("rd-h").textContent = b.title;
-  $("rd-count").textContent = visitorView ? "Notes" : n ? timesText(n) : b.reading ? "Reading now" : "Readings";
-  const items = visitorView ? [...publicNotes(b)].sort((x, y) => endOrder(y) - endOrder(x))
-    : [...(b.reading ? [{ now: true }] : []), ...[...(b.history || [])].sort((x, y) => endOrder(y) - endOrder(x))];
-  $("rd-list").replaceChildren(...items.map((r) => readingItem(b, r, r.id === noteFor)));
+function readingName(b, id) {
+  const all = readingsOf(b), i = all.findIndex((r) => r.id === id);
+  return i < 0 || all.length < 2 ? "" : ORDINALS[i] ? `${ORDINALS[i]} reading` : `Reading ${i + 1}`;
 }
-function readingItem(b, r, writing) {
-  const li = document.createElement("li"), meta = [];
-  li.className = "rd";
-  let title;
-  if (r.now) {
-    title = "Reading now";
-    meta.push(`Started ${longDate.format(b.readingSince)}`, `page ${fmt(Math.min(b.page || 0, b.pages))} of ${fmt(b.pages)}`);
-  } else {
-    const when = whenText(r.end, r.endPrec), verb = r.outcome === "finished" ? "Finished" : "Set aside";
-    title = !when ? verb : r.endPrec === "year" ? `${verb} in ${when}` : `${verb} ${when}`;
-    if (r.start && !visitorView) meta.push(`Started ${longDate.format(r.start)}`);
-    if (r.start && r.end && r.endPrec === "day" && !visitorView) meta.push(nDays(Math.max(1, Math.round((r.end - r.start) / DAY))));
-    if (r.outcome === "set_aside" && r.page) meta.push(`stopped on page ${fmt(r.page)}`);
-    if (!when && !r.start && !visitorView) meta.push("no date");
+function endedText(r) {
+  const verb = r.outcome === "finished" ? "Finished" : "Set aside", when = whenText(r.end, r.endPrec);
+  return !when ? `${verb}, date unknown` : r.endPrec === "year" ? `${verb} in ${when}` : `${verb} ${when}`;
+}
+// Days read, counting the first and the last: begun and finished on one day is one day.
+const spanDays = (a, z) => Math.round((new Date(z).setHours(12, 0, 0, 0) - new Date(a).setHours(12, 0, 0, 0)) / DAY) + 1;
+
+function renderNotes() {
+  const b = nbBook, times = readCount(b);
+  $("nb-cover").src = b.cover;
+  $("nb-kick").textContent = [b.binding || "Book", state.owner && b.hidden && "Hidden from the website", b.reading ? (state.owner ? "Reading now" : "Currently reading") : state.owner && times ? timesText(times) : ""].filter(Boolean).join(" · ");
+  $("nb-title").textContent = b.title;
+  $("nb-by").textContent = b.author;
+  $("nb-facts").textContent = [b.translator && `Translated by ${b.translator}`, b.publisher, b.published, b.pages && plural(b.pages, "page")].filter(Boolean).join(" · ");
+  renderEntries();
+  if (state.owner) renderTimeline();
+}
+function renderEntries() {
+  const b = nbBook, all = shownEntries(b);
+  if (nbForm.closest("#nb-list")) { $("nb-list").before(nbForm); resetComposer(); }   // an edit in place ends
+  const kinds = new Set(all.map((e) => e.kind)), paged = all.filter((e) => e.page != null).length;
+  $("nb-filter").hidden = kinds.size < 2; if (kinds.size < 2) nb.filter = "all";
+  $("nb-order").hidden = paged < 2; if (paged < 2) nb.order = "new";
+  pressed($("nb-filter"), nb.filter); pressed($("nb-order"), nb.order);
+  $("nb-count").textContent = all.length ? kindsText(all) : "Notes and highlights";
+  // In page order, entries without a page follow the rest, newest first.
+  const list = all.filter((e) => nb.filter === "all" || e.kind === nb.filter).sort(nb.order === "page"
+    ? (x, y) => (x.page ?? Infinity) - (y.page ?? Infinity) || y.at - x.at
+    : (x, y) => y.at - x.at);
+  $("nb-list").replaceChildren(...list.map(entryItem));
+  $("nb-empty").hidden = all.length > 0;
+  $("nb-empty").textContent = "Nothing kept yet. A note can be a line or a page; a highlight keeps a passage you liked, and its page.";
+}
+function entryItem(e) {
+  const b = nbBook, li = document.createElement("li");
+  li.className = "nb-e"; li.dataset.id = e.id;
+  if (e.kind === "highlight") li.append(Object.assign(document.createElement("blockquote"), { textContent: e.quote }));
+  if (e.text) li.append(Object.assign(document.createElement("p"), { className: "txt", textContent: e.text }));
+  const meta = document.createElement("div");
+  meta.className = "nb-meta";
+  const bits = [e.page != null && `Page ${fmt(e.page)}`, state.owner && readingName(b, e.reading), shortDate.format(e.at)].filter(Boolean);
+  meta.append(Object.assign(document.createElement("span"), { textContent: bits.join(" · ") }));
+  if (state.owner) {
+    if (e.public) meta.insertAdjacentHTML("beforeend", `<span class="only">${SEEN}Public</span>`);
+    meta.insertAdjacentHTML("beforeend", `<span class="nb-tools"><button type="button" data-a="edit">Edit</button><button type="button" data-a="del">Delete</button></span>`);
+    meta.querySelector('[data-a="edit"]').addEventListener("click", () => editEntry(e));
+    meta.querySelector('[data-a="del"]').addEventListener("click", () => deleteEntry(e));
   }
-  li.innerHTML = `<div class="rd-top"><b></b><span class="rd-meta"></span>${r.now || visitorView ? "" : `<span class="rd-tools"><button type="button" class="link" data-a="edit">Edit</button><button type="button" class="link" data-a="del">Delete</button></span>`}</div>`;
-  li.querySelector("b").textContent = title;
-  li.querySelector(".rd-meta").textContent = meta.join(" · ");
-  if (r.outcome === "finished") li.append(noteBlock(b, r, writing));
-  li.querySelector('[data-a="edit"]')?.addEventListener("click", async () => { await hidePanel($("readings")); openMarker(b, r); });
-  li.querySelector('[data-a="del"]')?.addEventListener("click", () => {
-    const ask = document.createElement("div");
-    ask.className = "rd-ask";
-    ask.innerHTML = `<span>Delete this reading${r.note ? " and its note" : ""}?</span><button type="button" class="btn sm danger">Delete</button><button type="button" class="btn sm">Keep it</button>`;
-    const [yes, no] = ask.querySelectorAll("button");
-    yes.addEventListener("click", () => { b.history.splice(b.history.indexOf(r), 1); renderReadings(); changedReading(b); toast("Reading deleted"); });
-    no.addEventListener("click", () => renderReadings());
-    li.querySelector(".rd-top").after(ask);
-    li.querySelector(".rd-tools").hidden = true;
-    no.focus({ preventScroll: true });
-  });
+  li.append(meta);
   return li;
 }
-// A finished reading's note: shown as written, or a field to write it in.
-function noteBlock(b, r, writing) {
-  const box = document.createElement("div");
-  box.className = writing ? "rd-edit" : "rd-note";
-  if (writing) {
-    box.innerHTML = `<textarea class="inp" rows="4" aria-label="Note" placeholder="What stayed with you?"></textarea>
-      <label class="toggle"><span><b>Public note</b><small>Visitors can read it on the book’s page.</small></span><input type="checkbox"></label>
-      <div class="rd-btns"><button type="button" class="btn sm">Cancel</button><button type="button" class="btn sm primary">Save note</button></div>`;
-    const ta = box.querySelector("textarea"), pub = box.querySelector('input[type="checkbox"]'), [cancel, save] = box.querySelectorAll(".rd-btns button");
-    ta.value = r.note || ""; pub.checked = !!r.public;
-    cancel.addEventListener("click", () => renderReadings());
-    save.addEventListener("click", () => {
-      r.note = ta.value.trim(); r.public = pub.checked && !!r.note;
-      renderReadings(); changedReading(b);
-      toast(!r.note ? "Note removed" : r.public ? "Note saved; visitors can read it" : "Note saved");
-    });
-    return box;
-  }
-  if (r.note) box.append(Object.assign(document.createElement("p"), { textContent: r.note }));
-  if (visitorView) return box;
-  const foot = document.createElement("div"), edit = Object.assign(document.createElement("button"), { type: "button", className: "link", textContent: r.note ? "Edit note" : "Add a note" });
-  foot.className = "foot";
-  edit.addEventListener("click", () => { renderReadings(r.id); $("rd-list").querySelector("textarea")?.focus({ preventScroll: true }); });
-  foot.append(edit);
-  if (r.note) foot.append(Object.assign(document.createElement("span"), { className: "pub", textContent: r.public ? "Public" : "Only you" }));
-  box.append(foot);
-  return box;
-}
 
+// Writing: the same form writes a new entry at the top and edits one in its place.
+function setKind(k) {
+  nb.kind = k; pressed($("nb-kind"), k);
+  nbForm.classList.toggle("hl", k === "highlight");
+  nbForm.text.placeholder = k === "highlight" ? "A thought on it, if you like" : "Write a note";
+  nbForm.text.setAttribute("aria-label", k === "highlight" ? "Your thought" : "Note");
+}
+function setVis(on) {
+  nb.pub = on;
+  const v = $("nb-vis");
+  v.setAttribute("aria-pressed", String(on));
+  v.innerHTML = on ? `${SEEN}Public` : `${PRIVATE}Only you`;
+  v.title = on ? "Visitors can read it on this page" : "Only you can see it";
+}
+function readingOptions(value) {
+  const list = readingsOf(nbBook).reverse(), sel = nbForm.reading;
+  sel.replaceChildren(...list.map((r) => new Option(r.now ? "This reading" : endedText(r), r.id)), new Option("None in particular", ""));
+  sel.value = list.some((r) => String(r.id) === String(value)) ? value : "";
+  $("nb-from-l").hidden = !list.length;
+}
+// A new entry belongs to the reading under way, or else the last one; the owner can choose another or none.
+function resetComposer(o = {}) {
+  nbForm.reset(); $("nb-err").textContent = ""; nb.editing = null;
+  setKind(o.kind || "note"); setVis(false);
+  readingOptions(o.reading ?? readingsOf(nbBook).at(-1)?.id ?? "");
+  nbForm.classList.remove("open");
+}
+const openComposer = () => nbForm.classList.add("open");
+nbForm.addEventListener("focusin", openComposer);
+nbForm.addEventListener("input", openComposer);
+$("nb-kind").addEventListener("click", (e) => {
+  const t = e.target.closest("button"); if (!t) return;
+  setKind(t.dataset.v); openComposer(); $("nb-err").textContent = "";
+  if (!touch()) (t.dataset.v === "highlight" ? nbForm.quote : nbForm.text).focus();
+});
+$("nb-vis").addEventListener("click", () => setVis(!nb.pub));
+$("nb-cancel").addEventListener("click", () => { const editing = nb.editing; resetComposer(); if (editing) renderEntries(); document.activeElement?.blur?.(); });
+nbForm.addEventListener("submit", (ev) => {
+  ev.preventDefault();
+  const b = nbBook, hl = nb.kind === "highlight", err = $("nb-err");
+  const quote = hl ? nbForm.quote.value.trim() : "", text = nbForm.text.value.trim(), raw = hl ? nbForm.page.value.trim() : "";
+  if (hl && !quote) { err.textContent = "Copy in the passage first."; return nbForm.quote.focus(); }
+  if (!hl && !text) { err.textContent = "Write something first."; return nbForm.text.focus(); }
+  const page = raw ? +raw : null;
+  if (raw && (!/^\d+$/.test(raw) || page < 1 || page > b.pages)) { err.textContent = `Pages run from 1 to ${fmt(b.pages)}.`; return nbForm.page.focus(); }
+  const fields = { kind: nb.kind, quote, text, page, reading: nbForm.reading.value ? +nbForm.reading.value : null, public: nb.pub }, was = nb.editing;
+  if (was) Object.assign(was, fields);
+  else (b.entries ||= []).push({ id: ++entryIds, at: Date.now(), ...fields });
+  resetComposer(); renderEntries(); refreshBook(b);
+  document.activeElement?.blur?.();
+  const what = hl ? "Highlight" : "Note";
+  toast(was ? `${what} saved` : fields.public ? `${what} saved; visitors can read it` : `${what} saved`);
+});
+function editEntry(e) {
+  if (nbForm.closest("#nb-list")) renderEntries();   // one edit at a time
+  resetComposer({ kind: e.kind, reading: e.reading ?? "" });
+  nb.editing = e;
+  nbForm.quote.value = e.quote; nbForm.text.value = e.text; nbForm.page.value = e.page ?? ""; setVis(e.public);
+  openComposer();
+  $("nb-list").querySelector(`[data-id="${e.id}"]`).replaceChildren(nbForm);
+  if (!touch()) (e.kind === "highlight" ? nbForm.quote : nbForm.text).focus({ preventScroll: true });
+}
+function deleteEntry(e) {
+  const b = nbBook, i = b.entries.indexOf(e), what = e.kind === "highlight" ? "Highlight" : "Note";
+  b.entries.splice(i, 1); renderEntries(); refreshBook(b);
+  toast(`${what} deleted`, { label: "Undo", run: () => { b.entries.splice(i, 0, e); if (nbBook === b) renderEntries(); refreshBook(b); } });
+}
+$("nb-filter").addEventListener("click", (e) => { const t = e.target.closest("button"); if (t) { nb.filter = t.dataset.v; renderEntries(); } });
+$("nb-order").addEventListener("click", (e) => { const t = e.target.closest("button"); if (t) { nb.order = t.dataset.v; renderEntries(); } });
+$("nb-cover").addEventListener("click", (e) => openBook(nbBook, e.currentTarget));
+
+// The readings, newest first: the one under way with its page, then each that ended, with its dates, how
+// long it took and how fast it went. Each can be corrected or deleted; deleting one keeps its entries.
+function renderTimeline() {
+  const b = nbBook, list = readingsOf(b).reverse(), times = readCount(b);
+  $("nb-rd").replaceChildren(...list.map((r) => readingRow(b, r)));
+  $("nb-rd-none").hidden = list.length > 0;
+  $("nb-rd-acts").hidden = !!b.reading;
+  $("nb-mark").textContent = times ? "Mark as read again" : "Mark as read";
+  const sum = $("nb-sum").querySelector("span"), last = list.find((r) => !r.now && r.outcome === "finished");
+  const head = b.reading ? "Reading now" : times ? timesText(times) : list.length ? "Set aside" : "Not read yet";
+  const tail = b.reading ? `page ${fmt(Math.min(b.page || 0, b.pages))} of ${fmt(b.pages)}` : last && whenText(last.end, last.endPrec) ? `last ${whenText(last.end, last.endPrec)}` : "";
+  sum.replaceChildren(Object.assign(document.createElement("b"), { textContent: head }), tail ? ` · ${tail}` : "");
+  if (!nbForm.closest("#nb-list")) readingOptions(nbForm.classList.contains("open") ? nbForm.reading.value : list[0]?.id ?? "");
+}
+function readingRow(b, r) {
+  const li = document.createElement("li"), name = readingName(b, r.id);
+  li.className = "nb-r" + (r.now ? " now" : r.outcome === "set_aside" ? " aside" : "");
+  const line = (text) => text && li.append(Object.assign(document.createElement("span"), { className: "m", textContent: text[0].toUpperCase() + text.slice(1) }));
+  const tools = (...acts) => {
+    const t = document.createElement("div"); t.className = "r-tools";
+    acts.forEach(([label, run]) => { const x = Object.assign(document.createElement("button"), { type: "button", textContent: label }); x.addEventListener("click", run); t.append(x); });
+    li.append(t);
+  };
+  if (r.now) {
+    const page = Math.min(b.page || 0, b.pages), pct = Math.round(page / b.pages * 100), days = spanDays(b.readingSince, Date.now());
+    li.append(Object.assign(document.createElement("b"), { textContent: "Reading now" }));
+    line([name, `started ${days === 1 ? "today" : shortDate.format(b.readingSince)}`].filter(Boolean).join(" · "));
+    if (days > 1 && page) line(`${plural(days, "day")} · about ${plural(Math.max(1, Math.round(page / days)), "page")} a day`);
+    li.insertAdjacentHTML("beforeend", `<div class="meter"><div class="bar" role="img" aria-label="${pct} percent read"><i style="--v: ${pct}%"></i></div></div>
+      <label class="pg">On page <input type="number" min="0" max="${b.pages}" value="${page}" inputmode="numeric"> of ${fmt(b.pages)}</label>`);
+    li.querySelector("input").addEventListener("change", (e) => {
+      b.page = Math.max(0, Math.min(b.pages, Math.round(+e.target.value || 0)));
+      changedReading(b);
+      toast(b.page >= b.pages ? `Finished “${b.title}”?` : `On page ${fmt(b.page)}`, b.page >= b.pages ? { label: "Mark finished", run: () => finishReading(b) } : undefined);
+    });
+    tools(["Finished", () => finishReading(b)], ["Set aside", () => setAside(b)]);
+    return li;
+  }
+  li.append(Object.assign(document.createElement("b"), { textContent: endedText(r) }));
+  const dated = r.start && r.end != null && r.endPrec === "day";
+  line([name, r.start && `started ${shortDate.format(r.start)}`].filter(Boolean).join(" · "));
+  if (dated) {
+    const days = spanDays(r.start, r.end), read = r.outcome === "finished" ? b.pages : r.page;
+    line([days === 1 ? "In one day" : plural(days, "day"), read && days > 1 && `about ${plural(Math.max(1, Math.round(read / days)), "page")} a day`].filter(Boolean).join(" · "));
+  }
+  if (r.outcome === "set_aside" && r.page) line(`Stopped on page ${fmt(r.page)} of ${fmt(b.pages)}`);
+  tools(["Edit", () => openMarker(b, r)], ["Delete", () => deleteReading(b, r)]);
+  return li;
+}
+function deleteReading(b, r) {
+  const i = b.history.indexOf(r), tied = (b.entries || []).filter((e) => e.reading === r.id);
+  b.history.splice(i, 1); tied.forEach((e) => { e.reading = null; });
+  changedReading(b);
+  toast(tied.length ? `Reading deleted; ${kindsText(tied)} kept` : "Reading deleted", {
+    label: "Undo", run: () => { b.history.splice(i, 0, r); tied.forEach((e) => { e.reading = r.id; }); changedReading(b); },
+  });
+}
+$("nb-start").addEventListener("click", () => startReading(nbBook));
+$("nb-mark").addEventListener("click", () => openMarker(nbBook));
+$("nb-sum").addEventListener("click", () => {
+  const open = $("nb-side").classList.toggle("open");
+  $("nb-sum").setAttribute("aria-expanded", String(open));
+});
+
+// From the book's page: the page opens beneath, and the book closes onto its cover there.
+function toNotes(b) {
+  if (busy || reader.hidden) return;
+  if (reader.classList.contains("editing")) return toast("Save or cancel your changes first");
+  if (soloFrom) soloFrom.style.visibility = "";
+  setView("notes", b);
+  reader.classList.add("solo");
+  soloFrom = returnFocus = $("nb-cover");
+  soloFrom.style.visibility = "hidden";
+  return closeBook();
+}
+$("notes-btn").addEventListener("click", () => toNotes(current));
+// "Add a note" after finishing: the book's notes page, with a note begun for that reading.
+async function noteFor(b, readingId) {
+  const closing = !reader.hidden && current === b ? toNotes(b) : setView("notes", b);
+  resetComposer({ reading: readingId }); openComposer();
+  await closing;   // the closing book hands focus back as it lands, so the field takes it after
+  if (!touch()) nbForm.text.focus({ preventScroll: true });
+}
+// Something about a book changed: its page, if it's open, and its notes page, if that's showing.
+function refreshBook(b) {
+  if (current === b && !reader.hidden) fill(b);
+  if (root.dataset.view === "notes" && nbBook === b) { if (!notesOpen(b)) setView("shelf"); }
+}
 // Marking a book as read (it was read before Bookshelf, or without "Reading now"), or correcting a past
 // reading: when it ended as precisely as the owner remembers (a day, a year, or not at all).
 let marking = null;
@@ -2261,7 +2556,6 @@ function openMarker(b, r = null) {
   $("mk-h").textContent = editing ? "Correct this reading" : readCount(b) ? "Mark as read again" : "Mark as read";
   $("mk-go").textContent = editing ? "Save" : "Mark as read";
   $("mk-outcome-l").hidden = $("mk-start-l").hidden = !editing;
-  $("mk-note-l").hidden = $("mk-public-l").hidden = editing;
   pressed($("mk-outcome"), r?.outcome || "finished");
   $("mk-when-t").textContent = r?.outcome === "set_aside" ? "Set aside" : "Finished";
   const iso = (t) => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
@@ -2296,17 +2590,17 @@ mkForm.addEventListener("submit", (e) => {
   if (start != null && start > today) { err.textContent = "That’s in the future."; return; }
   if (r) {
     const outcome = $("mk-outcome").querySelector('[aria-pressed="true"]').dataset.v;
-    if (outcome === "set_aside" && r.note) { err.textContent = "A reading with a note stays finished. Remove the note first."; return; }
     Object.assign(r, { outcome, start, end, endPrec: prec });
-    hidePanel($("marker")).then(() => openReadings(b));
+    hidePanel($("marker"));
     changedReading(b);
     toast("Reading corrected");
     return;
   }
-  (b.history ||= []).unshift({ id: ++readingIds, outcome: "finished", start: null, end, endPrec: prec, note: mkForm.note.value.trim(), public: mkForm.public.checked && !!mkForm.note.value.trim() });
+  const id = ++readingIds;
+  (b.history ||= []).unshift({ id, outcome: "finished", start: null, end, endPrec: prec });
   hidePanel($("marker"));
   changedReading(b);
-  toast(`Marked “${b.title}” as read`);
+  toast(`Marked “${b.title}” as read`, { label: "Add a note", run: () => noteFor(b, id) });
 });
 // The cover is a small thumbnail at the head of the page on a phone. A tap lifts a copy of it to the middle of
 // the screen as large as fits; a tap anywhere puts it back exactly where it came from.
@@ -2401,7 +2695,7 @@ async function hidePanel(wrap) {
   wrap.hidden = true; wrap.closing = false;
   wrap.querySelectorAll("*").forEach((el) => el.getAnimations().forEach((a) => a.cancel()));
 }
-const panels = [$("signin"), $("adder"), $("drawer-wrap"), $("phone-menu"), $("readings"), $("marker")];
+const panels = [$("signin"), $("adder"), $("drawer-wrap"), $("phone-menu"), $("marker")];
 // The on-screen keyboard covers the bottom of the layout without resizing it; its height is how far the
 // visual viewport falls short, and the cards lift by that much.
 // The field being typed in is also kept in view inside the card.
@@ -2422,7 +2716,7 @@ function dismissTop() {
   if (!$("nr-menu").hidden) { closeNowMenu(); return true; }
   const open = panels.find((p) => !p.hidden);
   if (open) { hidePanel(open); return true; }
-  if (root.dataset.view === "stats" && reader.hidden) { setView("shelf"); return true; }   // an open book closes first
+  if (root.dataset.view && reader.hidden) { setView("shelf"); return true; }   // an open book closes first
   if (!reader.hidden && reader.classList.contains("editing")) { reader.classList.remove("editing"); return true; }
   if (!reader.hidden && reader.classList.contains("asking")) { reader.classList.remove("asking"); return true; }
   if (!reader.hidden && reader.classList.contains("searching")) { reader.classList.remove("searching"); $("search-many").focus({ preventScroll: true }); return true; }
@@ -2436,6 +2730,7 @@ function setOwner(on, name = "admin") {
   root.toggleAttribute("data-owner", on);
   applyGate();
   if (!on && root.dataset.view === "stats" && !settings.stats) setView("shelf");
+  if (root.dataset.view === "notes") { if (notesOpen(nbBook)) renderNotes(); else setView("shelf"); }
   $("who-name-2").textContent = name;
   if (!on) setSelecting(false);
   chosen.who = on ? "owner" : "visitor";
@@ -2451,7 +2746,7 @@ function applyGate() {
 $("gate-signin").addEventListener("click", () => openSignin());
 const openSignin = () => { $("signin-err").textContent = ""; showPanel($("signin"), "[name=pass]"); };
 const searchBox = $("search");
-$("q").addEventListener("input", (e) => { searchBox.classList.toggle("has-query", !!e.target.value); if (root.dataset.view === "stats") setView("shelf"); });
+$("q").addEventListener("input", (e) => { searchBox.classList.toggle("has-query", !!e.target.value); if (root.dataset.view) setView("shelf"); });
 // Esc clears a query first, then folds the field away.
 $("q").addEventListener("keydown", (e) => {
   if (e.key === "Enter" && !e.target.value) { e.preventDefault(); e.target.blur(); return; }   // nothing to look for: fold it away
@@ -2955,7 +3250,7 @@ $("set-bindings").addEventListener("change", (e) => {
   reheight(); renderBindPreview(); relayout();
 });
 $("set-stats").addEventListener("change", (e) => { settings.stats = e.target.checked; root.toggleAttribute("data-nostats", !settings.stats); });
-addEventListener("load", () => { if (location.hash === "#stats") setView("stats"); });
+addEventListener("load", () => { if (location.hash) viewFromHash(); });
 $("set-sort").addEventListener("click", (e) => {
   const b = e.target.closest("button"); if (!b) return;
   settings.sort = b.dataset.v; pressed($("set-sort"), settings.sort);
@@ -3083,7 +3378,7 @@ $("mode").addEventListener("click", () => {
 const panel = $("demo-panel"), toggle = $("demo-toggle");
 toggle.addEventListener("click", () => { panel.hidden = !panel.hidden; toggle.setAttribute("aria-expanded", String(!panel.hidden)); });
 const options = {
-  size: (v) => { state.size = v; window.scrollTo({ top: 0 }); relayout(false); },
+  size: (v) => { state.size = v; if (root.dataset.view === "notes") setView("shelf"); window.scrollTo({ top: 0 }); relayout(false); },
   who: (v) => setOwner(v === "owner"),
 };
 const chosen = { size: "sample", who: "visitor" };

@@ -170,7 +170,7 @@
       <h3>What visitors see</h3>
       <label class="toggle"><span><b>Private library</b><small>Only you can see it. Visitors get a sign-in page.</small></span><input type="checkbox" checked={st.private} onchange={(e) => change({ private: e.target.checked }, { note: e.target.checked ? "Saved. Visitors now see a sign-in page." : "Saved. The library is open to visitors." })}></label>
       <label class="toggle"><span><b>Statistics page</b><small>Let visitors see the numbers behind your library.</small></span><input type="checkbox" checked={st.stats} onchange={(e) => change({ stats: e.target.checked })}></label>
-      <p class="fine">Any book can be hidden from its own page. Your readings are never shown, and a note only when you make it public.</p>
+      <p class="fine">Any book can be hidden from its own page. Your readings are never shown, and notes and highlights only when you make them public.</p>
     </section>
     <section hidden={tab !== "site"}>
       <h3>How it opens</h3>

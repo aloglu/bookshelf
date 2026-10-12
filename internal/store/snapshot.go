@@ -15,6 +15,7 @@ type Snapshot struct {
 	Books    []Book               // in the order they were added
 	byID     map[string]int       // index into Books
 	Readings map[string][]Reading // by book id, oldest first
+	Entries  map[string][]Entry   // notes and highlights by book id, oldest first
 	Settings Settings
 	Sessions map[string]Session // by token hash
 }
@@ -53,6 +54,18 @@ func (s *Snapshot) InProgress(bookID string) (Reading, bool) {
 	return Reading{}, false
 }
 
+// Entry returns the note or highlight with id.
+func (s *Snapshot) Entry(id string) (Entry, bool) {
+	for _, list := range s.Entries {
+		for _, e := range list {
+			if e.ID == id {
+				return e, true
+			}
+		}
+	}
+	return Entry{}, false
+}
+
 // Reading returns the reading with id.
 func (s *Snapshot) Reading(id string) (Reading, bool) {
 	for _, list := range s.Readings {
@@ -79,7 +92,7 @@ type querier interface {
 }
 
 func load(ctx context.Context, q querier) (*Snapshot, error) {
-	snap := &Snapshot{byID: map[string]int{}, Readings: map[string][]Reading{}, Sessions: map[string]Session{}}
+	snap := &Snapshot{byID: map[string]int{}, Readings: map[string][]Reading{}, Entries: map[string][]Entry{}, Sessions: map[string]Session{}}
 
 	rows, err := q.QueryContext(ctx, `SELECT id, title, author, translator, publisher, published, pages, binding,
 		COALESCE(isbn, ''), issn, issue, slug, hidden, cover, spine_color, spine_text_color, spine_color_override, added_at, updated_at
@@ -132,21 +145,26 @@ func load(ctx context.Context, q querier) (*Snapshot, error) {
 		return nil, err
 	}
 
-	notes := map[string]*Note{}
-	rows, err = q.QueryContext(ctx, `SELECT reading_id, text, public, created_at, updated_at FROM notes`)
+	rows, err = q.QueryContext(ctx, `SELECT id, book_id, COALESCE(reading_id, ''), kind, text, quote, page, public, created_at, updated_at
+		FROM entries ORDER BY created_at, id`)
 	if err != nil {
 		return nil, err
 	}
 	for rows.Next() {
-		var id, created, updated string
-		n := &Note{}
-		if err := rows.Scan(&id, &n.Text, &n.Public, &created, &updated); err != nil {
+		var e Entry
+		var page sql.NullInt64
+		var created, updated string
+		if err := rows.Scan(&e.ID, &e.BookID, &e.ReadingID, &e.Kind, &e.Text, &e.Quote, &page, &e.Public, &created, &updated); err != nil {
 			rows.Close()
 			return nil, err
 		}
-		n.CreatedAt, _ = time.Parse(time.RFC3339Nano, created)
-		n.UpdatedAt, _ = time.Parse(time.RFC3339Nano, updated)
-		notes[id] = n
+		if page.Valid {
+			v := int(page.Int64)
+			e.Page = &v
+		}
+		e.CreatedAt, _ = time.Parse(time.RFC3339Nano, created)
+		e.UpdatedAt, _ = time.Parse(time.RFC3339Nano, updated)
+		snap.Entries[e.BookID] = append(snap.Entries[e.BookID], e)
 	}
 	if err := closeRows(rows); err != nil {
 		return nil, err
@@ -172,7 +190,6 @@ func load(ctx context.Context, q querier) (*Snapshot, error) {
 			return nil, fmt.Errorf("reading %s: %w", r.ID, err)
 		}
 		r.Progress = progress[r.ID]
-		r.Note = notes[r.ID]
 		snap.Readings[r.BookID] = append(snap.Readings[r.BookID], r)
 	}
 	if err := closeRows(rows); err != nil {

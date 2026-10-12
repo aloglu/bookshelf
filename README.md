@@ -43,7 +43,10 @@ Docker, are in **[docs](docs/README.md)**.
   entered by hand.
 - **Reading:** several books at once, each with its own ribbon on the shelf;
   your page and pace; finishing, setting aside, re-reading, marking older
-  reads; a note on each finished reading, private or public.
+  reads.
+- **Notes and highlights:** as many as you like for each book, on its own notes
+  page: your thoughts, and the passages you liked with their pages, each
+  private or public.
 - **Statistics:** what you're reading, then the library in numbers.
 - **Privacy:** hide any book from visitors, make the whole library private, or
   keep the statistics to yourself. The server enforces it; hidden books never

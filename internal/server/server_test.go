@@ -92,6 +92,20 @@ func (e *env) do(c *http.Client, method, path string, body any) (int, map[string
 	return resp.StatusCode, out
 }
 
+// list fetches an address that answers with a list.
+func (e *env) list(c *http.Client, path string) (int, []map[string]any) {
+	e.t.Helper()
+	req, _ := http.NewRequest("GET", e.srv.URL+path, nil)
+	resp, err := c.Do(req)
+	if err != nil {
+		e.t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	var out []map[string]any
+	json.NewDecoder(resp.Body).Decode(&out)
+	return resp.StatusCode, out
+}
+
 func (e *env) addBook(title, isbn string, hidden bool) string {
 	e.t.Helper()
 	code, b := e.do(e.owner, "POST", "/api/books", map[string]any{"title": title, "author": "A. Writer", "identifier": isbn, "pages": 300, "hidden": hidden})
@@ -368,9 +382,6 @@ func TestReadingsThroughTheAPI(t *testing.T) {
 	if code, _ := e.do(e.owner, "PATCH", "/api/readings/"+rid, map[string]any{"end": "finished"}); code != 200 {
 		t.Fatal("finish")
 	}
-	if code, _ := e.do(e.owner, "PUT", "/api/readings/"+rid+"/note", map[string]any{"text": "Haunting.", "public": false}); code != 200 {
-		t.Fatal("note")
-	}
 	if code, _ := e.do(e.owner, "POST", "/api/readings", map[string]any{"bookId": id, "read": map[string]any{"precision": "year", "date": "2019"}}); code != 201 {
 		t.Fatal("mark read")
 	}
@@ -382,16 +393,64 @@ func TestReadingsThroughTheAPI(t *testing.T) {
 	if _, ok := theirs["books"].([]any)[0].(map[string]any)["readCount"]; ok || len(theirs["reading"].([]any)) != 0 {
 		t.Fatalf("visitors see the reading history: %v", theirs["books"])
 	}
-	if _, ok := theirs["books"].([]any)[0].(map[string]any)["notes"]; ok {
-		t.Fatal("visitors see a private note")
+}
+
+func TestNotesAndHighlightsThroughTheAPI(t *testing.T) {
+	e := setup(t)
+	id := e.addBook("Austerlitz", "", false)
+	_, rd := e.do(e.owner, "POST", "/api/readings", map[string]any{"bookId": id})
+	rid := rd["id"].(string)
+	code, note := e.do(e.owner, "POST", "/api/books/"+id+"/entries", map[string]any{"kind": "note", "text": "Haunting.", "readingId": rid})
+	if code != 201 || note["readingId"] != rid || note["public"] != false {
+		t.Fatalf("note: %d %v", code, note)
+	}
+	code, hl := e.do(e.owner, "POST", "/api/books/"+id+"/entries", map[string]any{"kind": "highlight", "quote": "Our concern with history…", "page": 72, "readingId": rid, "public": true})
+	if code != 201 {
+		t.Fatalf("highlight: %d %v", code, hl)
+	}
+	if code, b := e.do(e.owner, "POST", "/api/books/"+id+"/entries", map[string]any{"kind": "highlight", "page": 72}); code != 422 || b["error"] == nil {
+		t.Fatalf("a highlight without a passage: %d %v", code, b)
+	}
+	if code, _ := e.do(e.visitor, "POST", "/api/books/"+id+"/entries", map[string]any{"kind": "note", "text": "x"}); code != 401 {
+		t.Fatalf("a visitor wrote a note: %d", code)
 	}
 
-	// A public note is shown to visitors, with only when the book was finished.
-	e.do(e.owner, "PUT", "/api/readings/"+rid+"/note", map[string]any{"text": "Haunting.", "public": true})
-	_, theirs = e.do(e.visitor, "GET", "/api/library", nil)
-	notes, _ := theirs["books"].([]any)[0].(map[string]any)["notes"].([]any)
-	if len(notes) != 1 || notes[0].(map[string]any)["text"] != "Haunting." || len(notes[0].(map[string]any)) != 2 {
-		t.Fatalf("public notes: %v", notes)
+	// The owner gets every entry; visitors only the public one, without its reading.
+	if code, list := e.list(e.owner, "/api/books/"+id+"/entries"); code != 200 || len(list) != 2 {
+		t.Fatalf("owner's entries: %d %v", code, list)
+	}
+	code, list := e.list(e.visitor, "/api/books/"+id+"/entries")
+	if code != 200 || len(list) != 1 || list[0]["quote"] != "Our concern with history…" || list[0]["readingId"] != "" {
+		t.Fatalf("visitors' entries: %d %v", code, list)
+	}
+	count := func(c *http.Client) any {
+		_, lib := e.do(c, "GET", "/api/library", nil)
+		return lib["books"].([]any)[0].(map[string]any)["entries"]
+	}
+	if mine, theirs := count(e.owner), count(e.visitor); mine != 2.0 || theirs != 1.0 {
+		t.Fatalf("counts: owner %v, visitors %v", mine, theirs)
+	}
+
+	// Editing and deleting.
+	if code, b := e.do(e.owner, "PATCH", "/api/entries/"+note["id"].(string), map[string]any{"kind": "note", "text": "Haunting, still.", "public": true}); code != 200 || b["text"] != "Haunting, still." || b["readingId"] != "" {
+		t.Fatalf("edit: %d %v", code, b)
+	}
+	if code, _ := e.do(e.owner, "DELETE", "/api/entries/"+hl["id"].(string), nil); code != 204 {
+		t.Fatalf("delete: %d", code)
+	}
+	if code, _ := e.do(e.owner, "DELETE", "/api/entries/"+hl["id"].(string), nil); code != 404 {
+		t.Fatalf("deleted twice: %d", code)
+	}
+
+	// A hidden book's notes, or a private library's, are nobody's business.
+	hidden := e.addBook("Pale Fire", "", true)
+	e.do(e.owner, "POST", "/api/books/"+hidden+"/entries", map[string]any{"kind": "note", "text": "x", "public": true})
+	if code, _ := e.list(e.visitor, "/api/books/"+hidden+"/entries"); code != 404 {
+		t.Fatalf("a hidden book's notes: %d", code)
+	}
+	e.do(e.owner, "PATCH", "/api/settings", map[string]any{"private": true})
+	if code, _ := e.list(e.visitor, "/api/books/"+id+"/entries"); code != 404 {
+		t.Fatalf("a private library's notes: %d", code)
 	}
 }
 

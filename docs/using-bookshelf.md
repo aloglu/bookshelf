@@ -90,13 +90,30 @@ then choose. **Done** (or Esc) ends choosing.
   note**.
 - **Mark as read** is for books you read before Bookshelf, or without "Reading
   now": say when you finished, as a day, a year, or "I don't remember".
-- You can read a book again: its earlier readings stay. The line above the
-  title then says **Read twice** (or how many times); click it to see every
-  reading with its dates and notes, and to correct or delete one.
+- You can read a book again: its earlier readings stay, and the line above the
+  title says **Read twice** (or how many times).
 
-**Notes** belong to a finished reading. They're yours alone unless you turn on
-**Public note**; a public note shows on the book's page for visitors ("A
-note"), with the day you finished it and nothing else about your reading.
+## Notes and highlights
+
+**Notes** on a book's page opens its notes page (`/<the book's address>/notes`).
+The book closes onto its cover there; click the cover to open it again.
+
+- A **note** is your own words, a line or a page. A **highlight** is a passage
+  you liked, copied as printed, with its page if you like and a thought on it.
+  A book can have as many of each as you want.
+- Each one is **Only you** (the default) or **Public**, and belongs to one of
+  the book's readings (the one under way, or the last) unless you choose
+  another or none.
+- Show all of them, or only notes or highlights, newest first or **By page**.
+  **Edit** changes one where it stands; **Delete** can be undone.
+- Beside them are the book's **readings**: the one under way with its page,
+  and each finished or set-aside one with its dates, how long it took and how
+  many pages a day. Correct or delete any of them there. Deleting a reading
+  keeps what you wrote during it. On a phone, the readings fold into one line
+  above the notes.
+
+Visitors see a book's notes page once something on it is public, and only the
+public notes and highlights, never your readings.
 
 ## Settings
 

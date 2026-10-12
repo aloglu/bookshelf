@@ -1,7 +1,7 @@
 // Package archive reads and writes Bookshelf archives (.bookshelf files), the
 // one format used for backups and for full exports: a zip holding
-// manifest.json, library.json (books, readings, notes and settings; never
-// sessions) and every cover under covers/.
+// manifest.json, library.json (books, readings, notes and highlights, and
+// settings; never sessions) and every cover under covers/.
 package archive
 
 import (
@@ -26,8 +26,10 @@ func bad(format string, args ...any) error {
 	return &store.InvalidError{Msg: strings.ToUpper(msg[:1]) + msg[1:] + "."}
 }
 
-// Format is this archive layout's version.
-const Format = 1
+// Format is this archive layout's version: 2 since Bookshelf 2.1, which keeps
+// notes and highlights as entries of their own. Format 1 (2.0) kept one note
+// on each finished reading; those are read as notes tied to their readings.
+const Format = 2
 
 // Extension is an archive's file extension.
 const Extension = ".bookshelf"
@@ -157,6 +159,29 @@ func Open(r io.ReaderAt, size int64) (*Archive, error) {
 	a.Library.Settings = store.DefaultSettings()
 	if err := readJSON(library, &a.Library); err != nil {
 		return nil, bad("the archive’s library can’t be read (%v)", err)
+	}
+	if a.Manifest.Format < 2 {
+		var old struct {
+			Readings []struct {
+				ID     string `json:"id"`
+				BookID string `json:"bookId"`
+				Note   *struct {
+					Text      string    `json:"text"`
+					Public    bool      `json:"public"`
+					CreatedAt time.Time `json:"createdAt"`
+					UpdatedAt time.Time `json:"updatedAt"`
+				} `json:"note"`
+			} `json:"readings"`
+		}
+		if err := readJSON(library, &old); err != nil {
+			return nil, bad("the archive’s library can’t be read (%v)", err)
+		}
+		for _, r := range old.Readings {
+			if n := r.Note; n != nil && strings.TrimSpace(n.Text) != "" {
+				a.Library.Entries = append(a.Library.Entries, store.Entry{BookID: r.BookID, ReadingID: r.ID, Kind: store.KindNote,
+					Text: n.Text, Public: n.Public, CreatedAt: n.CreatedAt, UpdatedAt: n.UpdatedAt})
+			}
+		}
 	}
 	return a, nil
 }

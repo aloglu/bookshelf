@@ -102,7 +102,11 @@ export function shelfBooks(view, readings, settings) {
   const seen = new Set();
   const list = view.books.map((src) => {
     const b = kept.get(src.id) || { key: src.id, seed: hash(src.id) };
+    // The server leaves out what is empty (hidden, readCount, entries when zero), so what the last load
+    // gave and this one doesn't is gone.
+    for (const k of b.given || []) if (!(k in src)) delete b[k];
     Object.assign(b, src);
+    b.given = Object.keys(src);
     b.pages = src.pages || 0;
     b.t = thickness(src.pages);
     b.h = spineHeight(b, settings.bindings, settings.maxHeight / 100);

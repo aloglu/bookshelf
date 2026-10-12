@@ -1,6 +1,6 @@
 # Bookshelf
 
-Bookshelf is becoming a self-hosted web app (a Go server in Docker, or a plain program) that shows the owner's books on a shelf and manages them in the browser. 2.0 is being built on the `v2` branch; `main` still holds 1.x, a terminal app that builds a static site.
+Bookshelf is a self-hosted web app (a Go server in Docker, or a plain program) that shows the owner's books on a shelf and manages them in the browser. `main` is the released line (2.0.x; bug-fix releases are made there and merged forward); the next version, 2.1, is built on the `v2.1` branch. 1.x, a terminal app that built a static site, is gone.
 
 **Before doing anything, read `docs/v2/PLAN.md`:** it holds every settled design decision, the architecture, the data model, progress and follow-ups. `docs/v2/prototype.html` is the design study the app follows.
 

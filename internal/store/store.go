@@ -117,13 +117,18 @@ func (s *Store) migrate() error {
 			return fmt.Errorf("create schema: %w", err)
 		}
 	}
+	if version < 2 {
+		if _, err := tx.ExecContext(ctx, schemaV2); err != nil {
+			return fmt.Errorf("add notes and highlights: %w", err)
+		}
+	}
 	if _, err := tx.ExecContext(ctx, fmt.Sprintf("PRAGMA user_version = %d", schemaVersion)); err != nil {
 		return err
 	}
 	return tx.Commit()
 }
 
-const schemaVersion = 1
+const schemaVersion = 2
 
 const schemaV1 = `
 CREATE TABLE books (
@@ -189,4 +194,29 @@ CREATE TABLE sessions (
 	last_seen  TEXT NOT NULL,
 	user_agent TEXT NOT NULL DEFAULT ''
 );
+`
+
+// schemaV2 (2.1) gives notes and highlights a table of their own, any number
+// to a book, in place of one note on each finished reading. Those notes move
+// across as notes tied to their readings.
+const schemaV2 = `
+CREATE TABLE entries (
+	id         TEXT PRIMARY KEY,
+	book_id    TEXT NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+	reading_id TEXT REFERENCES readings(id) ON DELETE SET NULL,
+	kind       TEXT NOT NULL CHECK (kind IN ('note','highlight')),
+	text       TEXT NOT NULL DEFAULT '',
+	quote      TEXT NOT NULL DEFAULT '',
+	page       INTEGER,
+	public     INTEGER NOT NULL DEFAULT 0,
+	created_at TEXT NOT NULL,
+	updated_at TEXT NOT NULL
+);
+CREATE INDEX entries_book ON entries(book_id, created_at);
+CREATE INDEX entries_reading ON entries(reading_id);
+
+INSERT INTO entries (id, book_id, reading_id, kind, text, public, created_at, updated_at)
+	SELECT lower(hex(randomblob(8))), r.book_id, n.reading_id, 'note', n.text, n.public, n.created_at, n.updated_at
+	FROM notes n JOIN readings r ON r.id = n.reading_id;
+DROP TABLE notes;
 `

@@ -20,7 +20,8 @@ export const data = {
 // What the interface around the shelf shows.
 export const ui = $state({
   ready: false, gated: false, name: "Bookshelf", owner: false, user: "",
-  view: "shelf", query: "", sort: "author", desc: false, selecting: false, chosen: 0,
+  view: "shelf", notesFor: null, // "notes": the book (its key) whose notes page is showing
+  query: "", sort: "author", desc: false, selecting: false, chosen: 0,
   update: null, // for the owner: the version running, and a newer one if it's out
 });
 
@@ -125,6 +126,7 @@ export async function startReading(b) {
   await reload();
   toast(`Now reading “${b.title}”`);
 }
+// Finishing a book, or marking it read, offers to write about it: openNote opens its notes page for that reading.
 export async function finishReading(b, openNote) {
   const r = await guard(() => api("PATCH", `/api/readings/${b.readingId}`, { end: "finished" }));
   await reload();
@@ -139,28 +141,33 @@ export async function setPage(b, page) {
   await guard(() => api("PATCH", `/api/readings/${b.readingId}`, { page }));
   await reload();
 }
-export async function markRead(b, finished, note) {
+export async function markRead(b, finished, openNote) {
   const r = await guard(() => api("POST", "/api/readings", { bookId: b.id, read: finished }));
-  if (note.text) await api("PUT", `/api/readings/${r.id}/note`, note);
   await reload();
-  toast(`Marked “${b.title}” as read`);
+  toast(`Marked “${b.title}” as read`, { label: "Add a note", run: () => openNote(b, r.id) });
 }
 export async function correctReading(r, started, ended, outcome) {
   await guard(() => api("PATCH", `/api/readings/${r.id}`, { started, ended, outcome }));
   await reload();
   toast("Reading corrected");
 }
+// Deleting a reading keeps what was written during it.
 export async function deleteReading(r) {
   await guard(() => api("DELETE", `/api/readings/${r.id}`));
   await reload();
   toast("Reading deleted");
 }
-export async function saveNote(r, text, isPublic) {
-  if (text) await guard(() => api("PUT", `/api/readings/${r.id}/note`, { text, public: isPublic }));
-  else if (r.note) await guard(() => api("DELETE", `/api/readings/${r.id}/note`));
-  await reload();
-  toast(!text ? "Note removed" : isPublic ? "Note saved; visitors can read it" : "Note saved");
-}
+
+/* ---------- Notes and highlights ---------- */
+// A book's entries are fetched with its notes page (they aren't in the library, which only counts them):
+// all of them for the owner, the public ones for visitors. Each change returns the book's list anew.
+export const entriesOf = (b) => api("GET", `/api/books/${b.id}/entries`);
+async function changed(b) { const list = await entriesOf(b); await reload(); return list; }
+export const addEntry = (b, input) => guard(async () => { await api("POST", `/api/books/${b.id}/entries`, input); return changed(b); });
+export const updateEntry = (b, e, input) => guard(async () => { await api("PATCH", `/api/entries/${e.id}`, input); return changed(b); });
+export const deleteEntry = (b, e) => guard(async () => { await api("DELETE", `/api/entries/${e.id}`); return changed(b); });
+// Putting a deleted entry back keeps when it was first written.
+export const restoreEntry = (b, e) => addEntry(b, { kind: e.kind, text: e.text, quote: e.quote, page: e.page, readingId: e.readingId, public: e.public, createdAt: e.createdAt });
 // A reading's dates in the form the server takes them.
 export const whenOf = (w) => w.precision === "day" ? when("day", w.time.slice(0, 10)) : w.precision === "year" ? when("year", w.time.slice(0, 4)) : when("unknown");
 

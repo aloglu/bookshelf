@@ -3,7 +3,6 @@ package store
 import (
 	"context"
 	"database/sql"
-	"strings"
 	"time"
 )
 
@@ -148,9 +147,6 @@ func (s *Store) CorrectReading(ctx context.Context, readingID string, started, e
 		if r.Outcome == OutcomeReading {
 			return invalid("Finish or set aside the reading first.")
 		}
-		if outcome != OutcomeFinished && r.Note != nil {
-			return invalid("A reading with a note stays finished; delete the note first.")
-		}
 		_, err := tx.ExecContext(ctx, `UPDATE readings SET started_at=?, started_precision=?, ended_at=?, ended_precision=?, outcome=? WHERE id=?`,
 			started.encode(), started.Precision, ended.encode(), ended.Precision, outcome, readingID)
 		return err
@@ -162,54 +158,14 @@ func (s *Store) CorrectReading(ctx context.Context, readingID string, started, e
 	return r, nil
 }
 
-// DeleteReading removes a reading, with its page log and note.
+// DeleteReading removes a reading and its page log. Notes and highlights
+// written during it stay, no longer tied to a reading.
 func (s *Store) DeleteReading(ctx context.Context, readingID string) error {
 	return s.change(ctx, func(tx *sql.Tx, snap *Snapshot) error {
 		if _, ok := snap.Reading(readingID); !ok {
 			return ErrNotFound
 		}
 		_, err := tx.ExecContext(ctx, `DELETE FROM readings WHERE id=?`, readingID)
-		return err
-	})
-}
-
-// SetNote writes the note on a finished reading.
-func (s *Store) SetNote(ctx context.Context, readingID, text string, public bool) (Reading, error) {
-	text = strings.TrimSpace(text)
-	if text == "" {
-		return Reading{}, invalid("The note is empty.")
-	}
-	if len(text) > 200_000 {
-		return Reading{}, invalid("The note is too long.")
-	}
-	err := s.change(ctx, func(tx *sql.Tx, snap *Snapshot) error {
-		r, ok := snap.Reading(readingID)
-		if !ok {
-			return ErrNotFound
-		}
-		if r.Outcome != OutcomeFinished {
-			return invalid("Notes are for books that have been read.")
-		}
-		now := stamp(s.now())
-		_, err := tx.ExecContext(ctx, `INSERT INTO notes (reading_id, text, public, created_at, updated_at) VALUES (?, ?, ?, ?, ?)
-			ON CONFLICT(reading_id) DO UPDATE SET text=excluded.text, public=excluded.public, updated_at=excluded.updated_at`,
-			readingID, text, public, now, now)
-		return err
-	})
-	if err != nil {
-		return Reading{}, err
-	}
-	r, _ := s.Snapshot().Reading(readingID)
-	return r, nil
-}
-
-// DeleteNote removes the note on a reading.
-func (s *Store) DeleteNote(ctx context.Context, readingID string) error {
-	return s.change(ctx, func(tx *sql.Tx, snap *Snapshot) error {
-		if _, ok := snap.Reading(readingID); !ok {
-			return ErrNotFound
-		}
-		_, err := tx.ExecContext(ctx, `DELETE FROM notes WHERE reading_id=?`, readingID)
 		return err
 	})
 }

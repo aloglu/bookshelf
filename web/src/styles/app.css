@@ -578,29 +578,8 @@ select.inp { appearance: none; background-image: linear-gradient(45deg, transpar
 @keyframes spin { to { rotate: 1turn; } }
 .check2 { display: flex; align-items: center; gap: 8px; font-size: .88rem; color: var(--ink); }
 .check2 input { accent-color: var(--accent); width: 16px; height: 16px; }
-/* A book's readings: each with its dates, how long it took, and its note. */
-.rd-list { display: grid; margin: 18px 0 0; padding: 0; list-style: none; }
-.rd { display: grid; gap: 10px; padding: 14px 0; border-top: 1px solid var(--line); }
-.rd-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 14px; }
-.rd-top b { font-weight: 600; }
-.rd-meta { color: var(--muted); font-size: .84rem; }
-.rd-tools { display: flex; gap: 14px; margin-left: auto; font-size: .84rem; }
-.rd-note { display: grid; justify-items: start; gap: 6px; font-size: .84rem; }
-.rd-note p { margin: 0; font-family: var(--display); font-size: 1.05rem; font-style: italic; line-height: 1.5; white-space: pre-wrap; }
-.rd .link { color: var(--muted); }
-.rd-note .foot { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; }
-.rd-note .pub { color: var(--muted); }
-.rd-edit .toggle { padding-block: 2px; }
-@media (hover: hover) { .rd .link:hover { color: var(--ink); } }
-.rd-ask, .rd-btns { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
-.rd-ask span { margin-right: auto; font-size: .88rem; }
-.rd-edit { display: grid; gap: 8px; }
-textarea.inp { height: auto; min-height: 92px; padding: 10px 12px; line-height: 1.45; resize: vertical; }
 .btn.danger { background: #a3321f; color: #fff; border-color: transparent; }
 .lab .opt { color: var(--muted); font-weight: 400; }
-.head-link { padding: 0; border: 0; background: none; font: inherit; letter-spacing: inherit; text-transform: inherit; color: inherit; cursor: pointer;
-  text-decoration: underline; text-underline-offset: 3px; text-decoration-color: color-mix(in oklab, currentColor 40%, transparent); }
-@media (hover: hover) { .head-link:hover { color: var(--paper-accent); } }
 .wordmark { margin: 0 0 18px; font-family: var(--display); font-size: .82rem; font-style: italic; color: var(--muted); }
 
 /* The scanner: a viewfinder with corner marks and a sweeping line. */
@@ -798,3 +777,102 @@ body:has(.drawer-wrap:not([hidden])) .toast.saved { left: calc(100% - min(420px,
   .tp { padding-block: .6em 1.4em; }
 }
 @media (prefers-reduced-motion: reduce) { .spine, .spine::after, .slot::before { transition: none; } .slot.peek .spine { inset: 0; } }
+/* ---------- A book's notes ---------- */
+/* One page per book for everything kept about it: notes and highlights, any number of each, newest first or
+   in page order, each public or only the owner's and tied to the reading it came from; beside them, the
+   owner's readings. Visitors see the book and its public entries, never the readings. */
+:root[data-view="notes"] .case, :root[data-view="notes"] .nowreading, :root[data-view="notes"] .elsewhere, :root[data-view="notes"] .sort-seg { display: none !important; }
+.nb { padding-block: 26px 120px; }
+.nb-head { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 28px; align-items: end; padding-bottom: 28px; margin-bottom: 26px; border-bottom: 1px solid var(--line); }
+.nb-cover { display: block; width: 112px; padding: 0; border: 0; background: none; cursor: pointer; }
+.nb-cover img { display: block; width: 100%; height: auto; aspect-ratio: auto 2 / 3; object-fit: cover; border-radius: 3px; box-shadow: 0 14px 28px -14px rgba(0,0,0,.6); }
+.nb-kick { margin: 0 0 10px; color: var(--muted); font-size: .74rem; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; }
+.nb-head h2 { margin: 0; font-family: var(--display); font-weight: 600; font-size: clamp(1.9rem, 4.6vw, 2.8rem); line-height: 1.05; letter-spacing: -.012em; font-variation-settings: "opsz" 72; text-wrap: balance; }
+.nb-by { margin: 8px 0 0; font-family: var(--display); font-size: 1.12rem; font-style: italic; font-variation-settings: "opsz" 36; }
+.nb-facts { margin: 14px 0 0; color: var(--muted); font-size: .86rem; }
+.nb-cols { display: grid; grid-template-columns: minmax(0, 1fr) 290px; gap: 56px; align-items: start; }
+:root:not([data-owner]) .nb-cols { grid-template-columns: minmax(0, 44rem); }
+.nb h3 { margin: 0; color: var(--muted); font-size: .74rem; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; }
+.nb-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; min-height: 34px; margin-bottom: 14px; }
+.nb-bar h3 { margin-right: auto; }
+.nb .seg { height: 34px; }
+.nb .seg button { padding: 0 10px; font-size: .8rem; }
+/* Writing: one field to start; a highlight adds the passage and its page; the rest shows once begun. */
+.nb-compose { display: grid; gap: 12px; margin-bottom: 6px; padding: 12px 16px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.nb-compose:focus-within { border-color: color-mix(in oklab, var(--accent) 45%, var(--line)); }
+.nb-compose .seg { justify-self: start; height: 30px; padding: 2px; }
+.nb-compose .seg button { padding: 0 9px; font-size: .78rem; }
+.nb-compose textarea { display: block; width: 100%; min-height: 1.5em; padding: 0; border: 0; background: none; color: var(--ink); resize: none; field-sizing: content; font-family: var(--display); font-size: 1.05rem; line-height: 1.5; font-variation-settings: "opsz" 24; }
+.nb-compose textarea:focus { outline: none; }
+.nb-compose textarea::placeholder { color: var(--muted); opacity: .8; }
+.nb-compose [name="quote"] { padding-left: 16px; border-left: 2px solid var(--ribbon); font-size: 1.15rem; }
+.nb-compose:not(.hl) .hl-only, .nb-compose:not(.open) .nb-more { display: none; }
+.nb-more { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding-top: 12px; border-top: 1px solid var(--line); color: var(--muted); font-size: .82rem; }
+.nb-more label { display: inline-flex; align-items: center; gap: 7px; }
+.nb-more input, .nb-more select { height: 32px; padding: 0 9px; border: 1px solid var(--line); border-radius: 6px; background: var(--field); color: var(--ink); font: inherit; font-size: .84rem; }
+.nb-more input { width: 4.6em; font-variant-numeric: tabular-nums; }
+.nb-more select { appearance: none; padding-right: 26px; background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%); background-position: calc(100% - 15px) 14px, calc(100% - 10px) 14px; background-size: 5px 5px; background-repeat: no-repeat; }
+.nb-vis { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border: 1px solid var(--line); border-radius: 99px; color: var(--muted); font-size: .8rem; }
+.nb-vis[aria-pressed="true"] { color: var(--ink); border-color: color-mix(in oklab, var(--accent) 45%, transparent); background: color-mix(in oklab, var(--accent) 12%, transparent); }
+.nb-vis .i { width: 15px; height: 15px; }
+.nb-btns { display: flex; gap: 8px; margin-left: auto; }
+.nb-err { flex-basis: 100%; margin: 0; color: var(--danger); font-size: .82rem; }
+.nb-err:empty { display: none; }
+/* The entries: no cards, only hairlines; a passage carries the ribbon's color down its edge. */
+.nb-list { margin: 0; padding: 0; list-style: none; }
+.nb-e { display: grid; gap: 10px; padding: 22px 0; border-bottom: 1px solid var(--line); }
+.nb-e > .nb-compose { margin: -8px 0 0; }
+.nb-e blockquote { margin: 0; padding-left: 18px; border-left: 2px solid var(--ribbon); font-family: var(--display); font-size: 1.18rem; line-height: 1.5; font-variation-settings: "opsz" 24; white-space: pre-wrap; text-wrap: pretty; }
+.nb-e .txt { margin: 0; font-family: var(--display); font-size: 1.04rem; line-height: 1.55; font-variation-settings: "opsz" 18; white-space: pre-wrap; text-wrap: pretty; }
+.nb-e blockquote + .txt { padding-left: 20px; font-style: italic; }
+.nb-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; color: var(--muted); font-size: .8rem; }
+.nb-meta .pub { display: inline-flex; align-items: center; gap: 4px; }
+.nb-meta .pub .i { width: 13px; height: 13px; }
+.nb-tools { display: flex; gap: 14px; margin-left: auto; }
+.nb-tools button { color: var(--muted); }
+@media (hover: hover) { .nb-tools button:hover, .nb-r .r-tools button:hover, .nb-sum:hover { color: var(--ink); } }
+.nb-empty { margin: 0; padding: 24px 0; color: var(--muted); font-size: .92rem; line-height: 1.5; }
+/* The readings: a quiet timeline, newest at the top. */
+.nb-sum { display: none; }
+.nb-rd { margin: 16px 0 0; padding: 0; list-style: none; }
+.nb-r { position: relative; display: grid; gap: 3px; padding: 0 0 22px 24px; }
+.nb-r::before { content: ""; position: absolute; left: 0; top: 5px; width: 7px; height: 7px; border-radius: 50%; border: 2px solid var(--muted); background: var(--wall); }
+.nb-r::after { content: ""; position: absolute; left: 5px; top: 18px; bottom: 2px; width: 1px; background: var(--line); }
+.nb-r:last-child::after { display: none; }
+.nb-r.now::before { border-color: var(--ribbon); background: var(--ribbon); }
+.nb-r.aside::before { border-style: dashed; }
+.nb-r b { font-size: .92rem; font-weight: 600; }
+.nb-r .m { color: var(--muted); font-size: .82rem; line-height: 1.5; }
+.nb-r .meter { margin: 8px 0 2px; }
+.nb-r .meter .bar { height: 6px; }
+.nb-r .meter .bar i { background: var(--ribbon); }
+.nb-r .pg { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: .82rem; }
+.nb-r .pg input { width: 4.6em; height: 30px; padding: 0 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--field); color: var(--ink); font: inherit; font-variant-numeric: tabular-nums; }
+.nb-r .r-tools { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 4px; font-size: .8rem; }
+.nb-r .r-tools button { color: var(--muted); }
+.nb-r .r-ask { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 6px; }
+.nb-r .r-ask span { margin-right: auto; font-size: .84rem; }
+.nb-side .acts { display: flex; flex-wrap: wrap; gap: 8px; }
+.nb-side .none { margin: 14px 0 16px; color: var(--muted); font-size: .86rem; line-height: 1.5; }
+@media (max-width: 720px) {
+  .nb { padding-top: 18px; }
+  .nb-head { grid-template-columns: 76px minmax(0, 1fr); gap: 18px; align-items: center; padding-bottom: 20px; margin-bottom: 4px; }
+  :root:not([data-owner]) .nb-head { margin-bottom: 22px; }
+  .nb-cover { width: 76px; }
+  .nb-head h2 { font-size: 1.7rem; }
+  .nb-by { font-size: 1rem; }
+  .nb-facts { margin-top: 8px; font-size: .8rem; }
+  .nb-cols, :root:not([data-owner]) .nb-cols { grid-template-columns: minmax(0, 1fr); gap: 22px; }
+  /* On a phone the readings fold into one line above the notes, and open under it. */
+  .nb-side { order: -1; border-bottom: 1px solid var(--line); }
+  .nb-side > h3 { display: none; }
+  .nb-sum { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 48px; color: var(--muted); font-size: .88rem; }
+  .nb-sum b { color: var(--ink); font-weight: 600; }
+  .nb-sum .i { transition: transform .25s var(--ease); }
+  .nb-side.open .nb-sum .i { transform: rotate(180deg); }
+  .nb-side:not(.open) .nb-fold { display: none; }
+  .nb-fold { padding-bottom: 18px; }
+  .nb-rd { margin-top: 8px; }
+  .nb-compose textarea, .nb-more input, .nb-more select, .nb-r .pg input { font-size: 16px; }
+  .nb-tools { margin-left: 0; width: 100%; }
+}

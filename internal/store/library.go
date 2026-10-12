@@ -13,14 +13,16 @@ import (
 type Library struct {
 	Books    []Book    `json:"books"`
 	Readings []Reading `json:"readings"`
+	Entries  []Entry   `json:"entries"`
 	Settings Settings  `json:"settings"`
 }
 
 // Library is the snapshot's contents.
 func (s *Snapshot) Library() Library {
-	lib := Library{Books: append([]Book(nil), s.Books...), Readings: []Reading{}, Settings: s.Settings}
+	lib := Library{Books: append([]Book(nil), s.Books...), Readings: []Reading{}, Entries: []Entry{}, Settings: s.Settings}
 	for _, b := range s.Books {
 		lib.Readings = append(lib.Readings, s.Readings[b.ID]...)
+		lib.Entries = append(lib.Entries, s.Entries[b.ID]...)
 	}
 	return lib
 }
@@ -32,7 +34,7 @@ func (s *Store) Replace(ctx context.Context, lib Library) error {
 		return invalid("The backup's settings aren't valid: %s", err.Error())
 	}
 	return s.change(ctx, func(tx *sql.Tx, _ *Snapshot) error {
-		for _, table := range []string{"notes", "reading_progress", "readings", "books", "settings"} {
+		for _, table := range []string{"entries", "reading_progress", "readings", "books", "settings"} {
 			if _, err := tx.ExecContext(ctx, "DELETE FROM "+table); err != nil {
 				return err
 			}
@@ -49,7 +51,7 @@ func (s *Store) Replace(ctx context.Context, lib Library) error {
 
 // Merge adds the books in lib that aren't on the shelf yet (an import): a
 // book is already there if it has the same ISBN, or, without one, the same
-// title and author. Their readings and notes come with them. The library's
+// title and author. Their readings, notes and highlights come with them. The library's
 // own settings are left alone. It returns how many books were added and
 // skipped.
 func (s *Store) Merge(ctx context.Context, lib Library) (added, skipped int, err error) {
@@ -72,7 +74,7 @@ func sameBook(a, b Book) bool {
 	return strings.EqualFold(a.Title, b.Title) && strings.EqualFold(a.Author, b.Author)
 }
 
-// insertLibrary writes lib's books and readings into tx, beside what snap
+// insertLibrary writes lib's books, readings and entries into tx, beside what snap
 // already holds. With skipExisting, books already in snap are left out;
 // otherwise every book must be valid and new.
 func insertLibrary(ctx context.Context, tx *sql.Tx, snap *Snapshot, lib Library, skipExisting bool, now time.Time) (added, skipped int, err error) {
@@ -135,7 +137,8 @@ func insertLibrary(ctx context.Context, tx *sql.Tx, snap *Snapshot, lib Library,
 		added++
 	}
 
-	inProgress := map[string]bool{} // books given a reading in progress
+	inProgress := map[string]bool{}   // books given a reading in progress
+	readingIDs := map[string]string{} // archive id -> id on this shelf
 	for _, r := range lib.Readings {
 		book, ok := newIDs[r.BookID]
 		if !ok {
@@ -149,6 +152,7 @@ func insertLibrary(ctx context.Context, tx *sql.Tx, snap *Snapshot, lib Library,
 			inProgress[book] = true
 		}
 		id := newID()
+		readingIDs[r.ID] = id
 		if _, err := tx.ExecContext(ctx, `INSERT INTO readings (id, book_id, started_at, started_precision, ended_at, ended_precision, outcome) VALUES (?, ?, ?, ?, ?, ?, ?)`,
 			id, book, r.Started.encode(), precisionOrUnknown(r.Started.Precision), r.Ended.encode(), precisionOrUnknown(r.Ended.Precision), outcome); err != nil {
 			return 0, 0, err
@@ -158,11 +162,30 @@ func insertLibrary(ctx context.Context, tx *sql.Tx, snap *Snapshot, lib Library,
 				return 0, 0, err
 			}
 		}
-		if r.Note != nil && outcome == OutcomeFinished && strings.TrimSpace(r.Note.Text) != "" {
-			if _, err := tx.ExecContext(ctx, `INSERT INTO notes (reading_id, text, public, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`,
-				id, r.Note.Text, r.Note.Public, stamp(orNow(r.Note.CreatedAt, now)), stamp(orNow(r.Note.UpdatedAt, now))); err != nil {
-				return 0, 0, err
+	}
+
+	for _, e := range lib.Entries {
+		book, ok := newIDs[e.BookID]
+		if !ok {
+			continue // its book was skipped
+		}
+		text, quote := strings.TrimSpace(e.Text), strings.TrimSpace(e.Quote)
+		if (e.Kind != KindNote || text == "") && (e.Kind != KindHighlight || quote == "") {
+			if skipExisting {
+				continue
 			}
+			return 0, 0, invalid("A note or highlight in the backup is empty or of an unknown kind.")
+		}
+		if e.Kind == KindNote {
+			quote, e.Page = "", nil
+		}
+		if b := work.Books[work.byID[book]]; e.Page != nil && (*e.Page < 1 || (b.Pages != nil && *e.Page > *b.Pages)) {
+			e.Page = nil
+		}
+		created := orNow(e.CreatedAt, now)
+		if _, err := tx.ExecContext(ctx, `INSERT INTO entries (id, book_id, reading_id, kind, text, quote, page, public, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			newID(), book, nullString(readingIDs[e.ReadingID]), e.Kind, text, quote, nullable(e.Page), e.Public, stamp(created), stamp(orNow(e.UpdatedAt, created))); err != nil {
+			return 0, 0, err
 		}
 	}
 	return added, skipped, nil

@@ -4,7 +4,7 @@ name: CI
 
 on:
   push:
-    branches: [main, v2]
+    branches: [main, "v*"]   # main is the release line; v2.1 and the like are the next version
   pull_request:
 
 permissions:

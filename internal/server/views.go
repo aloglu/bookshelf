@@ -34,18 +34,13 @@ type bookView struct {
 	Spine      spineView  `json:"spine"`
 	AddedAt    time.Time  `json:"addedAt"`
 
-	// The notes the owner made public, newest first: only the note and when
-	// the book was finished, never the rest of the reading.
-	Notes []noteView `json:"notes,omitempty"`
+	// How many notes and highlights it has: the public ones for visitors,
+	// all of them for the owner. They are fetched with the book's notes page.
+	Entries int `json:"entries,omitempty"`
 
 	// Owner only.
 	Hidden    bool `json:"hidden,omitempty"`
 	ReadCount int  `json:"readCount,omitempty"`
-}
-
-type noteView struct {
-	Text     string     `json:"text"`
-	Finished store.When `json:"finished"`
 }
 
 type coverView struct {
@@ -174,10 +169,9 @@ func build(snap *store.Snapshot, owner bool) *libraryView {
 			c := clothColors[h.Sum32()%uint32(len(clothColors))]
 			bv.Spine = spineView{Color: c, Text: covers.TextFor(c)}
 		}
-		rs := snap.Readings[b.ID]
-		for i := len(rs) - 1; i >= 0; i-- { // readings are kept oldest first
-			if r := rs[i]; r.Outcome == store.OutcomeFinished && r.Note != nil && r.Note.Public {
-				bv.Notes = append(bv.Notes, noteView{Text: r.Note.Text, Finished: r.Ended})
+		for _, e := range snap.Entries[b.ID] {
+			if owner || e.Public {
+				bv.Entries++
 			}
 		}
 		if owner {

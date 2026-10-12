@@ -20,3 +20,16 @@ export function isoDay(w) {
 }
 export const today = () => isoDay({ precision: "instant", time: new Date().toISOString() });
 export const longDate = (t) => local.format(t);
+// A short date ("Jul 27, 2025"): for an instant, the day it fell on here.
+const shortLocal = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" });
+const shortUTC = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+export const shortDate = (t) => shortLocal.format(t);
+export function shortWhen(w) {
+  if (!known(w)) return whenText(w);
+  return (w.precision === "day" ? shortUTC : shortLocal).format(Date.parse(w.time));
+}
+// Days read, counting the first and the last: begun and finished on one day is one day.
+export function spanDays(a, z) {
+  const noon = (w) => { const d = new Date(Date.parse(w.time)); return w.precision === "day" ? Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) : Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()); };
+  return Math.round((noon(z) - noon(a)) / DAY) + 1;
+}

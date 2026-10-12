@@ -103,7 +103,6 @@ type Reading struct {
 	Ended    When       `json:"ended"`
 	Outcome  string     `json:"outcome"`
 	Progress []Progress `json:"progress"` // oldest first; empty for a reading marked as read
-	Note     *Note      `json:"note"`
 }
 
 // Page is the latest page recorded, or 0.
@@ -120,9 +119,23 @@ type Progress struct {
 	At   time.Time `json:"at"`
 }
 
-// Note is the owner's thoughts on a finished reading.
-type Note struct {
-	Text      string    `json:"text"`
+// Kinds of entry.
+const (
+	KindNote      = "note"      // the owner's own words
+	KindHighlight = "highlight" // a passage as printed, with a thought on it if they like
+)
+
+// Entry is something the owner kept about a book: a note or a highlight. A
+// book has any number; each is public or the owner's alone, and can name the
+// reading it came from.
+type Entry struct {
+	ID        string    `json:"id"`
+	BookID    string    `json:"bookId"`
+	ReadingID string    `json:"readingId"` // "" for none in particular
+	Kind      string    `json:"kind"`
+	Text      string    `json:"text"`  // a note's words, or the thought on a highlight
+	Quote     string    `json:"quote"` // a highlight's passage
+	Page      *int      `json:"page"`
 	Public    bool      `json:"public"`
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`

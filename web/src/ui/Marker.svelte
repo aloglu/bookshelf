@@ -1,25 +1,26 @@
 <script>
   // Marking a book as read (it was read before Bookshelf, or without "Reading now"), or correcting a past
-  // reading: when it ended as precisely as the owner remembers (a day, a year, or not at all).
+  // reading: when it ended as precisely as the owner remembers (a day, a year, or not at all). Notes are
+  // written on the book's notes page; onNote opens it.
   import { markRead, correctReading } from "../lib/app.svelte.js";
   import { when } from "../lib/api.js";
   import { isoDay, today } from "../lib/dates.js";
   import { showPanel, hidePanel } from "../lib/panels.js";
 
+  let { onNote } = $props();
   let wrap, form;
-  let book = $state(null), reading = $state(null), after = null;
+  let book = $state(null), reading = $state(null);
   let outcome = $state("finished"), prec = $state("day"), start = $state(""), day = $state(""), year = $state("");
-  let note = $state(""), isPublic = $state(false), err = $state(""), busy = $state(false);
+  let err = $state(""), busy = $state(false);
   const editing = $derived(!!reading);
 
-  export function open(b, r = null, then = null) {
-    book = b; reading = r; after = then; err = "";
+  export function open(b, r = null) {
+    book = b; reading = r; err = "";
     outcome = r?.outcome === "set_aside" ? "set_aside" : "finished";
     prec = r && r.ended.precision !== "instant" ? r.ended.precision : "day";
     start = r ? isoDay(r.started) : "";
     day = r ? isoDay(r.ended) : "";
     year = r?.ended.precision === "year" ? r.ended.time.slice(0, 4) : "";
-    note = ""; isPublic = false;
     showPanel(wrap, r ? undefined : 'input[name="day"]');
   }
   async function submit(e) {
@@ -31,20 +32,18 @@
     else if (prec === "day" && day > now) err = "That’s in the future.";
     else if (editing && start && start > now) err = "That’s in the future.";
     else if (editing && start && prec === "day" && start > day) err = "It can’t end before it started.";
-    else if (editing && outcome === "set_aside" && reading.note) err = "A reading with a note stays finished. Remove the note first.";
     if (err) return;
     const ended = prec === "day" ? when("day", day) : prec === "year" ? when("year", year) : when("unknown");
     busy = true;
     try {
       if (editing) await correctReading(reading, start ? when("day", start) : when("unknown"), ended, outcome);
-      else await markRead(book, ended, { text: note.trim(), public: isPublic && !!note.trim() });
+      else await markRead(book, ended, onNote);
     } catch (e) {
       err = e.message; busy = false;
       return;
     }
     busy = false;
     await hidePanel(wrap);
-    after?.();
   }
 </script>
 
@@ -65,8 +64,6 @@
     </div></div>
     <label class="lab" hidden={prec !== "day"}>Date<input class="inp" type="date" name="day" max={today()} bind:value={day}></label>
     <label class="lab" hidden={prec !== "year"}>Year<input class="inp" name="year" inputmode="numeric" maxlength="4" placeholder="2019" bind:value={year}></label>
-    <label class="lab" hidden={editing}><span>Note <span class="opt">· optional</span></span><textarea class="inp" name="note" rows="3" bind:value={note}></textarea></label>
-    <label class="toggle" hidden={editing}><span><b>Public note</b><small>Visitors can read it on the book’s page.</small></span><input type="checkbox" name="public" bind:checked={isPublic}></label>
     <p class="err" role="alert">{err}</p>
     <button type="submit" class="btn primary" disabled={busy}>{editing ? "Save" : "Mark as read"}</button>
   </form>

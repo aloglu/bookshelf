@@ -413,25 +413,58 @@ func (s *Server) removeReading(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (s *Server) putNote(w http.ResponseWriter, r *http.Request) {
-	var in struct {
-		Text   string `json:"text"`
-		Public bool   `json:"public"`
+// listEntries is a book's notes and highlights, oldest first: all of them for
+// the owner; for visitors only the public ones, and never which reading they
+// came from (readings are the owner's alone).
+func (s *Server) listEntries(w http.ResponseWriter, r *http.Request) {
+	snap, owner := s.Store.Snapshot(), s.isOwner(r)
+	b, ok := snap.Book(r.PathValue("id"))
+	if !ok || (!owner && (b.Hidden || snap.Settings.Private)) {
+		fail(w, http.StatusNotFound, "No such book.")
+		return
 	}
+	out := []store.Entry{}
+	for _, e := range snap.Entries[b.ID] {
+		if owner {
+			out = append(out, e)
+		} else if e.Public {
+			e.ReadingID = ""
+			out = append(out, e)
+		}
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+func (s *Server) addEntry(w http.ResponseWriter, r *http.Request) {
+	var in store.EntryInput
 	if err := readJSON(r, &in); err != nil {
 		s.failErr(w, r, err)
 		return
 	}
-	rd, err := s.Store.SetNote(r.Context(), r.PathValue("id"), in.Text, in.Public)
+	e, err := s.Store.AddEntry(r.Context(), r.PathValue("id"), in)
 	if err != nil {
 		s.failErr(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, rd)
+	writeJSON(w, http.StatusCreated, e)
 }
 
-func (s *Server) deleteNote(w http.ResponseWriter, r *http.Request) {
-	if err := s.Store.DeleteNote(r.Context(), r.PathValue("id")); err != nil {
+func (s *Server) editEntry(w http.ResponseWriter, r *http.Request) {
+	var in store.EntryInput
+	if err := readJSON(r, &in); err != nil {
+		s.failErr(w, r, err)
+		return
+	}
+	e, err := s.Store.UpdateEntry(r.Context(), r.PathValue("id"), in)
+	if err != nil {
+		s.failErr(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, e)
+}
+
+func (s *Server) removeEntry(w http.ResponseWriter, r *http.Request) {
+	if err := s.Store.DeleteEntry(r.Context(), r.PathValue("id")); err != nil {
 		s.failErr(w, r, err)
 		return
 	}
