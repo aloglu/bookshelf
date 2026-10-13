@@ -2,9 +2,11 @@
   // The header: the library's name, the tools (search, sort, day or evening, stats, and the owner's), what
   // is being read now, and the owner's links elsewhere.
   import { ui, data, setQuery, signOut, setSelecting, iconURL } from "../lib/app.svelte.js";
+  import { pill } from "../lib/pill.js";
   import SortButtons from "./SortButtons.svelte";
   import { motionOK, root } from "../engine/model.js";
   import { toast } from "../lib/toast.js";
+  import { inline, hasLink } from "../lib/markdown.js";
 
   let { setView, openShelved, onSearch, onSignIn, onAdd, onSettings, onMenu } = $props();
 
@@ -60,7 +62,13 @@
 
 <header>
   <div class="brand">
-    <h1><a href="/" class="home" id="site-title" onclick={home}>{#if data.library?.settings.iconShown}<img class="brand-icon" src={iconURL(data.library.settings)} alt="">{/if}<span>{ui.name}</span></a></h1>
+    <!-- The name links home, unless it holds a link of its own; then only the icon does. -->
+    {#snippet icon()}{#if data.library?.settings.iconShown}<img class="brand-icon" src={iconURL(data.library.settings)} alt="">{/if}{/snippet}
+    {#if hasLink(ui.nameMd)}
+      <h1><span class="home own-link">{#if data.library?.settings.iconShown}<a href="/" class="home" id="site-title" aria-label="Home" onclick={home}>{@render icon()}</a>{/if}<span>{@html inline(ui.nameMd)}</span></span></h1>
+    {:else}
+      <h1><a href="/" class="home" id="site-title" onclick={home}>{@render icon()}<span>{@html inline(ui.nameMd)}</span></a></h1>
+    {/if}
   </div>
   <div class="tools">
     <div class="search" class:has-query={!!q} id="search">
@@ -69,7 +77,7 @@
         <input id="q" type="search" placeholder="Title, author, publisher, year" autocomplete="off" aria-label="Search books" bind:value={q} oninput={typed} onkeydown={searchKeys}>
       </label>
     </div>
-    <div class="seg sort-seg" id="sort" role="group" aria-label="Sort by">
+    <div class="seg sort-seg" id="sort" role="group" aria-label="Sort by" use:pill>
       <SortButtons />
     </div>
     <button type="button" class="btn icon" id="mode" aria-label="Switch between day and evening" onclick={flip}><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/></svg></button>

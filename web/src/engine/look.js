@@ -6,13 +6,18 @@ export const WOODS = { oak: "Oak", walnut: "Walnut", maple: "Maple", ash: "Ash",
 export const PRESETS = { linen: ["#e9e0d0", "#17110d"], tobacco: ["#cdb08a", "#2a1c12"], chestnut: ["#94633f", "#3a2416"], umber: ["#5b4130", "#1e1510"], forest: ["#3d4c3e", "#152018"] };
 export const presetOf = (day, night) => Object.keys(PRESETS).find((k) => PRESETS[k][0] === day && PRESETS[k][1] === night) || null;
 
+// The library's day or evening setting is applied when it first loads and whenever it changes, never on
+// every load: a visitor (or the owner) who switched with the header's button keeps their choice.
+let themeSetting = null;
 export function applyLook(st) {
-  applyTheme(st.theme);
+  if (st.theme !== themeSetting) { themeSetting = st.theme; applyTheme(st.theme); }
   applyWalls(st.wallDay, st.wallNight);
   applyWoods(st.woodDay, st.woodNight);
-  const parts = st.bookcase ? Object.keys(st.caseParts).filter((k) => st.caseParts[k]) : [];
+  const parts = ["sides", "top", "back"].filter((k) => st.caseParts[k]);
   if (parts.length) root.dataset.case = parts.join(" "); else delete root.dataset.case;
-  root.style.setProperty("--ribbon", st.ribbon);
+  root.toggleAttribute("data-noshelves", !st.caseParts.shelves);
+  root.style.setProperty("--ribbon-day", st.ribbonDay);
+  root.style.setProperty("--ribbon-night", st.ribbonNight);
   root.toggleAttribute("data-plain", !st.bindings);
 }
 

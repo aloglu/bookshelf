@@ -101,7 +101,7 @@ func (s *Server) manifest(w http.ResponseWriter, r *http.Request) {
 	if !own { // Bookshelf's own icon has a version made for Android's shapes
 		icons = append(icons, map[string]string{"src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"})
 	}
-	name := s.Store.Snapshot().Settings.Name
+	name := store.PlainText(s.Store.Snapshot().Settings.Name)
 	w.Header().Set("Content-Type", "application/manifest+json")
 	w.Header().Set("Cache-Control", "no-cache")
 	json.NewEncoder(w).Encode(map[string]any{
@@ -118,7 +118,7 @@ func (s *Server) page(w http.ResponseWriter, r *http.Request) {
 		s.failErr(w, r, err)
 		return
 	}
-	page := strings.Replace(string(raw), "<title>Bookshelf</title>", "<title>"+html.EscapeString(s.Store.Snapshot().Settings.Name)+"</title>", 1)
+	page := strings.Replace(string(raw), "<title>Bookshelf</title>", "<title>"+html.EscapeString(store.PlainText(s.Store.Snapshot().Settings.Name))+"</title>", 1)
 	if s.Store.Snapshot().Settings.Icon != "" {
 		urls := s.iconURLs()
 		page = strings.NewReplacer(

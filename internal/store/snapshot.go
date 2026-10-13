@@ -219,6 +219,7 @@ func load(ctx context.Context, q querier) (*Snapshot, error) {
 	if err := closeRows(rows); err != nil {
 		return nil, err
 	}
+	snap.Settings.upgrade()
 
 	rows, err = q.QueryContext(ctx, `SELECT token_hash, created_at, expires_at, last_seen, user_agent FROM sessions`)
 	if err != nil {

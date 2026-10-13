@@ -39,7 +39,7 @@
       if (token !== asking) return;
       if (e.status === 409) status = { text: `${e.message} `, show: e.data.book };
       else if (e.status === 404) status = { text: "Open Library and Google Books don’t know this ISBN. ", byHand: true };
-      else status = { text: `${e.message.replace(/\.$/, "")}. You can `, byHand: true, lower: true };
+      else status = { text: `${e.message.replace(/\.$/, "")}, or `, byHand: true, lower: true };   // "Try again in a minute, or enter the details by hand."
       return;
     }
     if (token !== asking) return;

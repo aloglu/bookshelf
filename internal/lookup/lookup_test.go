@@ -66,6 +66,17 @@ func TestNotFound(t *testing.T) {
 	}
 }
 
+func TestBusy(t *testing.T) {
+	ol := fake(t, nil)
+	g := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { http.Error(w, "slow down", http.StatusTooManyRequests) }))
+	t.Cleanup(g.Close)
+	c := New("", "test")
+	c.OpenLibrary, c.Google = ol.URL, g.URL
+	if _, err := c.Find(context.Background(), "9780000000002"); !errors.Is(err, ErrBusy) {
+		t.Fatalf("got %v", err)
+	}
+}
+
 func TestAllowedCover(t *testing.T) {
 	for raw, want := range map[string]bool{
 		"https://covers.openlibrary.org/b/id/1-L.jpg":     true,

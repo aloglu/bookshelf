@@ -1,11 +1,11 @@
 # Updating Bookshelf
 
 Updating never touches your library: it replaces only the program. Still, it's
-a good habit to **Back up now** first (Settings → Library → Backups).
+a good habit to **Back up now** first (Settings → Your library → Backups).
 
 ## Knowing when a new version is out
 
-**Settings → Account → Updates** shows the version you're running. When a
+**Settings → About → Version** shows the version you're running. When a
 newer one is out, it says so there, with **What's new** (the release notes) and
 **How to update** (this guide), and the Settings icon gets a small dot (on a
 phone, the menu button).

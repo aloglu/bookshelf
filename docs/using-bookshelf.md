@@ -117,22 +117,42 @@ public notes and highlights, never your readings.
 
 ## Settings
 
-The **Settings** icon (the sliders) opens Settings. Every change saves at once.
+The **Settings** icon (the sliders) opens Settings, with its sections down the
+side; on a phone, the list of sections comes first and **‹** takes you back to
+it. Every change shows at once and saves itself.
 
-- **Site:** the library's name, and its icon: Bookshelf's, or **Use your own**
-  with any picture (cropped to a square at its middle), for the browser tab, a
-  phone's home screen and, with **Show the icon beside the name**, the header.
-  **What visitors see:** a private library shows
-  visitors only a sign-in page; the statistics page can be yours alone. **How it
-  opens:** the sort and day or evening visitors start with. **Elsewhere:** your
-  Goodreads, The StoryGraph and Instagram, shown under the name. **Links:** each
-  book's address (`/9780679723424`, `/978-0-679-72342-4` or `/pale-fire`), and
-  where **Search on…** looks.
-- **Look:** the wall colors by day and by evening, the wood of the shelves, a
-  bookcase around them, the reading ribbon's color, whether the spines show
-  their bindings (hardcover, cloth, leather), the size of the books, and a limit
-  on the tallest spine.
-- **Library:** bring books in from a file, take them out as CSV, JSON or a full
-  archive, and backups. See [Backups](backups.md).
-- **Account:** the version you're running and whether a newer one is out (see
-  [Updating](updating.md)), who is signed in, and **Sign out**.
+- **Shelf:** a preview of your shelf, drawn from your own books, with **Day**
+  and **Evening** above it: the paint, wood and ribbon you choose are for the
+  one picked there. The preview stays in sight as you scroll to the settings
+  below it.
+  - **Paint, wood and ribbon:** a paint for the wall, or any color of your own
+    from the rainbow at the end of the row; the wood of the shelves; and the
+    color of the ribbon on the books you're reading.
+  - **Bookcase:** which parts to build: **Shelves** (the boards the books
+    stand on), **Sides**, a **Top** and a **Back panel**, each on its own, all
+    in the shelves' wood. With sides and no shelves, a base board closes the
+    bottom; with none of them, the books stand in rows on their own.
+  - **Books:** **Binding details** (hardcovers show their boards, cloth its
+    weave, leather its bands and gilt), the size of the books, and the tallest
+    a spine may stand.
+- **Header and footer:** the library's name, its icon (Bookshelf's, or **Use
+  your own** with any picture, cropped to a square) and whether it stands
+  beside the name; your Goodreads, The StoryGraph and Instagram, shown under
+  it; and a line of your own under the shelves (empty and hidden until you
+  write one and turn on **Show the footer**). The name and the footer take
+  Markdown:
+  `[Our books](https://example.com)` makes the name a link somewhere else (the
+  icon still leads home; the browser tab shows just the words), and the footer
+  can have links, bold, italic and a new line for a new line.
+- **Visitors:** a private library shows visitors only a sign-in page, and the
+  statistics page can be yours alone. **When they arrive:** the theme
+  (**Automatic** follows their device) and the sort they start with (choose it
+  again for Z to A or newest first); a visitor who switches between day and
+  evening keeps their choice while they're there. **A book's page:** its
+  address (ISBN, hyphenated or title, with an example beside it), and the
+  **Search links** on it.
+- **Your library:** bring books in from a file, take them out as CSV, JSON or a
+  full archive, and backups. See [Backups](backups.md).
+- **About:** who made Bookshelf and where its code is, the version you're
+  running and whether a newer one is out (see [Updating](updating.md)), who is
+  signed in, and **Sign out**.

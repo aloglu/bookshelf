@@ -465,8 +465,8 @@ func TestSettingsPatchIsAllOrNothing(t *testing.T) {
 	if n := e.st.Snapshot().Settings.Name; n != "Bookshelf" {
 		t.Fatalf("a rejected patch changed the name to %q", n)
 	}
-	code, st := e.do(e.owner, "PATCH", "/api/settings", map[string]any{"caseParts": map[string]any{"back": false}})
-	if parts := st["caseParts"].(map[string]any); code != 200 || parts["back"] != false || parts["sides"] != true {
+	code, st := e.do(e.owner, "PATCH", "/api/settings", map[string]any{"caseParts": map[string]any{"sides": true}})
+	if parts := st["caseParts"].(map[string]any); code != 200 || parts["sides"] != true || parts["shelves"] != true || parts["back"] != false {
 		t.Fatalf("partial nested patch: %d %v", code, st)
 	}
 }
@@ -522,5 +522,34 @@ func TestBackupExportImportRestore(t *testing.T) {
 	}
 	if code, _ := e.do(e.visitor, "GET", "/api/export?format=archive", nil); code != 401 {
 		t.Fatal("a visitor exported the library")
+	}
+}
+
+// The name may be Markdown: the page title and a phone's home screen get its words.
+func TestAMarkdownName(t *testing.T) {
+	e := setup(t)
+	if code, st := e.do(e.owner, "PATCH", "/api/settings", map[string]any{"name": "[Our **books**](https://alog.lu)"}); code != 200 || st["name"] != "[Our **books**](https://alog.lu)" {
+		t.Fatalf("name: %d %v", code, st)
+	}
+	resp, _ := e.visitor.Get(e.srv.URL + "/")
+	page, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if !strings.Contains(string(page), "<title>Our books</title>") {
+		t.Fatalf("the page's title: %s", page)
+	}
+	resp, _ = e.visitor.Get(e.srv.URL + "/manifest.json")
+	var m map[string]any
+	json.NewDecoder(resp.Body).Decode(&m)
+	resp.Body.Close()
+	if m["name"] != "Our books" {
+		t.Fatalf("the manifest's name: %v", m["name"])
+	}
+	if code, _ := e.do(e.owner, "PATCH", "/api/settings", map[string]any{"name": "[ ](https://alog.lu)"}); code != 422 {
+		t.Fatalf("a name of only formatting: %d", code)
+	}
+	_, lib := e.do(e.visitor, "GET", "/api/library", nil)
+	// A new library has no footer until the owner writes one.
+	if st := lib["settings"].(map[string]any); st["footer"] != false || st["footerText"] != "" || st["sortDesc"] != false {
+		t.Fatalf("visitors' settings: %v", st)
 	}
 }

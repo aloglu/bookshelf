@@ -8,31 +8,39 @@ import (
 	"strings"
 )
 
-// Settings is everything in the Settings drawer.
+// Settings is everything in Settings.
 type Settings struct {
 	// Site
-	Name      string   `json:"name"`
-	Private   bool     `json:"private"`
-	Sort      string   `json:"sort"`      // author, title, year
-	Theme     string   `json:"theme"`     // system, light, dark
-	Stats     bool     `json:"stats"`     // visitors may see the stats page
-	Permalink string   `json:"permalink"` // isbn, hyphens, title
-	Sources   []string `json:"sources"`   // openlibrary, google, goodreads
-	Icon      string   `json:"icon"`      // the owner's own icon (its name in the data folder), or "" for Bookshelf's
-	IconShown bool     `json:"iconShown"` // the icon stands beside the library's name in the header
-	Social    Social   `json:"social"`
+	Name       string   `json:"name"` // may hold inline Markdown (a link, emphasis)
+	Private    bool     `json:"private"`
+	Sort       string   `json:"sort"`       // author, title, year
+	SortDesc   bool     `json:"sortDesc"`   // Z to A, newest first
+	Theme      string   `json:"theme"`      // system, light, dark
+	Footer     bool     `json:"footer"`     // the line under the shelves is shown
+	FooterText string   `json:"footerText"` // what it says, in inline Markdown
+	Stats      bool     `json:"stats"`      // visitors may see the stats page
+	Permalink  string   `json:"permalink"`  // isbn, hyphens, title
+	Sources    []string `json:"sources"`    // openlibrary, google, goodreads
+	Icon       string   `json:"icon"`       // the owner's own icon (its name in the data folder), or "" for Bookshelf's
+	IconShown  bool     `json:"iconShown"`  // the icon stands beside the library's name in the header
+	Social     Social   `json:"social"`
 
 	// Look
-	WallDay   string    `json:"wallDay"`
-	WallNight string    `json:"wallNight"`
-	WoodDay   string    `json:"woodDay"`
-	WoodNight string    `json:"woodNight"`
-	Bookcase  bool      `json:"bookcase"`
-	CaseParts CaseParts `json:"caseParts"`
-	Ribbon    string    `json:"ribbon"`
-	Bindings  bool      `json:"bindings"`
-	BookSize  int       `json:"bookSize"`  // percent, 70–130
-	MaxHeight int       `json:"maxHeight"` // percent, 70–100 (100: no limit)
+	WallDay     string    `json:"wallDay"`
+	WallNight   string    `json:"wallNight"`
+	WoodDay     string    `json:"woodDay"`
+	WoodNight   string    `json:"woodNight"`
+	RibbonDay   string    `json:"ribbonDay"`
+	RibbonNight string    `json:"ribbonNight"`
+	CaseParts   CaseParts `json:"caseParts"`
+	// Bookcase and Ribbon are how Bookshelf before 2.0.5 stored the bookcase (one switch over its parts) and
+	// the ribbon (one color for day and evening). They are only ever read, from settings and backups saved
+	// by those versions (see upgrade).
+	Bookcase  *bool  `json:"bookcase,omitempty"`
+	Ribbon    string `json:"ribbon,omitempty"`
+	Bindings  bool   `json:"bindings"`
+	BookSize  int    `json:"bookSize"`  // percent, 70–130
+	MaxHeight int    `json:"maxHeight"` // percent, 70–100 (100: no limit)
 
 	// Library
 	BackupEvery string `json:"backupEvery"` // day, week, never (only before imports and restores)
@@ -49,11 +57,13 @@ type Social struct {
 	Instagram  string `json:"instagram"`
 }
 
-// CaseParts are the parts of the bookcase that are shown when it is on.
+// CaseParts are the parts of the bookcase, each shown on its own. With none of them, the books stand in
+// rows with nothing around or under them.
 type CaseParts struct {
-	Sides bool `json:"sides"`
-	Top   bool `json:"top"`
-	Back  bool `json:"back"`
+	Shelves bool `json:"shelves"` // the planks the books stand on
+	Sides   bool `json:"sides"`
+	Top     bool `json:"top"`
+	Back    bool `json:"back"`
 }
 
 // DefaultSettings are a new library's settings.
@@ -61,7 +71,7 @@ func DefaultSettings() Settings {
 	return Settings{
 		Name: "Bookshelf", Sort: "author", Theme: "system", Stats: true, Permalink: "isbn", Sources: []string{"openlibrary"}, IconShown: true,
 		WallDay: "#e9e0d0", WallNight: "#17110d", WoodDay: "oak", WoodNight: "walnut",
-		CaseParts: CaseParts{Sides: true, Top: true, Back: true}, Ribbon: "#8e2532", Bindings: true, BookSize: 100, MaxHeight: 100,
+		CaseParts: CaseParts{Shelves: true}, RibbonDay: "#8e2532", RibbonNight: "#8e2532", Bindings: true, BookSize: 100, MaxHeight: 100,
 		BackupEvery: "day", BackupKeep: 14, CheckUpdates: true,
 	}
 }
@@ -73,14 +83,36 @@ var (
 	iconName = regexp.MustCompile(`^[0-9a-f]{16}$`)
 )
 
+// upgrade brings settings saved before 2.0.5 up to date: there the bookcase's parts only showed while its
+// one switch was on, so with it off they all go off. Shelves were always shown then, and a setting missing
+// from what was saved keeps its default (on). The one ribbon color becomes the day's and the evening's.
+func (s *Settings) upgrade() {
+	if s.Ribbon != "" {
+		s.RibbonDay, s.RibbonNight = s.Ribbon, s.Ribbon
+	}
+	s.Ribbon = ""
+	if s.Bookcase != nil && !*s.Bookcase {
+		s.CaseParts.Sides, s.CaseParts.Top, s.CaseParts.Back = false, false, false
+	}
+	s.Bookcase = nil
+}
+
 // Validate checks every value and tidies what can be tidied.
 func (s *Settings) Validate() error {
+	s.upgrade()
 	s.Name = strings.TrimSpace(s.Name)
 	if s.Name == "" {
 		s.Name = "Bookshelf"
 	}
-	if len([]rune(s.Name)) > 80 {
-		return fmt.Errorf("the name is longer than 80 characters")
+	if len([]rune(s.Name)) > 200 {
+		return fmt.Errorf("the name is longer than 200 characters")
+	}
+	if PlainText(s.Name) == "" {
+		return fmt.Errorf("the name needs some words, not only formatting")
+	}
+	s.FooterText = strings.TrimSpace(s.FooterText)
+	if len([]rune(s.FooterText)) > 1000 {
+		return fmt.Errorf("the footer is longer than 1,000 characters")
 	}
 	if s.Icon != "" && !iconName.MatchString(s.Icon) {
 		return fmt.Errorf("unknown icon %q", s.Icon)
@@ -104,7 +136,7 @@ func (s *Settings) Validate() error {
 		return fmt.Errorf("unknown search source in %v", s.Sources)
 	}
 	s.Sources = kept
-	for name, c := range map[string]*string{"day wall": &s.WallDay, "evening wall": &s.WallNight, "ribbon": &s.Ribbon} {
+	for name, c := range map[string]*string{"day wall": &s.WallDay, "evening wall": &s.WallNight, "day ribbon": &s.RibbonDay, "evening ribbon": &s.RibbonNight} {
 		*c = strings.ToLower(strings.TrimSpace(*c))
 		if !hexColor.MatchString(*c) {
 			return fmt.Errorf("the %s color must look like #a1b2c3", name)

@@ -1,11 +1,14 @@
 <script>
-  // Signing in: the user name and password from the server's settings; a week on this device.
+  // Signing in: the user name and password from the server's settings; a week on this device. The fields are
+  // only in the page while the card is open: a password field left hidden in it makes password managers offer
+  // to fill or save a password whenever anything else on the page changes (opening Settings, say).
+  import { tick } from "svelte";
   import { ui, signIn } from "../lib/app.svelte.js";
   import { showPanel, hidePanel } from "../lib/panels.js";
   import { toast } from "../lib/toast.js";
 
-  let wrap, form, err = $state(""), user = $state(""), pass = $state(""), busy = $state(false);
-  export function open() { err = ""; showPanel(wrap, "[name=user]"); }
+  let wrap, form = $state(), err = $state(""), user = $state(""), pass = $state(""), busy = $state(false), shown = $state(false);
+  export async function open() { err = ""; shown = true; await tick(); showPanel(wrap, "[name=user]"); }
   async function submit(e) {
     e.preventDefault();
     err = !user.trim() ? "Enter your user name." : !pass ? "Enter your password." : "";
@@ -23,8 +26,9 @@
   }
 </script>
 
-<div class="modal" id="signin" hidden bind:this={wrap}>
+<div class="modal" id="signin" hidden bind:this={wrap} onpanelclose={() => (shown = false)}>
   <div class="modal-scrim" data-close></div>
+  {#if shown}
   <form class="card stack" role="dialog" aria-modal="true" aria-labelledby="signin-h" novalidate bind:this={form} onsubmit={submit}>
     <button type="button" class="btn icon x" data-close aria-label="Close"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
     <div><p class="wordmark">{ui.name}</p><h2 id="signin-h">Sign in</h2></div>
@@ -34,4 +38,5 @@
     <button type="submit" class="btn primary" disabled={busy}>Sign in</button>
     <p class="fine">You stay signed in for a week on this device.</p>
   </form>
+  {/if}
 </div>
