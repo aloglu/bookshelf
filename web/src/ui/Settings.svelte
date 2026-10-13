@@ -4,7 +4,7 @@
   // rest. The shelf section has a preview of the shelf, by day or by evening, drawn by the shelf's own rules.
   import { tick } from "svelte";
   import { ui, data, patchSettings, reload, signOut, showSort, checkUpdates, setIcon, iconURL } from "../lib/app.svelte.js";
-  import { SORT_WAYS, isPhone, lastName, reheight, sortBooks } from "../engine/model.js";
+  import { SORT_WAYS, isPhone, lastName, reheight, sortBooks, spineHeight } from "../engine/model.js";
   import { api } from "../lib/api.js";
   import { showPanel, hidePanel } from "../lib/panels.js";
   import { toast, savedToast } from "../lib/toast.js";
@@ -13,15 +13,7 @@
   import { applyLook, WOODS } from "../engine/look.js";
   import { relayout, view } from "../engine/shelf.js";
 
-  // The footer a library starts with (the server's DefaultFooter), to put back after changing it.
-  const ORIGINAL_FOOTER = "Made by [alog.lu](https://alog.lu) · Code available on [GitHub](https://github.com/aloglu/bookshelf)";
-  const SECTIONS = [
-    ["shelf", "Shelf", "How the shelf looks, by day and by evening."],
-    ["site", "Header and footer", "The name above the shelf and the line beneath it."],
-    ["visitors", "Visitors", "Who can see the library, and how it opens for them."],
-    ["library", "Your library", ""],
-    ["about", "Bookshelf", "The version you run, and your account."],
-  ];
+  const SECTIONS = [["shelf", "Shelf"], ["site", "Header and footer"], ["visitors", "Visitors"], ["library", "Your library"], ["about", "About"]];
   const NETS = {
     goodreads: { name: "Goodreads", host: /(^|\.)goodreads\.com$/, url: (v) => /^\d+(-[\w-]+)?$/.test(v) ? `https://www.goodreads.com/user/show/${v}` : `https://www.goodreads.com/${v}` },
     storygraph: { name: "The StoryGraph", host: /(^|\.)thestorygraph\.com$/, url: (v) => `https://app.thestorygraph.com/profile/${v}` },
@@ -34,6 +26,8 @@
   const ADDRESS = [["isbn", "ISBN"], ["hyphens", "Hyphenated"], ["title", "Title"]];
   const SOURCES = [["openlibrary", "Open Library"], ["google", "Google Books"], ["goodreads", "Goodreads"]];
 
+  // The text fields here carry the markers password managers honour (1Password, LastPass, Bitwarden,
+  // Dashlane) so they aren't taken for a login: "Username" in a link's hint reads like one.
   let wrap, st = $state(null), section = $state("shelf"), inside = $state(true), mode = $state("day");
   let backups = $state([]), importNote = $state(""), over = $state(false), restoring = $state(null);
   let social = $state({}), badSocial = $state({});
@@ -51,7 +45,17 @@
     loadBackups();
     checkUpdates();
   }
-  function go(k) { section = k; inside = true; pane?.scrollTo({ top: 0 }); settle(); }
+  // On a phone a section is a step into the sheet, with its own place in the history, so the phone's own back
+  // (the iPhone's swipe from the edge, Android's back) returns to the list as the ‹ button does.
+  let deep = false;
+  function go(k) {
+    section = k; inside = true; settle();
+    tick().then(() => pane?.scrollTo({ top: 0 }));   // once the section is shown: a hidden pane keeps its old place
+    if (isPhone() && !deep) { history.pushState(history.state, ""); deep = true; }
+  }
+  function up() { if (deep) history.back(); else inside = false; }
+  function popped() { if (!deep) return; deep = false; inside = false; }
+  function leave() { if (!deep) return; deep = false; history.back(); }   // closing the sheet takes its step back out
   let pane = $state();
   // While a section is first drawn nothing animates (its switches and segments arrive as they are); only a
   // change the owner makes slides.
@@ -97,13 +101,14 @@
   }
 
   /* ---------- The shelf ---------- */
-  // What's being chosen: the day's paint and wood, or the evening's.
+  // What's being chosen: the day's paint, wood and ribbon, or the evening's.
   const wallKey = $derived(mode === "day" ? "wallDay" : "wallNight");
   const woodKey = $derived(mode === "day" ? "woodDay" : "woodNight");
+  const ribbonKey = $derived(mode === "day" ? "ribbonDay" : "ribbonNight");
   const paint = (wall) => change({ [wallKey]: wall }, { soon: true });
   // The preview: the library's own books, the first of the shelf, as many as fill most of its width, one of
   // them being read if any is. They are drawn at the wide screen's shelf scale on every screen (where the
-  // lettering fits the spines as it should) and the whole shelf is zoomed down to a box of fixed height, sized
+  // lettering fits the spines as it should) and the whole shelf is scaled down, like a picture, to a box of fixed height, sized
   // for the tallest books the settings allow; so a setting never resizes the box (see .shelfpv).
   let pvWidth = $state(0);
   const pvZoom = () => parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--pvz")) || .5;
@@ -114,9 +119,15 @@
     const list = [];
     let used = 0;
     for (const b of shown) { const w = Math.round(b.t * k) + 2; if (used + w > room) break; list.push(b); used += w; }
-    const reader = shown.find((b) => b.reading);
-    if (reader && !list.includes(reader) && list.length) list[Math.floor(list.length / 2)] = reader;
-    return list.map((b) => ({ b, t: Math.round(b.t * k), h: Math.round(b.h * k) }));
+    // One book wears the ribbon: one being read if there is one, otherwise one in the middle as a sample, so
+    // the ribbon's color can be seen.
+    const reader = shown.find((b) => b.reading), mid = Math.floor(list.length / 2);
+    if (reader && !list.includes(reader) && list.length) list[mid] = reader;
+    const ribboned = list.includes(reader) ? reader : list[mid];
+    // Heights by the shelf's own rule from the settings being chosen (the books' own heights change in place,
+    // which the preview wouldn't notice), so binding details and spine height show here at once.
+    const limit = st.maxHeight / 100;
+    return list.map((b) => ({ b, ribbon: b === ribboned, t: Math.round(b.t * k), h: Math.round(spineHeight(b, st.bindings, limit) * k) }));
   });
   const rowH = $derived(Math.max(0, ...pvBooks.map((p) => p.h)) + 4);
   function picker(e, value, set) { pickColor(e.currentTarget, value, { input: set }); }
@@ -127,7 +138,6 @@
   const sortWay = $derived(st ? SORT_WAYS[st.sort][st.sortDesc ? 1 : 0] : "");
 
   /* ---------- Your library ---------- */
-  const hidden = $derived(data.books.filter((b) => b.hidden).length);
   async function importFile(file) {
     if (!file) return;
     importNote = `Bringing in ${file.name}…`;
@@ -197,7 +207,8 @@
 {#snippet sw(checked, onchange, label)}<input type="checkbox" class="switch" aria-label={label} {checked} onchange={(e) => onchange(e.target.checked)}>{/snippet}
 {#snippet name(text, hint)}<div class="sname">{text}{#if hint}<small>{hint}</small>{/if}</div>{/snippet}
 
-<div class="modal settings-wrap" id="settings" hidden bind:this={wrap}>
+<svelte:window onpopstate={popped} />
+<div class="modal settings-wrap" id="settings" hidden bind:this={wrap} onpanelhide={leave}>
   <div class="modal-scrim" data-close></div>
   <section class="card settings" class:inside class:still role="dialog" aria-modal="true" aria-labelledby="settings-h">
     <nav class="snav" aria-label="Settings">
@@ -213,43 +224,38 @@
       <button type="button" class="btn icon x phone-x" data-close aria-label="Close"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
     </nav>
     {#if st}
-    {@const [, title, lede] = SECTIONS.find(([k]) => k === section)}
+    {@const [, title] = SECTIONS.find(([k]) => k === section)}
     <div class="spane" bind:this={pane}>
       <div class="spane-head">
-        <button type="button" class="btn icon back" aria-label="All settings" onclick={() => (inside = false)}><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg></button>
+        <button type="button" class="btn icon back" aria-label="All settings" onclick={up}><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg></button>
         <h2>{title}</h2>
         <button type="button" class="btn icon" data-close aria-label="Close"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
       </div>
-      {#if section === "library"}
-        <p class="slede">{data.books.length.toLocaleString("en-US")} book{data.books.length === 1 ? "" : "s"} on your shelves{hidden ? `, ${hidden} of them hidden from the website` : ""}.</p>
-      {:else}
-        <p class="slede">{lede}</p>
-      {/if}
 
       <div class="sbody">
       {#if section === "shelf"}
         <div class="pvbox">
-          <div class="seg modeswitch" role="group" aria-label="Choose the paint and wood for" use:pill>
+          <div class="seg modeswitch" role="group" aria-label="Choose the paint, wood and ribbon for" use:pill>
             <button type="button" aria-pressed={mode === "day"} onclick={() => (mode = "day")}><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></svg>Day</button>
             <button type="button" aria-pressed={mode === "night"} onclick={() => (mode = "night")}><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/></svg>Evening</button>
           </div>
           <div class="shelfpv" class:night={mode === "night"} aria-hidden="true" bind:clientWidth={pvWidth}
-            style="--pwall: {st[wallKey]}; --wood: var(--wood-{mode}); --wood-v: var(--wood-{mode}-v, none); --wood-back: var(--wood-{mode}-back, none)">
+            style="--pwall: {st[wallKey]}; --ribbon: {st[ribbonKey]}; --wood: var(--wood-{mode}); --wood-v: var(--wood-{mode}-v, none); --wood-back: var(--wood-{mode}-back, none)">
             <div class="zoom"><div class="shelves"><div class="shelf"><div class="books" style="--row-h: {rowH}px">
               {#each pvBooks as p (p.b.key)}
-                <div class="slot" class:reading={p.b.reading} data-b={p.b.binding in { hardcover: 1, cloth: 1, leather: 1 } ? p.b.binding : "paperback"} style="--t: {p.t}px; --h: {p.h}px; --c: {p.b.spine.color}; --fg: {p.b.spine.text}"><div class="spine"><span class="st">{p.b.title}</span><span class="sa">{lastName(p.b.author)}</span></div></div>
+                <div class="slot" class:reading={p.ribbon} data-b={p.b.binding in { hardcover: 1, cloth: 1, leather: 1 } ? p.b.binding : "paperback"} style="--t: {p.t}px; --h: {p.h}px; --c: {p.b.spine.color}; --fg: {p.b.spine.text}"><div class="spine"><span class="st">{p.b.title}</span><span class="sa">{lastName(p.b.author)}</span></div></div>
               {/each}
             </div><div class="plank"></div></div></div></div>
           </div>
         </div>
-        <div class="sgroup"><h3>Paint and wood</h3>
+        <div class="sgroup"><h3>Paint, wood and ribbon</h3>
           <div class="srow stack">{@render name("Wall")}<div class="sctl">
             <div class="swatches walls">
               {#each PAINTS as [n, d, e]}
                 {@const c = mode === "day" ? d : e}
                 <button type="button" title={n} aria-label={n} style="--sw: {c}" aria-pressed={st[wallKey] === c} onclick={() => paint(c)}></button>
               {/each}
-              <button type="button" class="well" title="Your own" aria-label="Your own wall color" style="--pick: {st[wallKey]}" onclick={(e) => picker(e, st[wallKey], paint)}></button>
+              <button type="button" class="well small" class:on={!PAINTS.some(([, d, e]) => (mode === "day" ? d : e) === st[wallKey])} title="Any color" aria-label="Any wall color" onclick={(e) => picker(e, st[wallKey], paint)}></button>
             </div>
           </div></div>
           <div class="srow stack">{@render name("Wood", WOODS[st[woodKey]])}<div class="sctl"><div class="woods">
@@ -257,9 +263,15 @@
               <button type="button" title={n} aria-label={n} style="--wood: var(--w-{k})" aria-pressed={st[woodKey] === k} onclick={() => change({ [woodKey]: k })}></button>
             {/each}
           </div></div></div>
+          <div class="srow stack">{@render name("Ribbon", "On the books you’re reading")}<div class="sctl"><div class="swatches">
+            {#each RIBBONS as [c, n]}
+              <button type="button" title={n} aria-label={n} style="--sw: {c}" aria-pressed={st[ribbonKey] === c} onclick={() => change({ [ribbonKey]: c })}></button>
+            {/each}
+            <button type="button" class="well small" class:on={!RIBBONS.some(([c]) => c === st[ribbonKey])} title="Any color" aria-label="Any ribbon color" onclick={(e) => picker(e, st[ribbonKey], (c) => change({ [ribbonKey]: c }, { soon: true }))}></button>
+          </div></div></div>
         </div>
         <div class="sgroup"><h3>Bookcase</h3>
-          <p class="sdesc">Each part on its own, in the shelves’ wood: the shelves the books stand on, the sides, a top and a back panel. With all of them off, the books stand on their own.</p>
+          <p class="sdesc">Which parts of the bookcase to build, in the shelves’ wood.</p>
           {#each PARTS as [k, n]}
             <div class="srow">{@render name(n)}<div class="sctl">{@render sw(st.caseParts[k], (on) => change({ caseParts: { ...st.caseParts, [k]: on } }), n)}</div></div>
           {/each}
@@ -268,17 +280,11 @@
           <div class="srow">{@render name("Binding details", "Hardcovers show their boards, cloth its weave, leather its bands and gilt")}<div class="sctl">{@render sw(st.bindings, (on) => change({ bindings: on }), "Binding details")}</div></div>
           <div class="srow">{@render name("Size")}<div class="sctl"><div class="range"><input type="range" min="70" max="130" step="5" aria-label="Size" value={st.bookSize} oninput={(e) => change({ bookSize: +e.target.value }, { soon: true })}><output>{st.bookSize}%</output></div></div></div>
           <div class="srow">{@render name("Spine height", "The tallest a spine may stand")}<div class="sctl"><div class="range"><input type="range" min="70" max="100" step="5" aria-label="Spine height" value={st.maxHeight} oninput={(e) => change({ maxHeight: +e.target.value }, { soon: true })}><output>{st.maxHeight >= 100 ? "No limit" : st.maxHeight + "%"}</output></div></div></div>
-          <div class="srow stack">{@render name("Ribbon", "On the books you’re reading")}<div class="sctl"><div class="swatches">
-            {#each RIBBONS as [c, n]}
-              <button type="button" title={n} aria-label={n} style="--sw: {c}" aria-pressed={st.ribbon === c} onclick={() => change({ ribbon: c })}></button>
-            {/each}
-            <button type="button" class="well small" class:on={!RIBBONS.some(([c]) => c === st.ribbon)} title="Any color" aria-label="Any ribbon color" onclick={(e) => picker(e, st.ribbon, (c) => change({ ribbon: c }, { soon: true }))}></button>
-          </div></div></div>
         </div>
 
       {:else if section === "site"}
         <div class="sgroup"><h3>Header</h3>
-          <div class="srow">{@render name("Name")}<div class="sctl"><input class="inp" autocomplete="off" aria-label="Name" value={st.name} oninput={(e) => change({ name: e.target.value }, { soon: true })}></div></div>
+          <div class="srow">{@render name("Name")}<div class="sctl"><input class="inp" autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore data-form-type="other" aria-label="Name" value={st.name} oninput={(e) => change({ name: e.target.value }, { soon: true })}></div></div>
           <div class="srow">{@render name("Icon")}<div class="sctl iconpick">
             <img src={iconURL(st, 192)} alt="The library’s icon">
             <label class="btn sm">{st.icon ? "Use another" : "Use your own"}<input type="file" accept="image/*" hidden onchange={(e) => { pickIcon(e.target.files[0]); e.target.value = ""; }}></label>
@@ -288,13 +294,12 @@
         </div>
         <div class="sgroup"><h3>Links under the name</h3>
           {#each Object.entries(NETS) as [k, n]}
-            <div class="srow">{@render name(n.name)}<div class="sctl"><input class="inp" class:bad={badSocial[k]} aria-label={n.name} placeholder={k === "goodreads" ? "Profile link" : k === "instagram" ? "@username" : "Username"} autocomplete="off" spellcheck="false" bind:value={social[k]} oninput={() => typedSocial(k)}></div></div>
+            <div class="srow">{@render name(n.name)}<div class="sctl"><input class="inp" class:bad={badSocial[k]} data-1p-ignore data-lpignore="true" data-bwignore data-form-type="other" aria-label={n.name} placeholder={k === "goodreads" ? "Profile link" : k === "instagram" ? "@username" : "Username"} autocomplete="off" spellcheck="false" bind:value={social[k]} oninput={() => typedSocial(k)}></div></div>
           {/each}
         </div>
         <div class="sgroup"><h3>Footer</h3>
           <div class="srow full"><div class="sctl">
-            <textarea class="inp" rows="3" aria-label="Footer text" value={st.footerText} oninput={(e) => change({ footerText: e.target.value }, { soon: true })}></textarea>
-            {#if st.footerText !== ORIGINAL_FOOTER}<button type="button" class="btn sm" onclick={() => change({ footerText: ORIGINAL_FOOTER })}>Use the original</button>{/if}
+            <textarea class="inp" rows="3" data-1p-ignore data-lpignore="true" data-bwignore data-form-type="other" aria-label="Footer text" placeholder="A line under the shelves" value={st.footerText} oninput={(e) => change({ footerText: e.target.value }, { soon: true })}></textarea>
           </div></div>
           <div class="srow">{@render name("Show the footer")}<div class="sctl">{@render sw(st.footer, (on) => change({ footer: on }), "Show the footer")}</div></div>
         </div>
@@ -381,6 +386,10 @@
         </div>
 
       {:else if section === "about"}
+        <div class="sgroup"><h3>Account</h3>
+          <div class="srow">{@render name(`Signed in as ${ui.user}`)}<div class="sctl"><button type="button" class="btn sm" onclick={out}>Sign out</button></div></div>
+          <p class="fine">To change the password, change <span class="tag">BOOKSHELF_ADMIN_PASSWORD</span> where Bookshelf runs (or run <span class="tag">bookshelf set-password</span> again) and restart it.</p>
+        </div>
         <div class="sgroup"><h3>Version</h3>
           {#if ui.update?.dev}
             <div class="srow">{@render name(`Bookshelf ${ui.update.version}`, "A development build, so it isn’t checked for updates")}<div class="sctl"></div></div>
@@ -404,9 +413,9 @@
             {/if}
           {/if}
         </div>
-        <div class="sgroup"><h3>Account</h3>
-          <div class="srow">{@render name(`Signed in as ${ui.user}`)}<div class="sctl"><button type="button" class="btn sm" onclick={out}>Sign out</button></div></div>
-          <p class="fine">To change the password, change <span class="tag">BOOKSHELF_ADMIN_PASSWORD</span> where Bookshelf runs (or run <span class="tag">bookshelf set-password</span> again) and restart it.</p>
+        <div class="sgroup"><h3>Bookshelf</h3>
+          <p class="credit">Bookshelf is made by Abdullah Aloğlu. Its code is free to read, change and share.</p>
+          <p class="credit-links"><a class="link" href="https://alog.lu" target="_blank" rel="noopener">Website</a><a class="link" href="https://github.com/aloglu/bookshelf" target="_blank" rel="noopener">GitHub</a></p>
         </div>
       {/if}
       </div>

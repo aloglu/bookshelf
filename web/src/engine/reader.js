@@ -1,7 +1,7 @@
 // The open book: the flight out of the shelf (or up from a cover on the stats page), the title page,
 // stepping between books, putting it back. Its markup is made here and only ever filled in, never
 // re-rendered, so nothing redraws text on a layer while it flies.
-import { $, EASE, BINDING_NAMES, bestCover, bindingOf, cover, coverImg, isPhone, lastName, motionOK, root, settled, tone, touch } from "./model.js";
+import { $, EASE, BINDING_NAMES, DIM, dimIn, dimOut, bestCover, bindingOf, cover, coverImg, isPhone, lastName, motionOK, root, settled, tone, touch } from "./model.js";
 import { onResize, scale, setPeek, slots, view, visibleBooks } from "./shelf.js";
 import { pickColor } from "../lib/colorpicker.js";
 
@@ -268,7 +268,7 @@ function coverPose(b, img) {
   if (!r.height) return null;
   return pose(r.left + r.width / 2 - (carry.offsetLeft + size.W / 2), r.top + r.height / 2 - (carry.offsetTop + size.H / 2), 0, r.height / size.H, restBack(b), 0, 0);
 }
-let lastInput = "pointer";
+let lastInput = "pointer", pageAt = 0;
 export async function openBook(b, from) {
   if (busy || !reader.hidden) return;
   busy = true; returnFocus = from || null;
@@ -277,7 +277,7 @@ export async function openBook(b, from) {
   setPeek(null);
   const solo = root.dataset.view === "stats";
   reader.classList.toggle("solo", solo);
-  reader.hidden = false;
+  reader.hidden = false; pageAt = scrollY;
   measure(); fill(b);
   hooks.opened(b);
   const p = solo ? null : shelfPose(b);
@@ -297,7 +297,7 @@ export async function openBook(b, from) {
     // The spine leaves the shelf looking exactly as it did there (lit if hovered, faded if hidden), then settles.
     const swing = lid.animate([{ transform: "rotateY(0deg)" }, { transform: "rotateY(-180deg)" }], open);
     const anims = [
-      scrim.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 600, easing: "ease-out", fill: "backwards" }),
+      dimIn(scrim),
       tome.animate(frames, { duration: fly, fill: "backwards" }),
       stage.animate(clips, { duration: fly, fill: "backwards" }),
       swing,
@@ -314,7 +314,7 @@ export async function openBook(b, from) {
     const rise = 520, open = { duration: 560, delay: rise * .75, easing: "cubic-bezier(.45, 0, .2, 1)", fill: "backwards" };
     const swing = lid.animate([{ transform: "rotateY(0deg)" }, { transform: "rotateY(-180deg)" }], open);
     const anims = [
-      scrim.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 500, easing: "ease-out", fill: "backwards" }),
+      dimIn(scrim),
       tome.animate([{ transform: fromCover }, { transform: rest(b) }], { duration: rise, easing: "cubic-bezier(.32, .72, 0, 1)", fill: "backwards" }),
       stage.animate([{ perspectiveOrigin: coverEye(soloFrom) }, { perspectiveOrigin: restEye() }], { duration: rise, easing: "cubic-bezier(.32, .72, 0, 1)", fill: "backwards" }),
       swing,
@@ -356,6 +356,9 @@ export async function closeBook() {
   if (!isOpen()) return;
   if (busy) { if (flight && !flight.rewinding) rewind(); return; }
   busy = true; flat(false);
+  // To show a field above the keyboard Safari may have scrolled the page beneath; the book goes home to where
+  // its shelf stood when it was taken out.
+  if (scrollY !== pageAt) scrollTo({ top: pageAt, behavior: "instant" });
   const b = current, el = soloFrom ? null : slots.get(b.key);
   if (el?.isConnected) {
     const r = el.getBoundingClientRect();
@@ -380,7 +383,7 @@ export async function closeBook() {
       stage.animate(clips.reverse(), { duration: fly, delay: wait, fill: "forwards" });
       if (b.hidden) $("t-spine").animate([{ filter: "none" }, { filter: faded() }], { duration: fly * .35, delay: wait + fly * .65, fill: "forwards" });
     } else back = tome.animate([{ opacity: 1 }, { opacity: 0, transform: rest(b) + " scale(.9)" }], { duration: 260, delay: wait, easing: "ease-in", fill: "forwards" });
-    scrim.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 560, delay: wait + 100, easing: "ease-in-out", fill: "forwards" });
+    dimOut(scrim, wait + 100);
     await settled(back, wait + (toCover ? 480 : p ? fly : 260));
   }
   putAway(b);
@@ -421,7 +424,7 @@ export async function flyIn(b, relayout) {
   lid.style.transform = "rotateY(0deg)"; carry.style.transform = "translateX(0)";
   bar.style.visibility = "hidden";
   if (motionOK()) {
-    scrim.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 260, fill: "both" });
+    dimIn(scrim);
     tome.animate([{ opacity: 0, transform: `${rest(b)} translateY(26px)` }, { opacity: 1, transform: `${rest(b)} translateY(0px)` }], { duration: 420, easing: EASE });
     await new Promise((res) => setTimeout(res, 700));   // let the shelf finish making room before aiming at the gap
     const p = shelfPose(b);
@@ -429,7 +432,7 @@ export async function flyIn(b, relayout) {
       const { frames, clips } = flightPath(p, b, 0);
       const land = tome.animate(frames.reverse(), { duration: 820, fill: "forwards" });
       stage.animate(clips.reverse(), { duration: 820, fill: "forwards" });
-      scrim.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 560, delay: 260, easing: "ease-in-out", fill: "forwards" });
+      dimOut(scrim, 260);
       await settled(land, 820);
     }
   }
@@ -454,12 +457,13 @@ function zoom() {
   const from = `translate(${r.left - (innerWidth - W) / 2}px, ${r.top - (innerHeight - H) / 2}px) scale(${r.width / W})`;
   const opts = { duration: motionOK() ? 320 : 0, easing: EASE };
   big.animate([{ transform: from }, { transform: "none" }], opts);
-  sc.animate([{ opacity: 0 }, { opacity: 1 }], opts);
+  dimIn(sc);
   const back = async () => {
     big.removeEventListener("click", back); sc.removeEventListener("click", back);
-    sc.animate([{ opacity: 1 }, { opacity: 0 }], { ...opts, fill: "forwards" });
+    const fade = dimOut(sc);
     await settled(big.animate([{ transform: "none" }, { transform: from }], { ...opts, fill: "forwards" }), opts.duration);
-    big.remove(); sc.remove(); th.style.visibility = "";
+    big.remove(); th.style.visibility = "";
+    await settled(fade, DIM.out); sc.remove();
   };
   big.addEventListener("click", back); sc.addEventListener("click", back);
   unzoom = back;

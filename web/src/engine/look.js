@@ -16,7 +16,8 @@ export function applyLook(st) {
   const parts = ["sides", "top", "back"].filter((k) => st.caseParts[k]);
   if (parts.length) root.dataset.case = parts.join(" "); else delete root.dataset.case;
   root.toggleAttribute("data-noshelves", !st.caseParts.shelves);
-  root.style.setProperty("--ribbon", st.ribbon);
+  root.style.setProperty("--ribbon-day", st.ribbonDay);
+  root.style.setProperty("--ribbon-night", st.ribbonNight);
   root.toggleAttribute("data-plain", !st.bindings);
 }
 

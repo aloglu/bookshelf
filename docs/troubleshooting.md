@@ -83,11 +83,12 @@ Browsers let a page use the camera only on a secure (`https://`) address or on
 the computer Bookshelf runs on. Type the ISBN instead, or give Bookshelf an
 https address: see [Putting your shelf online](remote-access.md).
 
-**Looking up an ISBN finds nothing, or "The book sources couldn't be reached".**
+**Looking up an ISBN finds nothing, or says "The book sources couldn't be reached" or "are busy".**
 Bookshelf asks Open Library first, then Google Books. Some books (many
 non-English editions among them) are in neither; enter those by hand. Google
-also allows only a few lookups a day without a key: if lookups often fail, set
-an optional `BOOKSHELF_GOOGLE_API_KEY` (free from the
+also allows only a few dozen lookups at a time without a key, and then says it
+is busy: wait a minute and try again. If lookups often fail, set an optional
+`BOOKSHELF_GOOGLE_API_KEY` (free from the
 [Google Cloud console](https://console.cloud.google.com/apis/library/books.googleapis.com)).
 The computer running Bookshelf needs internet access for lookups.
 

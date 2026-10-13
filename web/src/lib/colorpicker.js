@@ -10,7 +10,7 @@ export function pickColor(anchor, value, { input, done } = {}) {
   const el = document.createElement("div");
   el.className = "picker"; el.setAttribute("role", "dialog"); el.setAttribute("aria-label", "Choose a color");
   el.innerHTML = `<div class="pk-sv"><i class="pk-knob"></i></div><div class="pk-hue"><i class="pk-knob"></i></div>
-    <div class="pk-foot"><span class="pk-chip"></span><input class="inp" maxlength="7" spellcheck="false" autocomplete="off" aria-label="Hex code"></div>`;
+    <div class="pk-foot"><span class="pk-chip"></span><input class="inp" maxlength="7" spellcheck="false" autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore data-form-type="other" aria-label="Hex code"></div>`;
   document.body.append(el);
   const [svEl, hueEl] = el.querySelectorAll(".pk-sv, .pk-hue"), field = el.querySelector("input");
   const show = () => {

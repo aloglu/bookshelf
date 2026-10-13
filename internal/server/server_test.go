@@ -489,7 +489,8 @@ func TestAMarkdownName(t *testing.T) {
 		t.Fatalf("a name of only formatting: %d", code)
 	}
 	_, lib := e.do(e.visitor, "GET", "/api/library", nil)
-	if st := lib["settings"].(map[string]any); st["footer"] != true || !strings.HasPrefix(st["footerText"].(string), "Made by [alog.lu]") || st["sortDesc"] != false {
+	// A new library has no footer until the owner writes one.
+	if st := lib["settings"].(map[string]any); st["footer"] != false || st["footerText"] != "" || st["sortDesc"] != false {
 		t.Fatalf("visitors' settings: %v", st)
 	}
 }

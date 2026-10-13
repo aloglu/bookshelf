@@ -19,6 +19,10 @@ import (
 // ErrNotFound means neither source knows the ISBN.
 var ErrNotFound = errors.New("Open Library and Google Books don’t know this ISBN")
 
+// ErrBusy means a source that might know the ISBN asked to be left alone for a while (Google Books does this
+// after a few dozen lookups without an API key).
+var ErrBusy = errors.New("the book sources are busy")
+
 // Draft is what a source says about a book.
 type Draft struct {
 	Title      string `json:"title"`
@@ -69,6 +73,9 @@ func (c *Client) Find(ctx context.Context, isbn string) (Draft, error) {
 	if errors.Is(err, ErrNotFound) && errors.Is(gerr, ErrNotFound) {
 		return Draft{}, ErrNotFound
 	}
+	if (errors.Is(err, ErrBusy) || errors.Is(err, ErrNotFound)) && (errors.Is(gerr, ErrBusy) || errors.Is(gerr, ErrNotFound)) {
+		return Draft{}, ErrBusy
+	}
 	return Draft{}, fmt.Errorf("the book sources couldn’t be reached: %v; %v", err, gerr)
 }
 
@@ -86,6 +93,9 @@ func (c *Client) get(ctx context.Context, u string, v any) error {
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusNotFound {
 		return ErrNotFound
+	}
+	if resp.StatusCode == http.StatusTooManyRequests {
+		return ErrBusy
 	}
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("%s answered %s", req.URL.Host, resp.Status)

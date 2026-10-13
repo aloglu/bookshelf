@@ -281,15 +281,15 @@ func TestSettingsAreValidated(t *testing.T) {
 	}
 }
 
-// Settings saved before 2.0.5 had one bookcase switch over the parts: off, none of them showed. They open
-// looking the same, with the shelves still under the books.
+// Settings saved before 2.0.5 had one bookcase switch over the parts (off, none of them showed) and one
+// ribbon color. They open looking the same, with the shelves still under the books.
 func TestOlderBookcaseSettingsOpenTheSame(t *testing.T) {
 	for _, c := range []struct {
 		saved string
 		want  CaseParts
 	}{
 		{`{"name":"Ours","bookcase":false,"caseParts":{"sides":true,"top":true,"back":true}}`, CaseParts{Shelves: true}},
-		{`{"name":"Ours","bookcase":true,"caseParts":{"sides":true,"top":false,"back":true}}`, CaseParts{Shelves: true, Sides: true, Back: true}},
+		{`{"name":"Ours","bookcase":true,"caseParts":{"sides":true,"top":false,"back":true},"ribbon":"#23365e"}`, CaseParts{Shelves: true, Sides: true, Back: true}},
 	} {
 		dir := t.TempDir()
 		s, err := Open(dir)
@@ -306,6 +306,14 @@ func TestOlderBookcaseSettingsOpenTheSame(t *testing.T) {
 		st := s.Snapshot().Settings
 		if st.CaseParts != c.want || st.Bookcase != nil || st.Name != "Ours" {
 			t.Fatalf("%s opened as %+v (bookcase %v)", c.saved, st.CaseParts, st.Bookcase)
+		}
+		// The one ribbon color, where there was one, is the day's and the evening's; otherwise the default.
+		ribbon := "#8e2532"
+		if strings.Contains(c.saved, "ribbon") {
+			ribbon = "#23365e"
+		}
+		if st.RibbonDay != ribbon || st.RibbonNight != ribbon || st.Ribbon != "" {
+			t.Fatalf("%s: ribbons %q and %q (old %q)", c.saved, st.RibbonDay, st.RibbonNight, st.Ribbon)
 		}
 		// Saving again keeps the parts and drops the old switch.
 		if st, err = s.UpdateSettings(ctx, func(st *Settings) { st.CaseParts.Top = true }); err != nil || st.Bookcase != nil || !st.CaseParts.Top || st.CaseParts.Shelves != c.want.Shelves {

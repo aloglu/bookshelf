@@ -105,22 +105,25 @@ side; on a phone, the list of sections comes first and **‹** takes you back to
 it. Every change shows at once and saves itself.
 
 - **Shelf:** a preview of your shelf, drawn from your own books, with **Day**
-  and **Evening** above it: the paint and wood you choose are for the one picked
-  there.
-  - **Paint and wood:** a paint for the wall, or any color of your own from the
-    square at the end of the row; and the wood of the shelves.
-  - **Bookcase:** **Shelves** (the boards the books stand on), **Sides**, a
-    **Top** and a **Back panel**, each on its own, all in the shelves' wood.
-    With sides and no shelves, a base board closes the bottom; with none of
-    them, the books stand in rows on their own.
+  and **Evening** above it: the paint, wood and ribbon you choose are for the
+  one picked there. The preview stays in sight as you scroll to the settings
+  below it.
+  - **Paint, wood and ribbon:** a paint for the wall, or any color of your own
+    from the rainbow at the end of the row; the wood of the shelves; and the
+    color of the ribbon on the books you're reading.
+  - **Bookcase:** which parts to build: **Shelves** (the boards the books
+    stand on), **Sides**, a **Top** and a **Back panel**, each on its own, all
+    in the shelves' wood. With sides and no shelves, a base board closes the
+    bottom; with none of them, the books stand in rows on their own.
   - **Books:** **Binding details** (hardcovers show their boards, cloth its
-    weave, leather its bands and gilt), the size of the books, the tallest a
-    spine may stand, and the reading ribbon's color.
+    weave, leather its bands and gilt), the size of the books, and the tallest
+    a spine may stand.
 - **Header and footer:** the library's name, its icon (Bookshelf's, or **Use
   your own** with any picture, cropped to a square) and whether it stands
   beside the name; your Goodreads, The StoryGraph and Instagram, shown under
-  it; and the line under the shelves, shown or not (**Use the original** puts
-  Bookshelf's back). The name and the footer take Markdown:
+  it; and a line of your own under the shelves (empty and hidden until you
+  write one and turn on **Show the footer**). The name and the footer take
+  Markdown:
   `[Our books](https://example.com)` makes the name a link somewhere else (the
   icon still leads home; the browser tab shows just the words), and the footer
   can have links, bold, italic and a new line for a new line.
@@ -133,5 +136,6 @@ it. Every change shows at once and saves itself.
   **Search links** on it.
 - **Your library:** bring books in from a file, take them out as CSV, JSON or a
   full archive, and backups. See [Backups](backups.md).
-- **Bookshelf:** the version you're running and whether a newer one is out (see
-  [Updating](updating.md)), who is signed in, and **Sign out**.
+- **About:** who made Bookshelf and where its code is, the version you're
+  running and whether a newer one is out (see [Updating](updating.md)), who is
+  signed in, and **Sign out**.

@@ -22,7 +22,7 @@
   <div class="modal-scrim" data-close></div>
   <section class="card menu-sheet" role="dialog" aria-modal="true" aria-label="Menu">
     <div class="lab">Sort by<div class="seg" use:pill>
-      <SortButtons picked={() => hidePanel(wrap)} />
+      <SortButtons />
     </div></div>
     <div class="pm-list">
       <button type="button" onclick={then(flip)}><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/></svg><span>{dark ? "Switch to day" : "Switch to evening"}</span></button>

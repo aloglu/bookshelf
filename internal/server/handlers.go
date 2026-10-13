@@ -295,9 +295,11 @@ func (s *Server) lookup(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case errors.Is(err, lookup.ErrNotFound):
 		fail(w, http.StatusNotFound, err.Error())
+	case errors.Is(err, lookup.ErrBusy):
+		fail(w, http.StatusServiceUnavailable, "The book sources are busy. Try again in a minute.")
 	case err != nil:
 		s.Log.Warn("lookup failed", "isbn", n, "err", err)
-		fail(w, http.StatusBadGateway, "The book sources couldn’t be reached. Try again, or enter the details by hand.")
+		fail(w, http.StatusBadGateway, "The book sources couldn’t be reached. Try again in a moment.")
 	default:
 		d.Binding = store.NormalizeBinding(d.Binding)
 		writeJSON(w, http.StatusOK, d)

@@ -14,6 +14,11 @@ export const settled = (anim, ms) => new Promise((resolve) => {
   let done = false; const go = () => { if (!done) { done = true; resolve(); } };
   anim.finished.then(go, go); setTimeout(go, ms + 80);
 });
+// The dimming behind every layer (the open book, the cards, a cover held up): one color (--scrim), and one way
+// of coming and going, in slowly and out a little slower, whatever the layer does meanwhile.
+export const DIM = { in: 500, out: 560 };
+export const dimIn = (el, delay = 0) => el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: motionOK() ? DIM.in : 0, delay, easing: "ease-out", fill: "backwards" });
+export const dimOut = (el, delay = 0) => el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: motionOK() ? DIM.out : 0, delay, easing: "ease-in-out", fill: "forwards" });
 export const fmt = (n) => (n ?? 0).toLocaleString("en-US");
 export const plural = (n, unit) => `${fmt(n)} ${unit}${n === 1 ? "" : "s"}`;
 
