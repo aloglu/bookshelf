@@ -8,7 +8,8 @@
   import { toast } from "../lib/toast.js";
   import { inline, hasLink } from "../lib/markdown.js";
 
-  let { setView, openShelved, onSearch, onSignIn, onAdd, onSettings, onMenu } = $props();
+  let { setView, openShelved, onSearch, onAdd, onMenu } = $props();
+  const toggle = (v) => setView(ui.view === v ? "shelf" : v);
 
   const NETS = { goodreads: "Goodreads", storygraph: "The StoryGraph", instagram: "Instagram" };
   const links = $derived(Object.keys(NETS).filter((k) => data.library?.settings.social?.[k]).map((k) => ({ name: NETS[k], href: data.library.settings.social[k] })));
@@ -42,8 +43,11 @@
     return () => { document.removeEventListener("pointerdown", away); removeEventListener("scroll", scrolled); };
   });
 
-  // Search folds into an icon; it opens on click or tap, and Esc clears it, then folds it away.
-  let q = $state("");
+  // Search folds into an icon; it opens on click or tap, and Esc clears it, then folds it away. On a wide
+  // screen it opens across the tools, from the icon to their end (wherever the row has wrapped).
+  let q = $state(""), tools, reach = $state(null);
+  const measure = () => { const s = tools.querySelector(".search").getBoundingClientRect(); reach = tools.getBoundingClientRect().right - s.left; };
+  $effect(() => { addEventListener("resize", measure); return () => removeEventListener("resize", measure); });
   function typed() { setQuery(q); onSearch(); }
   function searchKeys(e) {
     if (e.key === "Enter" && !q) { e.preventDefault(); e.target.blur(); return; }   // nothing to look for: fold it away
@@ -70,24 +74,33 @@
       <h1><a href="/" class="home" id="site-title" onclick={home}>{@render icon()}<span>{@html inline(ui.nameMd)}</span></a></h1>
     {/if}
   </div>
-  <div class="tools">
-    <div class="search" class:has-query={!!q} id="search">
-      <label class="field" title="Search">
-        <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></svg>
-        <input id="q" type="search" placeholder="Title, author, publisher, year" autocomplete="off" aria-label="Search books" bind:value={q} oninput={typed} onkeydown={searchKeys}>
-      </label>
+  <div class="tools" bind:this={tools}>
+    <div class="group">
+      <div class="search" class:has-query={!!q} id="search" style:--reach={reach && `${reach}px`} onfocusin={measure}>
+        <label class="field" title="Search">
+          <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></svg>
+          <input id="q" type="search" placeholder="Title, author, publisher, year" autocomplete="off" aria-label="Search books" bind:value={q} oninput={typed} onkeydown={searchKeys}>
+        </label>
+      </div>
+      <div class="seg sort-seg" id="sort" role="group" aria-label="Sort by" use:pill>
+        <SortButtons />
+      </div>
     </div>
-    <div class="seg sort-seg" id="sort" role="group" aria-label="Sort by" use:pill>
-      <SortButtons />
+    <div class="group">
+      <button type="button" class="btn icon" id="mode" aria-label="Switch between day and evening" onclick={flip}><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/></svg></button>
+      <button type="button" class="btn icon stats-btn" id="stats-btn" aria-label="Statistics" title="Statistics" aria-pressed={ui.view === "stats"} onclick={() => toggle("stats")}><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V11M12 20V5M19 20v-6M3 20h18"/></svg></button>
+      {#if ui.owner || (data.library?.settings.notes && data.library?.settings.timeline)}
+        <button type="button" class="btn icon" id="allnotes-btn" aria-label="All notes" title="All notes" aria-pressed={ui.view === "allnotes"} onclick={() => toggle("allnotes")}><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
+      {/if}
     </div>
-    <button type="button" class="btn icon" id="mode" aria-label="Switch between day and evening" onclick={flip}><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/></svg></button>
-    <button type="button" class="btn icon stats-btn" id="stats-btn" aria-label="Statistics" title="Statistics" aria-pressed={ui.view === "stats"} onclick={() => setView(ui.view === "stats" ? "shelf" : "stats")}><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V11M12 20V5M19 20v-6M3 20h18"/></svg></button>
-    <button type="button" class="btn owner-only" id="select" aria-pressed={ui.selecting} onclick={() => setSelecting(!ui.selecting)}><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg>Select</button>
-    <button type="button" class="btn primary owner-only" id="add" onclick={onAdd}><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Add book</button>
-    <button type="button" class="btn icon owner-only" class:dot={ui.update?.newer} id="settings-btn" aria-label={ui.update?.newer ? "Settings (a new version is out)" : "Settings"} title="Settings" onclick={onSettings}><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg></button>
-    <button type="button" class="btn icon owner-only" id="signout-btn" aria-label="Sign out" title="Sign out" onclick={out}><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4M10 16l-4-4 4-4M6 12h10"/></svg></button>
-    <button type="button" class="btn icon phone-only" class:dot={ui.owner && ui.update?.newer} id="menu-btn" aria-label="Menu" title="Menu" aria-haspopup="dialog" onclick={onMenu}><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
-    <button type="button" class="btn icon visitor-only" id="signin-btn" aria-label="Sign in" title="Sign in" onclick={onSignIn}><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4M14 16l4-4-4-4M18 12H8"/></svg></button>
+    <div class="group">
+      <button type="button" class="btn icon owner-only" id="select" aria-label="Select books" title="Select books" aria-pressed={ui.selecting} onclick={() => setSelecting(!ui.selecting)}><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg></button>
+      <button type="button" class="btn icon primary owner-only" id="add" aria-label="Add book" title="Add book" onclick={onAdd}><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+      <button type="button" class="btn icon owner-only" class:dot={ui.update?.newer} id="settings-btn" aria-label={ui.update?.newer ? "Settings (a new version is out)" : "Settings"} title="Settings" aria-pressed={ui.view === "settings"} onclick={() => toggle("settings")}><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg></button>
+      <button type="button" class="btn icon owner-only" id="signout-btn" aria-label="Sign out" title="Sign out" onclick={out}><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4M10 16l-4-4 4-4M6 12h10"/></svg></button>
+      <button type="button" class="btn icon phone-only" class:dot={ui.owner && ui.update?.newer} id="menu-btn" aria-label="Menu" title="Menu" aria-haspopup="dialog" onclick={onMenu}><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+      <button type="button" class="btn icon visitor-only" id="signin-btn" aria-label="Sign in" title="Sign in" aria-pressed={ui.view === "signin"} onclick={() => toggle("signin")}><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4M14 16l4-4-4-4M18 12H8"/></svg></button>
+    </div>
   </div>
   <button type="button" class="nowreading" id="nowreading" aria-haspopup="true" aria-expanded={menuOpen} hidden={!now.length} bind:this={line} onclick={clickNow}>
     <span class="fan">{#each now.slice(0, 3) as b (b.key)}<img alt="" src={b.thumb}>{/each}</span>
@@ -95,7 +108,7 @@
   </button>
   <div class="nr-menu" id="nr-menu" role="menu" tabindex="-1" aria-label="Now reading" hidden={!menuOpen} bind:this={menu} style:top="{menuPos.top}px" style:left="{menuPos.left}px" onkeydown={menuKeys}>
     {#each now as b (b.key)}
-      <button type="button" role="menuitem" onclick={() => { menuOpen = false; openShelved(b); }}><img alt="" src={b.thumb}><span><b>{b.title}</b><small>{b.author} · {pct(b)}%</small></span></button>
+      <button type="button" role="menuitem" onclick={() => { menuOpen = false; openShelved(b); }}><img alt="" src={b.thumb}><span><b>{b.title}</b><small>{b.author}{#if ui.owner || data.library?.settings.showProgress} · {pct(b)}%{/if}</small></span></button>
     {/each}
   </div>
   <p class="elsewhere" id="elsewhere" hidden={!links.length}>

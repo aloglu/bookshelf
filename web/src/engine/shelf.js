@@ -106,9 +106,14 @@ function slotsOnScreen() {
   }
   return out;
 }
+// The shelf out of sight (another page is showing) isn't laid out (at no width, every book would stand on
+// a shelf of its own); it is laid out as it comes back.
+let stale = false;
 // Sort and search move books with FLIP: measure, re-pack, then animate only what is on screen.
 export function relayout(animate = true) {
   if (!shelvesEl || !view.settings) return;
+  if (!shelvesEl.clientWidth) { stale = true; return; }
+  stale = false;
   setPeek(null);
   const before = new Map();
   if (animate && motionOK()) for (const el of slotsOnScreen()) before.set(el, el.getBoundingClientRect());
@@ -182,10 +187,12 @@ export function mountShelves(el) {
   });
   let lastWidth = 0;
   new ResizeObserver(() => {
-    if (el.clientWidth === lastWidth) return;
-    lastWidth = el.clientWidth;
+    const w = el.clientWidth;
+    if (!w || (w === lastWidth && !stale)) return;   // hidden, or nothing changed
+    const resized = w !== lastWidth;
+    lastWidth = w;
     relayout(false);
-    onResize.forEach((f) => f());
+    if (resized) onResize.forEach((f) => f());
   }).observe(el);
 }
 export const onResize = [];

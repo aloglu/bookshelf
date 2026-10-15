@@ -16,7 +16,7 @@
   --shade: rgba(40, 24, 10, .34); --shadow: rgba(40, 24, 10, .42);
   /* Paper stays paper in both modes; the evening sheet is just a little dimmer. */
   --paper: #f7f1e5; --paper-ink: #2a2018; --paper-muted: #7a6956; --paper-line: rgba(42, 32, 24, .15); --paper-accent: #2f4f3c;
-  --display: "Fraunces Variable", "Iowan Old Style", Georgia, serif;
+  --display: "Source Serif 4 Variable", "Iowan Old Style", Georgia, serif;
   --ui: "Instrument Sans Variable", "Segoe UI", system-ui, sans-serif;
   --ease: cubic-bezier(.22, 1, .36, 1);
   --faded: saturate(.15) contrast(.7) brightness(1.12);
@@ -93,7 +93,7 @@ header .elsewhere { grid-area: links; justify-self: end; align-self: center; }
 /* Settings: the icon as it is now, and what can change it. */
 .iconpick { display: flex; align-items: center; gap: 14px; }
 .iconpick img { width: 56px; height: 56px; border-radius: 12px; object-fit: cover; box-shadow: 0 0 0 1px var(--line); }
-.brand h1 { margin: 0; font-family: var(--display); font-weight: 600; font-size: clamp(2.1rem, 5vw, 3.1rem); line-height: 1; letter-spacing: -.02em; font-variation-settings: "opsz" 120; text-wrap: balance; }
+.brand h1 { margin: 0; font-family: var(--display); font-weight: 600; font-size: clamp(2.1rem, 5vw, 3.1rem); line-height: 1; letter-spacing: -.02em; text-wrap: balance; }
 
 /* Who made Bookshelf, and where its code is: quiet, under the shelves. */
 .credits { margin: 44px 0 28px; text-align: center; color: var(--muted); font-size: .8rem; }
@@ -121,17 +121,24 @@ header .elsewhere { grid-area: links; justify-self: end; align-self: center; }
 .elsewhere a { color: var(--muted); text-decoration: none; }
 .elsewhere a::after { content: " ↗"; font-size: .85em; }
 @media (hover: hover) { .elsewhere a:hover { color: var(--ink); } }
-.tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+/* The tools in three groups, set apart by wider gaps and kept whole when the row wraps: finding (search,
+   sort), looking (day or evening, statistics, notes), and the owner's own (or signing in). */
+.tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; }
+.tools .group { display: flex; align-items: center; gap: 8px; }
 .field { display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 14px; width: 250px; border-radius: 8px; background: var(--surface); border: 1px solid var(--line); color: var(--muted); box-shadow: inset 0 1px 2px rgba(0,0,0,.08); }
 .field:focus-within { border-color: color-mix(in oklab, var(--accent) 60%, transparent); }
-/* Search folds into an icon at the head of the tools. Hovered, tapped, focused, or holding a query, the field
-   grows out of the icon (on a click or tap, never on hover) as an overlay toward the free space beside it (leftward on a wide screen, across
-   the row on a phone), so nothing else in the row ever moves or wraps. It grows by its width, not a
+/* Search folds into an icon at the head of the tools. Clicked or tapped (never on hover), or holding a query,
+   the field grows out of the icon as an overlay, so nothing else in the row moves or wraps: on a wide screen
+   rightward across the tools, which fade out until the search is cleared or closed (the title is never
+   covered); on a phone leftward over the title, beside Add book and the menu. It grows by its width, not a
    transform, so its text never re-settles. */
+.tools { justify-self: end; }
 .search { position: relative; flex: none; width: 40px; height: 40px; }
-.search .field { position: absolute; right: 0; top: 0; z-index: 4; width: 40px; padding: 0 10px; overflow: hidden; cursor: pointer; transition: width .26s var(--ease), border-color .2s; }
+.search .field { position: absolute; left: 0; top: 0; z-index: 4; width: 40px; padding: 0 10px; overflow: hidden; cursor: pointer; transition: width .26s var(--ease), border-color .2s; }
 .search .field .i { flex: none; }
-.search .field:focus-within, .search.has-query .field { width: 270px; cursor: text; }
+.search .field:focus-within, .search.has-query .field { width: var(--reach, 270px); cursor: text; }   /* --reach: from the icon to the tools' end */
+.tools .group > :not(.search) { transition: opacity .2s var(--ease), visibility 0s; }
+.tools:has(.search :focus-within, .search.has-query) .group > :not(.search) { opacity: 0; visibility: hidden; transition: opacity .2s var(--ease), visibility 0s .2s; }
 :root:not([data-owner])[data-nostats] .stats-btn { display: none; }
 .btn.icon[aria-pressed="true"] { background: color-mix(in oklab, var(--accent) 16%, var(--surface)); border-color: color-mix(in oklab, var(--accent) 40%, transparent); }
 .field input { all: unset; flex: 1; min-width: 0; color: var(--ink); font-size: .92rem; }
@@ -235,11 +242,12 @@ a.btn { color: var(--ink); text-decoration: none; }
 /* One accent hue for every chart (a single series each, so no legend); hairline grids; numbers in the sans.
    Every chart has a Table view, and hover only repeats what the axis or the table already gives. */
 :root[data-view="stats"] .case, :root[data-view="stats"] .nowreading, :root[data-view="stats"] .elsewhere, :root[data-view="stats"] .sort-seg { display: none !important; }
+:root:is([data-view="signin"], [data-view="settings"]) :is(.case, .nowreading, .elsewhere, .sort-seg) { display: none !important; }
 .stats { padding-block: 22px 120px; }
 .stats-top { display: grid; gap: 6px; margin-bottom: 22px; }
 .stats-h { margin: 0 0 18px; }
 .reading-block { margin-bottom: 34px; }
-.stats h2 { margin: 0 0 18px; font-family: var(--display); font-weight: 600; font-size: clamp(1.6rem, 3.6vw, 2.2rem); letter-spacing: -.01em; font-variation-settings: "opsz" 72; }
+.stats h2 { margin: 0 0 18px; font-family: var(--display); font-weight: 600; font-size: clamp(1.6rem, 3.6vw, 2.2rem); letter-spacing: -.01em; }
 .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 10px; }
 .kpi, .chart { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
 .kpi { display: grid; grid-template-rows: auto auto auto; align-content: start; gap: 6px; padding: 16px 18px 18px; }
@@ -250,7 +258,7 @@ a.btn { color: var(--ink); text-decoration: none; }
 .reading-card { display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 0 26px; align-items: start; padding: 20px 22px; }
 .reading-card img { width: 104px; height: 156px; object-fit: cover; border-radius: 3px; box-shadow: 0 10px 22px -10px rgba(0,0,0,.55); cursor: pointer; }
 .reading-card .body { display: grid; gap: 14px; min-width: 0; }
-.reading-card .who b { display: block; font-family: var(--display); font-weight: 600; font-size: 1.6rem; line-height: 1.1; font-variation-settings: "opsz" 48; }
+.reading-card .who b { display: block; font-family: var(--display); font-weight: 600; font-size: 1.6rem; line-height: 1.1; }
 .reading-card .who span { color: var(--muted); font-size: .9rem; }
 /* How far along: the share and the page on the left, the page field on the right, the bar beneath both. */
 .reading-card .progress { display: grid; gap: 8px; }
@@ -305,7 +313,7 @@ a.btn { color: var(--ink); text-decoration: none; }
 @media (hover: hover) { .edge:hover { background: color-mix(in oklab, var(--ink) 5%, transparent); } }
 .edge img { grid-row: span 3; width: 44px; height: 66px; object-fit: cover; border-radius: 2px; box-shadow: 0 4px 10px -4px rgba(0,0,0,.45); }
 .edge small { color: var(--muted); font-size: .74rem; text-transform: uppercase; letter-spacing: .1em; }
-.edge b { font-family: var(--display); font-weight: 600; font-size: 1rem; line-height: 1.15; font-variation-settings: "opsz" 24; }
+.edge b { font-family: var(--display); font-weight: 600; font-size: 1rem; line-height: 1.15; }
 .edge span { color: var(--muted); font-size: .8rem; }
 /* The table twin of any chart. */
 .chart table { width: 100%; border-collapse: collapse; font-size: .84rem; font-variant-numeric: tabular-nums; }
@@ -321,7 +329,7 @@ a.btn { color: var(--ink); text-decoration: none; }
    - the dimmed backdrop ignores swipes, and each layer's own scroll area keeps its swipes to itself. */
 :root:has(.reader:not([hidden]), .modal:not([hidden])) { overflow: hidden; overscroll-behavior: none; }
 .modal-scrim, .reader .scrim { touch-action: none; }
-.t-page, .card, .spane { overscroll-behavior: contain; }
+.t-page, .card { overscroll-behavior: contain; }
 .empty { margin: 0; padding: 70px 16px; text-align: center; color: var(--muted); font-family: var(--display); font-style: italic; font-size: 1.3rem; }
 
 /* A book. On hover it comes out toward you the same way wherever it stands on the shelf: it rises a few
@@ -484,11 +492,9 @@ a.btn { color: var(--ink); text-decoration: none; }
 .chip { display: none; margin: .7em 0 0; font-style: italic; font-size: .86em; color: var(--paper-muted); }
 :root[data-owner] .reader.is-hidden .chip { display: block; }
 .tp { flex: 1 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; padding-block: 1.6em 1.8em; }
-.leaf h2 { margin: 0; max-width: 100%; font-weight: 600; font-size: 2.7em; line-height: 1.04; letter-spacing: -.02em; text-wrap: balance; overflow-wrap: break-word; hyphens: auto; font-variation-settings: "opsz" 96; }
+.leaf h2 { margin: 0; max-width: 100%; font-weight: 600; font-size: 2.7em; line-height: 1.04; letter-spacing: -.02em; text-wrap: balance; overflow-wrap: break-word; hyphens: auto; }
 .leaf h2[data-len="long"] { font-size: 2.15em; }
-.leaf h2[data-len="longer"] { font-size: 1.7em; line-height: 1.1; font-variation-settings: "opsz" 72; }
-/* Fraunces' display cut thins its hairlines as the optical size rises; past these values the crossbar of an
-   H falls under a pixel at these sizes and vanishes on a 1x screen, so each size stops short of it. */
+.leaf h2[data-len="longer"] { font-size: 1.7em; line-height: 1.1; }
 .sub { margin: .55em 0 0; font-style: italic; font-size: 1.12em; line-height: 1.3; color: var(--paper-muted); text-wrap: balance; }
 /* A short rule with a lozenge in the book's own color. */
 .orn { position: relative; width: 4.2em; height: 1px; margin: 1.5em 0 1.3em; background: var(--paper-line); }
@@ -500,9 +506,7 @@ a.btn { color: var(--ink); text-decoration: none; }
 .leaf dt::after { content: ""; flex: 1; min-width: 1em; margin: 0 .5em; border-bottom: 1px dotted color-mix(in oklab, var(--paper-ink) 35%, transparent); translate: 0 -.3em; }
 .leaf dd { margin: 0; text-align: right; overflow-wrap: anywhere; }
 .actions { display: flex; flex-wrap: wrap; justify-content: center; gap: .3em; margin-top: 1.5em; }
-.actbar > .actions { margin-top: 0; }
 .act { display: inline-flex; align-items: center; gap: .45em; padding: .55em .75em; border-radius: 6px; font-family: var(--ui); font-size: .72em; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--paper-accent); transition: background-color .2s; }
-.act .i { width: 1.35em; height: 1.35em; }
 @media (hover: hover) { .act:hover { background: color-mix(in oklab, var(--paper-accent) 10%, transparent); } }
 .folio { margin: 1.1em 0 0; color: var(--paper-muted); font-style: italic; font-size: .9em; font-variant-numeric: lining-nums tabular-nums; }
 /* The front board, hinged at the spine: the cover outside, the endpaper with the cover plate inside. */
@@ -571,7 +575,7 @@ a.btn { color: var(--ink); text-decoration: none; }
 }
 .card.wide { width: min(620px, 100%); }
 .card:focus { outline: none; }   /* on a touch screen the card itself takes focus as it opens (lib/panels.js); that needs no ring */
-.card h2 { margin: 0 0 4px; padding-right: 44px; font-family: var(--display); font-weight: 600; font-size: 1.75rem; line-height: 1.1; letter-spacing: -.01em; font-variation-settings: "opsz" 72; }
+.card h2 { margin: 0 0 4px; padding-right: 44px; font-family: var(--display); font-weight: 600; font-size: 1.75rem; line-height: 1.1; letter-spacing: -.01em; }
 .lede { margin: 0 0 22px; color: var(--muted); font-size: .9rem; line-height: 1.45; }
 .x { position: absolute; top: 16px; right: 16px; }
 .stack { display: grid; gap: 14px; }
@@ -595,6 +599,8 @@ select.inp option { background: var(--surface); color: var(--ink); }   /* the op
 .check2 input { accent-color: var(--accent); width: 16px; height: 16px; }
 .btn.danger { background: #a3321f; color: #fff; border-color: transparent; }
 .lab .opt { color: var(--muted); font-weight: 400; }
+/* A card's choices under a caption take the card's width, each as wide as its words need and the rest shared. */
+.card .lab > .seg button { flex: 1 1 auto; }
 .wordmark { margin: 0 0 18px; font-family: var(--display); font-size: .82rem; font-style: italic; color: var(--muted); }
 
 /* The scanner: a viewfinder with corner marks and a sweeping line. */
@@ -641,26 +647,36 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .woods button { width: 32px; height: 32px; border-radius: 7px; background: var(--wood) center / 1024px auto; box-shadow: inset 0 0 0 1px rgba(0,0,0,.2); }
 .woods button[aria-pressed="true"] { box-shadow: inset 0 0 0 1px rgba(0,0,0,.2), 0 0 0 2px var(--surface), 0 0 0 4px var(--accent); }
 /* ---------- Settings ----------
-   One sheet: the sections down the side, and the section open beside them, in rows of name | control under
-   small-caps captions. On a phone, the list of sections first, then one section at a time with a way back. */
-.card.settings { display: grid; grid-template-columns: 200px minmax(0, 1fr); width: min(900px, 100%); height: min(780px, calc(100vh - 32px)); padding: 0; overflow: hidden; }
+   Settings is a page like Statistics and All notes: its heading, then the sections down the side (staying in
+   sight as the page scrolls; the one shown is marked there, so it carries no title of its own), and each
+   group of settings a card on the wall, as the charts are. On a phone /settings lists the sections and each
+   opens as its own page, under "‹ Settings" and its name. */
+.settings { padding-block: 26px 120px; }
 .settings.still *, .settings.still *::after { transition: none !important; }
-.snav { display: flex; flex-direction: column; gap: 2px; padding: 24px 12px; border-right: 1px solid var(--line); background: color-mix(in oklab, var(--ink) 3%, var(--surface)); }
-.snav h2 { margin: 0 10px 16px; padding: 0; font-size: 1.5rem; }
-.snav button:not(.x) { display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 10px; border-radius: 8px; color: var(--muted); text-align: left; font-size: .9rem; font-weight: 500; transition: background-color .2s, color .2s; }
-.snav button:not(.x) .i { width: 17px; height: 17px; }
-.snav button:not(.x)[aria-current="true"] { background: color-mix(in oklab, var(--accent) 16%, transparent); color: var(--ink); }
-@media (hover: hover) { .snav button:not(.x):not([aria-current="true"]):hover { background: color-mix(in oklab, var(--ink) 5%, transparent); color: var(--ink); } }
-.snav .chev { display: none; margin-left: auto; }
-.snav .dot::after { content: ""; width: 7px; height: 7px; margin-left: auto; border-radius: 50%; background: var(--accent); }
-.snav .spacer { flex: 1; }
-.snav .ver { margin: 0 10px; color: var(--muted); font-size: .74rem; }
-.snav .phone-x { display: none; }
-.spane { min-width: 0; overflow: auto; padding: 22px 30px 34px; }
-.spane-head { display: flex; align-items: center; gap: 12px; min-height: 40px; }
-.spane-head h2 { flex: 1; margin: 0; padding: 0; font-size: 1.5rem; }
-.spane-head .back { display: none; }
-.sbody { display: grid; gap: 26px; margin-top: 22px; }
+.set-head h2 { margin: 0; font-family: var(--display); font-weight: 600; font-size: clamp(1.9rem, 4.6vw, 2.8rem); line-height: 1.05; letter-spacing: -.01em; }
+.set-head p { margin: 10px 0 0; color: var(--muted); font-size: .94rem; }
+.set-grid { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 0 40px; align-items: start; margin-top: 30px; }
+.set-rail { position: sticky; top: 20px; display: grid; gap: 2px; }
+.set-rail a { display: flex; align-items: center; gap: 11px; height: 40px; padding: 0 12px; border-radius: 8px; color: var(--muted); font-size: .92rem; font-weight: 500; text-decoration: none; transition: background-color .2s, color .2s; }
+.set-rail a .i { width: 17px; height: 17px; }
+.set-rail a[aria-current] { background: color-mix(in oklab, var(--accent) 16%, transparent); color: var(--ink); }
+@media (hover: hover) { .set-rail a:not([aria-current]):hover { background: color-mix(in oklab, var(--ink) 5%, transparent); color: var(--ink); } }
+.set-rail .dot::after, .set-list .dot b::after { content: ""; width: 7px; height: 7px; margin-left: auto; border-radius: 50%; background: var(--accent); }
+.set-list .dot b::after { display: inline-block; margin-left: 8px; vertical-align: middle; }
+.set-rail .ver, .set-list .ver { margin: 12px 12px 0; color: var(--muted); font-size: .74rem; }
+.set-pane { min-width: 0; }
+.set-back { display: inline-flex; align-items: center; gap: 4px; margin: 0 0 10px -4px; color: var(--muted); font-size: .9rem; text-decoration: none; }
+.set-back .i { width: 16px; height: 16px; }
+.set-title { margin: 0 0 16px; font-family: var(--display); font-weight: 600; font-size: 1.55rem; letter-spacing: -.01em; }
+.set-list { display: grid; margin-top: 22px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.set-list a { display: grid; grid-template-columns: 20px minmax(0, 1fr) 16px; align-items: center; gap: 14px; padding: 14px 16px; color: var(--ink); text-decoration: none; }
+.set-list a + a { border-top: 1px solid var(--line); }
+.set-list b { display: block; font-weight: 500; font-size: .98rem; }
+.set-list small { display: block; margin-top: 2px; color: var(--muted); font-size: .8rem; }
+.set-list .i { color: var(--muted); }
+.set-list .ver { margin: 0; padding: 12px 16px; border-top: 1px solid var(--line); }
+.sbody { display: grid; gap: 16px; }
+.sbody > .sgroup { padding: 18px 22px 20px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
 .sgroup { display: grid; min-width: 0; }
 .sgroup h3 { margin: 0 0 2px; color: var(--muted); font-size: .72rem; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; }
 .sgroup .sdesc { margin: 4px 0 4px; color: var(--muted); font-size: .8rem; line-height: 1.45; }
@@ -693,7 +709,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
    picture, into a box of fixed height sized for the tallest books the settings allow. It stays in sight,
    with its Day and Evening, while the choices beneath it scroll. */
 :root { --pvz: .42; --pvh: 240px; }
-.pvbox { position: sticky; top: -22px; z-index: 3; display: grid; gap: 12px; margin: -22px -30px 0; padding: 22px 30px 12px; background: var(--surface); box-shadow: 0 12px 16px -14px rgba(0,0,0,.35); }
+.pvbox { position: sticky; top: 12px; z-index: 3; display: grid; gap: 12px; padding: 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 14px 30px -18px rgba(0,0,0,.55); }
 .modeswitch button { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
 .modeswitch .i { width: 16px; height: 16px; }
 .shelfpv { --shade: rgba(40, 24, 10, .34); --shadow: rgba(40, 24, 10, .42); position: relative; height: var(--pvh); overflow: hidden; border-radius: 12px; border: 1px solid var(--line);
@@ -701,11 +717,11 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .shelfpv.night { --shade: rgba(0, 0, 0, .5); --shadow: rgba(0, 0, 0, .7); }
 .shelfpv .zoom { position: absolute; left: 0; top: 0; width: calc(100% / var(--pvz)); height: calc(var(--pvh) / var(--pvz)); display: flex; flex-direction: column; padding-bottom: 40px; transform: scale(var(--pvz)); transform-origin: 0 0; }
 .shelfpv .shelves { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; }
-.shelfpv .shelf { content-visibility: visible; }
+.shelfpv .shelf, .all-shelves .shelf { content-visibility: visible; }
 .shelfpv .slot.reading::after { width: 12px; height: 38px; }   /* the preview is drawn small; its ribbon a little bolder, to be seen */
 
 /* The color panel: under the swatch that opened it, in the look of the app's menus. */
-.picker { position: fixed; z-index: 45; display: grid; gap: 10px; width: 244px; padding: 12px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line); box-shadow: 0 24px 60px -24px rgba(0,0,0,.55); }
+.picker { position: absolute; z-index: 45; display: grid; gap: 10px; width: 244px; padding: 12px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line); box-shadow: 0 24px 60px -24px rgba(0,0,0,.55); }
 .pk-sv { position: relative; height: 150px; border-radius: 8px; background: linear-gradient(transparent, #000), linear-gradient(90deg, #fff, hsl(var(--hue) 100% 50%)); touch-action: none; cursor: crosshair; }
 .pk-hue { position: relative; height: 14px; border-radius: 99px; background: linear-gradient(90deg, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00); touch-action: none; cursor: pointer; }
 .pk-knob { position: absolute; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.35), 0 1px 4px rgba(0,0,0,.4); background: var(--k); pointer-events: none; }
@@ -715,9 +731,12 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .pk-chip { flex: none; width: 36px; height: 36px; border-radius: 8px; background: var(--k); box-shadow: inset 0 0 0 1px rgba(0,0,0,.18); }
 
 /* A private library, seen by a visitor. */
-.gate { display: grid; justify-items: center; gap: 14px; padding: 18vh 16px; text-align: center; }
-.gate .i { width: 30px; height: 30px; color: var(--muted); }
-.gate h2 { margin: 0; font-family: var(--display); font-weight: 600; font-size: 1.5rem; }
+/* Signing in: a narrow column on the page, under the header, the fields high enough on a phone that the
+   keyboard never covers them. */
+.signin { display: grid; justify-items: center; width: min(340px, 100%); margin: 0 auto; padding-block: 9vh 120px; }
+.signin > .i { width: 30px; height: 30px; margin-bottom: 14px; color: var(--muted); }
+.signin h2 { margin: 0 0 22px; font-family: var(--display); font-weight: 600; font-size: clamp(1.6rem, 3.6vw, 2.2rem); letter-spacing: -.01em; text-align: center; }
+.signin form { width: 100%; }
 :root[data-gated] .tools, :root[data-gated] .case, :root[data-gated] .summary, :root[data-gated] .nowreading, :root[data-gated] .elsewhere { display: none !important; }
 .drop { display: grid; place-items: center; gap: 4px; padding: 18px; border-radius: 10px; border: 1.5px dashed var(--line); text-align: center; color: var(--muted); font-size: .86rem; cursor: pointer; transition: border-color .2s, background-color .2s; }
 .drop b { color: var(--ink); font-weight: 600; }
@@ -736,7 +755,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .pinp:focus { outline: none; border-bottom-color: var(--paper-accent); background: color-mix(in oklab, var(--paper-accent) 5%, transparent); }
 .pinp::placeholder { color: color-mix(in oklab, var(--paper-muted) 70%, transparent); font-style: italic; }
 textarea.pinp { display: block; resize: none; overflow: hidden; field-sizing: content; text-wrap: balance; }
-.pform .pt { margin-top: 1.1em; font-weight: 600; font-size: 1.9em; line-height: 1.15; letter-spacing: -.02em; text-align: center; font-variation-settings: "opsz" 72; }
+.pform .pt { margin-top: 1.1em; font-weight: 600; font-size: 1.9em; line-height: 1.15; letter-spacing: -.02em; text-align: center; }
 .pform .ps { margin-top: .4em; font-style: italic; font-size: 1.05em; text-align: center; }
 .pform .pa { font-size: 1.15em; text-align: center; font-variant-caps: all-small-caps; letter-spacing: .08em; }
 .pform .orn { margin: 1.2em 0 1em; }
@@ -751,19 +770,44 @@ textarea.pinp { display: block; resize: none; overflow: hidden; field-sizing: co
 .pcheck input { accent-color: var(--paper-accent); }
 .act.solid { background: var(--paper-accent); color: #f3ead8; }
 @media (hover: hover) { .act.solid:hover { background: color-mix(in oklab, var(--paper-accent) 88%, black); } }
-.act.warn { color: #a3321f; }
 .confirm { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: .3em; }
 .confirm > span { font-family: var(--ui); font-size: .82em; padding-right: .4em; }
-/* The actions, the sources to search on and the question before a removal all share one slot, as tall as
-   the tallest of them, so swapping one for another never moves anything else on the page. */
-.actbar { display: grid; margin-top: 1.5em; }
+/* The tools and the question before a removal share one slot, as tall as the taller of them, so swapping one
+   for the other never moves anything else on the page. */
+.actbar { display: grid; width: 100%; margin-top: 1.1em; }
 .actbar > * { grid-area: 1 / 1; align-self: center; margin: 0; }
-.actbar > .sources, .actbar > .confirm, .reader.searching .actbar > .actions, .reader.asking .actbar > :not(.confirm) { visibility: hidden; }
-.reader.searching:not(.asking) .actbar > .sources, .reader.asking .actbar > .confirm { visibility: visible; }
-.sources { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: .3em; }
-.sources > span:first-child { font-family: var(--ui); font-size: .72em; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--paper-muted); padding-right: .3em; }
+.actbar > .confirm, .reader.asking .actbar > :not(.confirm) { visibility: hidden; }
+.reader.asking .actbar > .confirm { visibility: visible; }
+/* The owner's line about the reading, in the page's own voice, over the tools. */
+.rline { margin: 1.4em 0 0; color: var(--paper-muted); font-style: italic; font-size: .98em; font-variant-numeric: lining-nums; text-align: center; }
+.rline:empty { display: none !important; }
+/* The tools: each an icon over its name, the icon in a round of its own that the pointer lights (and that
+   stays lit while its menu is open). Notes shows how many it has where its icon would be. */
+.ptools { display: flex; justify-content: center; gap: .5em; }
+.tool-wrap { position: relative; }
+.tool-wrap[hidden], .tool[hidden] { display: none !important; }
+.tool { display: grid; justify-items: center; gap: .3em; min-width: 5.6em; padding: .1em .2em; font-family: var(--ui); font-size: .64em; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--paper-accent); text-decoration: none; }
+.tool .ic { display: grid; place-items: center; width: 3.6em; height: 3.6em; border-radius: 50%; transition: background-color .2s, box-shadow .2s; }
+.tool .ic .i { width: 2em; height: 2em; }
+.tool .nm { color: var(--paper-muted); transition: color .2s; }
+@media (hover: hover) { .tool:hover .ic { background: color-mix(in oklab, var(--paper-accent) 9%, transparent); } .tool:hover .nm { color: var(--paper-accent); } }
+.tool[aria-expanded="true"] .ic { background: color-mix(in oklab, var(--paper-accent) 14%, transparent); }
+.tool[aria-expanded="true"] .nm { color: var(--paper-accent); }
+.tool:focus-visible { outline: none; }
+.tool:focus-visible .ic { box-shadow: 0 0 0 2px var(--paper-accent); }
+.tool .num { font-family: var(--display); font-size: 2.05em; font-weight: 500; line-height: 1; letter-spacing: 0; font-variant-numeric: lining-nums; translate: 0 -.04em; }
+/* A tool's menu, above it, on the page's paper. Remove stands apart, in red. */
+.tmenu { position: absolute; z-index: 5; bottom: calc(100% + .4em); right: 50%; translate: 50% 0; display: grid; min-width: 15em; padding: .4em; border-radius: 10px; background: color-mix(in oklab, var(--paper) 96%, white); border: 1px solid var(--paper-line); box-shadow: 0 18px 40px -16px rgba(40, 25, 10, .45); text-align: left; }
+.tool-wrap:first-child .tmenu { right: auto; left: 0; translate: none; }
+.tool-wrap:last-child .tmenu { right: 0; translate: none; }
+.tmenu [role="menuitem"] { display: flex; align-items: center; gap: .7em; padding: .6em .75em; border-radius: 6px; font-family: var(--ui); font-size: .82em; font-weight: 500; color: var(--paper-ink); text-decoration: none; white-space: nowrap; }
+.tmenu [role="menuitem"] .i { width: 1.15em; height: 1.15em; color: var(--paper-muted); }
+.tmenu [role="menuitem"]:focus-visible { outline: none; background: color-mix(in oklab, var(--paper-accent) 12%, transparent); }
+@media (hover: hover) { .tmenu [role="menuitem"]:hover { background: color-mix(in oklab, var(--paper-accent) 10%, transparent); } }
+.tmenu .warn, .tmenu .warn .i { color: #a3321f; }
+.tmenu hr { margin: .3em .5em; border: 0; border-top: 1px solid var(--paper-line); }
+.tcap { margin: .2em .75em .3em; font-family: var(--ui); font-size: .66em; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--paper-muted); }
 #source-links { display: contents; }
-a.act { text-decoration: none; }
 
 /* On the inside board while editing: replace the cover, or set the spine color by hand. */
 .ctools { position: absolute; left: 0; right: 0; bottom: 5%; display: none; justify-content: center; gap: 8px; }
@@ -778,7 +822,7 @@ a.act { text-decoration: none; }
    open, and a run of changes (dragging a slider, typing a name) keeps one pill up rather than stacking new ones. */
 .toast.saved { gap: 8px; padding: 8px 15px 8px 11px; border-radius: 99px; background: color-mix(in oklab, var(--surface) 90%, var(--ink)); color: var(--ink); border: 1px solid var(--line); font-size: .82rem; white-space: nowrap; box-shadow: 0 16px 34px -12px rgba(0,0,0,.55), 0 2px 6px -2px rgba(0,0,0,.25); }
 .toast.saved .i { width: 16px; height: 16px; color: var(--accent); stroke-width: 2.2; }
-body:has(.settings-wrap:not([hidden])) .toast.saved { bottom: calc(14px + env(safe-area-inset-bottom, 0px)); }
+:root[data-view="settings"] .toast.saved { bottom: calc(14px + env(safe-area-inset-bottom, 0px)); }
 .toast button { font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
 
 @media (max-width: 720px) {
@@ -793,12 +837,15 @@ body:has(.settings-wrap:not([hidden])) .toast.saved { bottom: calc(14px + env(sa
      the owner is reading and the links beneath. */
   header { padding-block: 26px 4px; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "brand tools" "reading reading" "links links"; align-items: center; row-gap: 18px; }
   .tools { justify-content: flex-end; flex-wrap: nowrap; }
+  .search .field { left: auto; right: 0; }
+  .tools .group { display: contents; }
+  .tools:has(.search :focus-within, .search.has-query) .group > :not(.search) { opacity: 1; visibility: visible; }
   header .nowreading, header .elsewhere { justify-self: start; margin-top: 0; }
   .tools { gap: 6px; }
   .phone-only { display: inline-flex !important; }
-  .tools > .sort-seg, .tools > #mode, .tools > #stats-btn, .tools > #select, .tools > #settings-btn, .tools > #signout-btn, .tools > #signin-btn { display: none !important; }
-  .tools > .search { order: -2; }   /* search first, then Add book, then the menu */
-  .tools > #add { order: -1; width: 38px; padding: 0; gap: 0; font-size: 0; }   /* just the plus; its name stays for screen readers */
+  .tools .sort-seg, .tools #mode, .tools #stats-btn, .tools #allnotes-btn, .tools #select, .tools #settings-btn, .tools #signout-btn, .tools #signin-btn { display: none !important; }
+  .tools .search { order: -2; }   /* search first, then Add book, then the menu */
+  .tools #add { order: -1; }
   .tools .seg button { padding: 0 8px; }
   .tools .btn.icon, .search { width: 38px; }
   .search .field { width: 38px; padding: 0 9px; }
@@ -813,7 +860,7 @@ body:has(.settings-wrap:not([hidden])) .toast.saved { bottom: calc(14px + env(sa
   .reading-card .who { align-self: center; }
   .reading-card .progress { margin-top: 16px; }
   .reading-card .facts { margin-top: 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  :root[data-view="stats"] header { row-gap: 0; }
+  :root:is([data-view="stats"], [data-view="signin"], [data-view="settings"], [data-gated]) header { row-gap: 0; }
   .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .kpi:last-child:nth-child(odd) { grid-column: 1 / -1; }
   .search .field:focus-within, .search.has-query .field { width: calc(100vw - 32px - 44px); }   /* grows leftward over the title, stopping short of the tools to its right */
@@ -828,19 +875,10 @@ body:has(.settings-wrap:not([hidden])) .toast.saved { bottom: calc(14px + env(sa
   .field input, .inp, .prow .pinp, .pform .pa, .pform .ps, .reading-card .page input { font-size: 16px; }   /* under 16px, iOS zooms in on focus */
   .card { width: 100%; max-height: 100%; border-radius: 20px; padding: 24px 20px; }
   .card.wide { width: 100%; }
-  .card.settings { grid-template-columns: minmax(0, 1fr); height: 100%; }
-  .snav { padding: 22px 16px 24px; border-right: 0; background: none; overflow: auto; }
-  .snav button:not(.x) { height: 50px; border-radius: 0; border-bottom: 1px solid var(--line); color: var(--ink); font-size: .96rem; }
-  .snav button:not(.x)[aria-current="true"] { background: none; }
-  .snav .chev { display: block; color: var(--muted); }
-  .snav .dot::after { margin-left: auto; margin-right: -4px; }
-  .snav .dot .chev { margin-left: 8px; }
-  .snav .spacer { display: none; }
-  .snav .ver { margin-top: 14px; }
-  .snav .phone-x { display: inline-flex; }
-  .settings:not(.inside) .spane, .settings.inside .snav { display: none; }
-  .spane { padding: 16px 16px 30px; }
-  .spane-head .back { display: inline-flex; }
+  .signin { padding-top: 26px; }
+  .settings { padding-top: 18px; }
+  .set-grid { grid-template-columns: minmax(0, 1fr); margin-top: 0; }
+  .set-rail { display: none; }
   .srow { grid-template-columns: minmax(0, 1fr) auto; }
   .srow.stack { grid-template-columns: minmax(0, 1fr); align-items: start; }
   .srow.stack .sctl, .srow.stack .sctl .swatches, .srow.stack .sctl .woods { justify-content: flex-start; }
@@ -849,8 +887,8 @@ body:has(.settings-wrap:not([hidden])) .toast.saved { bottom: calc(14px + env(sa
   .sgroup.aligned .srow { grid-template-columns: minmax(0, 1fr) 14.5rem; }
   .sgroup.aligned .seg { min-width: 0; width: 100%; }
   .range { max-width: 190px; }
-  .sbody { gap: 22px; }
-  .pvbox { top: -16px; margin: -16px -16px 0; padding: 16px 16px 12px; }
+  .sbody > .sgroup { padding: 16px 16px 18px; }
+  .pvbox { top: 8px; padding: 10px; }
   :root { --pvz: .31; --pvh: 176px; }
   .found { grid-template-columns: 92px minmax(0, 1fr); gap: 16px; }
   .mini { width: 92px; }
@@ -858,102 +896,3 @@ body:has(.settings-wrap:not([hidden])) .toast.saved { bottom: calc(14px + env(sa
   .tp { padding-block: .6em 1.4em; }
 }
 @media (prefers-reduced-motion: reduce) { .spine, .spine::after, .slot::before { transition: none; } .slot.peek .spine { inset: 0; } }
-/* ---------- A book's notes ---------- */
-/* One page per book for everything kept about it: notes and highlights, any number of each, newest first or
-   in page order, each public or only the owner's and tied to the reading it came from; beside them, the
-   owner's readings. Visitors see the book and its public entries, never the readings. */
-:root[data-view="notes"] .case, :root[data-view="notes"] .nowreading, :root[data-view="notes"] .elsewhere, :root[data-view="notes"] .sort-seg { display: none !important; }
-.nb { padding-block: 26px 120px; }
-.nb-head { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 28px; align-items: end; padding-bottom: 28px; margin-bottom: 26px; border-bottom: 1px solid var(--line); }
-.nb-cover { display: block; width: 112px; padding: 0; border: 0; background: none; cursor: pointer; }
-.nb-cover img { display: block; width: 100%; height: auto; aspect-ratio: auto 2 / 3; object-fit: cover; border-radius: 3px; box-shadow: 0 14px 28px -14px rgba(0,0,0,.6); }
-.nb-kick { margin: 0 0 10px; color: var(--muted); font-size: .74rem; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; }
-.nb-head h2 { margin: 0; font-family: var(--display); font-weight: 600; font-size: clamp(1.9rem, 4.6vw, 2.8rem); line-height: 1.05; letter-spacing: -.012em; font-variation-settings: "opsz" 72; text-wrap: balance; }
-.nb-by { margin: 8px 0 0; font-family: var(--display); font-size: 1.12rem; font-style: italic; font-variation-settings: "opsz" 36; }
-.nb-facts { margin: 14px 0 0; color: var(--muted); font-size: .86rem; }
-.nb-cols { display: grid; grid-template-columns: minmax(0, 1fr) 290px; gap: 56px; align-items: start; }
-:root:not([data-owner]) .nb-cols { grid-template-columns: minmax(0, 44rem); }
-.nb h3 { margin: 0; color: var(--muted); font-size: .74rem; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; }
-.nb-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; min-height: 34px; margin-bottom: 14px; }
-.nb-bar h3 { margin-right: auto; }
-.nb .seg { height: 34px; }
-.nb .seg button { padding: 0 10px; font-size: .8rem; }
-/* Writing: one field to start; a highlight adds the passage and its page; the rest shows once begun. */
-.nb-compose { display: grid; gap: 12px; margin-bottom: 6px; padding: 12px 16px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
-.nb-compose:focus-within { border-color: color-mix(in oklab, var(--accent) 45%, var(--line)); }
-.nb-compose .seg { justify-self: start; height: 30px; padding: 2px; }
-.nb-compose .seg button { padding: 0 9px; font-size: .78rem; }
-.nb-compose textarea { display: block; width: 100%; min-height: 1.5em; padding: 0; border: 0; background: none; color: var(--ink); resize: none; field-sizing: content; font-family: var(--display); font-size: 1.05rem; line-height: 1.5; font-variation-settings: "opsz" 24; }
-.nb-compose textarea:focus { outline: none; }
-.nb-compose textarea::placeholder { color: var(--muted); opacity: .8; }
-.nb-compose [name="quote"] { padding-left: 16px; border-left: 2px solid var(--ribbon); font-size: 1.15rem; }
-.nb-compose:not(.hl) .hl-only, .nb-compose:not(.open) .nb-more { display: none; }
-.nb-more { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding-top: 12px; border-top: 1px solid var(--line); color: var(--muted); font-size: .82rem; }
-.nb-more label { display: inline-flex; align-items: center; gap: 7px; }
-.nb-more input, .nb-more select { height: 32px; padding: 0 9px; border: 1px solid var(--line); border-radius: 6px; background: var(--field); color: var(--ink); font: inherit; font-size: .84rem; }
-.nb-more input { width: 4.6em; font-variant-numeric: tabular-nums; }
-.nb-more select { appearance: none; padding-right: 26px; background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%); background-position: calc(100% - 15px) 14px, calc(100% - 10px) 14px; background-size: 5px 5px; background-repeat: no-repeat; }
-.nb-vis { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border: 1px solid var(--line); border-radius: 99px; color: var(--muted); font-size: .8rem; }
-.nb-vis[aria-pressed="true"] { color: var(--ink); border-color: color-mix(in oklab, var(--accent) 45%, transparent); background: color-mix(in oklab, var(--accent) 12%, transparent); }
-.nb-vis .i { width: 15px; height: 15px; }
-.nb-btns { display: flex; gap: 8px; margin-left: auto; }
-.nb-err { flex-basis: 100%; margin: 0; color: var(--danger); font-size: .82rem; }
-.nb-err:empty { display: none; }
-/* The entries: no cards, only hairlines; a passage carries the ribbon's color down its edge. */
-.nb-list { margin: 0; padding: 0; list-style: none; }
-.nb-e { display: grid; gap: 10px; padding: 22px 0; border-bottom: 1px solid var(--line); }
-.nb-e > .nb-compose { margin: -8px 0 0; }
-.nb-e blockquote { margin: 0; padding-left: 18px; border-left: 2px solid var(--ribbon); font-family: var(--display); font-size: 1.18rem; line-height: 1.5; font-variation-settings: "opsz" 24; white-space: pre-wrap; text-wrap: pretty; }
-.nb-e .txt { margin: 0; font-family: var(--display); font-size: 1.04rem; line-height: 1.55; font-variation-settings: "opsz" 18; white-space: pre-wrap; text-wrap: pretty; }
-.nb-e blockquote + .txt { padding-left: 20px; font-style: italic; }
-.nb-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; color: var(--muted); font-size: .8rem; }
-.nb-meta .pub { display: inline-flex; align-items: center; gap: 4px; }
-.nb-meta .pub .i { width: 13px; height: 13px; }
-.nb-tools { display: flex; gap: 14px; margin-left: auto; }
-.nb-tools button { color: var(--muted); }
-@media (hover: hover) { .nb-tools button:hover, .nb-r .r-tools button:hover, .nb-sum:hover { color: var(--ink); } }
-.nb-empty { margin: 0; padding: 24px 0; color: var(--muted); font-size: .92rem; line-height: 1.5; }
-/* The readings: a quiet timeline, newest at the top. */
-.nb-sum { display: none; }
-.nb-rd { margin: 16px 0 0; padding: 0; list-style: none; }
-.nb-r { position: relative; display: grid; gap: 3px; padding: 0 0 22px 24px; }
-.nb-r::before { content: ""; position: absolute; left: 0; top: 5px; width: 7px; height: 7px; border-radius: 50%; border: 2px solid var(--muted); background: var(--wall); }
-.nb-r::after { content: ""; position: absolute; left: 5px; top: 18px; bottom: 2px; width: 1px; background: var(--line); }
-.nb-r:last-child::after { display: none; }
-.nb-r.now::before { border-color: var(--ribbon); background: var(--ribbon); }
-.nb-r.aside::before { border-style: dashed; }
-.nb-r b { font-size: .92rem; font-weight: 600; }
-.nb-r .m { color: var(--muted); font-size: .82rem; line-height: 1.5; }
-.nb-r .meter { margin: 8px 0 2px; }
-.nb-r .meter .bar { height: 6px; }
-.nb-r .meter .bar i { background: var(--ribbon); }
-.nb-r .pg { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: .82rem; }
-.nb-r .pg input { width: 4.6em; height: 30px; padding: 0 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--field); color: var(--ink); font: inherit; font-variant-numeric: tabular-nums; }
-.nb-r .r-tools { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 4px; font-size: .8rem; }
-.nb-r .r-tools button { color: var(--muted); }
-.nb-r .r-ask { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 6px; }
-.nb-r .r-ask span { margin-right: auto; font-size: .84rem; }
-.nb-side .acts { display: flex; flex-wrap: wrap; gap: 8px; }
-.nb-side .none { margin: 14px 0 16px; color: var(--muted); font-size: .86rem; line-height: 1.5; }
-@media (max-width: 720px) {
-  .nb { padding-top: 18px; }
-  .nb-head { grid-template-columns: 76px minmax(0, 1fr); gap: 18px; align-items: center; padding-bottom: 20px; margin-bottom: 4px; }
-  :root:not([data-owner]) .nb-head { margin-bottom: 22px; }
-  .nb-cover { width: 76px; }
-  .nb-head h2 { font-size: 1.7rem; }
-  .nb-by { font-size: 1rem; }
-  .nb-facts { margin-top: 8px; font-size: .8rem; }
-  .nb-cols, :root:not([data-owner]) .nb-cols { grid-template-columns: minmax(0, 1fr); gap: 22px; }
-  /* On a phone the readings fold into one line above the notes, and open under it. */
-  .nb-side { order: -1; border-bottom: 1px solid var(--line); }
-  .nb-side > h3 { display: none; }
-  .nb-sum { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 48px; color: var(--muted); font-size: .88rem; }
-  .nb-sum b { color: var(--ink); font-weight: 600; }
-  .nb-sum .i { transition: transform .25s var(--ease); }
-  .nb-side.open .nb-sum .i { transform: rotate(180deg); }
-  .nb-side:not(.open) .nb-fold { display: none; }
-  .nb-fold { padding-bottom: 18px; }
-  .nb-rd { margin-top: 8px; }
-  .nb-compose textarea, .nb-more input, .nb-more select, .nb-r .pg input { font-size: 16px; }
-  .nb-tools { margin-left: 0; width: 100%; }
-}

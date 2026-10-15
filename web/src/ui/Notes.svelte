@@ -1,41 +1,60 @@
 <script>
-  // A book's notes page (/<book>/notes): the book, then its notes and highlights, any number of each, newest
-  // first or in page order. A note is the owner's own words; a highlight is a passage as printed, its page
-  // if there is one, and a thought on it if they like. Each is public or the owner's alone, and can name the
-  // reading it came from. Beside them, for the owner only, the book's readings. Visitors see the book and
-  // its public entries.
-  import { tick } from "svelte";
-  import { ui, data, entriesOf, addEntry, updateEntry, deleteEntry, restoreEntry, deleteReading, setPage } from "../lib/app.svelte.js";
+  // A book's notes page (/<book>/notes): the book (cover, title, author) in a narrow column, and its notes in
+  // the rest, newest first or in page order. A note has a page of its own too (/<book>/notes/<id>, its date
+  // links there): the same page with that note alone, and a way to all of them. A note is a passage from the book, the owner's words, or both
+  // (words may come before the passage and after it), with a place if they like: a page, a chapter or a
+  // location. Each is public or the owner's alone, and belongs to the reading under way when it was written.
+  // The owner writes at the top, edits a note where it stands, and has one ⋯ menu for what visitors see, the
+  // link, Markdown and readings. Visitors see the public notes and nothing else.
+  import { tick, untrack } from "svelte";
+  import { ui, data, settings, entriesOf, entriesFor, addEntry, updateEntry, deleteEntry, restoreEntry, deleteReading, setPage, setNotesHidden } from "../lib/app.svelte.js";
   import { openBook, hooks } from "../engine/reader.js";
-  import { BINDING_NAMES, bindingOf, fmt, plural, touch } from "../engine/model.js";
-  import { known, ms, shortDate, shortWhen, spanDays, whenText } from "../lib/dates.js";
+  import { fmt, plural } from "../engine/model.js";
+  import { known, shortWhen, spanDays, whenText } from "../lib/dates.js";
   import { toast } from "../lib/toast.js";
+  import { ICON, whereText, newest, byPlace, noteDate } from "../lib/notes.js";
+  import NoteEditor from "./NoteEditor.svelte";
 
-  let { active, onCorrect } = $props();
+  let { active, onCorrect, onExport, onNote, onAll } = $props();
   // The shelf keeps one object per book and updates it in place, so the page works from a copy made on
   // every load: anything that reads it then follows what changed.
   const shelved = () => data.books.find((b) => b.key === ui.notesFor);
   const book = $derived.by(() => { const b = active ? data.books.find((x) => x.key === ui.notesFor) : null; return b ? { ...b } : null; });
+  const st = $derived(settings());
 
-  // Entries are fetched for the book showing, and again for whoever is looking after signing in or out.
-  let entries = $state.raw([]), loadedFor = null;
+  // Notes are fetched for the book showing, and again for whoever is looking after signing in or out.
+  let entries = $state.raw([]), loadedFor = null, loaded = $state(false);
+  // Leaving the page forgets what it showed, so coming back (after an import, a restore) fetches it anew.
+  $effect(() => { if (!active) loadedFor = null; });
   $effect(() => {
     const b = book, owner = ui.owner, key = b && `${b.id}:${owner}`;
     if (!b || key === loadedFor) return;
-    loadedFor = key; entries = [];
-    entriesOf(b).then((list) => { if (loadedFor === key) entries = list; }, (err) => toast(err.message));
+    loadedFor = key; entries = []; loaded = false;
+    entriesFor(b).then((list) => {
+      if (loadedFor !== key) return;
+      entries = list; loaded = true;
+    }, (err) => toast(err.message));
   });
+  // A note on its own page; one this reader can't see (gone, or not public) leaves the book's page in its place.
+  const single = $derived(active ? ui.noteId : "");
+  const one = $derived(single ? entries.find((e) => e.id === single) : null);
+  $effect(() => { if (single && loaded && !one) untrack(() => onAll(shelved(), "replace")); });
 
   /* ---------- The readings ---------- */
-  // Every reading of the book, oldest first (as the server orders them); one in progress is the newest. With
-  // two or more, each is named by its place ("Second reading").
+  // Every reading of the book, oldest first; one in progress is the newest. With two or more, each is named by
+  // its place ("Second reading", or "2nd reading" beside a note).
   const order = (r) => known(r.started) ? r.started.time : r.ended.precision !== "unknown" ? r.ended.time : "";
   const readings = $derived(!book ? [] : data.readings.filter((r) => r.bookId === book.id).sort((x, y) => (order(x) < order(y) ? -1 : order(x) > order(y) ? 1 : 0)));
   const newestFirst = $derived([...readings].reverse());
   const ORDINALS = ["First", "Second", "Third", "Fourth", "Fifth", "Sixth", "Seventh", "Eighth", "Ninth", "Tenth"];
+  const SHORT = ["1st", "2nd", "3rd"];
   function nameOf(id) {
     const i = readings.findIndex((r) => r.id === id);
     return i < 0 || readings.length < 2 ? "" : ORDINALS[i] ? `${ORDINALS[i]} reading` : `Reading ${i + 1}`;
+  }
+  function shortName(id) {
+    const i = readings.findIndex((r) => r.id === id);
+    return i < 0 || readings.length < 2 ? "" : `${SHORT[i] || `${i + 1}th`} reading`;
   }
   function endedText(r) {
     const verb = r.outcome === "finished" ? "Finished" : "Set aside", when = whenText(r.ended);
@@ -52,7 +71,7 @@
         days > 1 && page ? `${plural(days, "day")} · ${perDay(page, days)}` : ""].filter(Boolean);
     }
     const out = [cap([name, known(r.started) && `started ${shortWhen(r.started)}`].filter(Boolean).join(" · "))];
-    if (known(r.started) && r.ended.precision === "day" || known(r.started) && r.ended.precision === "instant") {
+    if (known(r.started) && (r.ended.precision === "day" || r.ended.precision === "instant")) {
       const days = spanDays(r.started, r.ended), read = r.outcome === "finished" ? book.pages : r.progress?.at(-1)?.page;
       out.push([days === 1 ? "In one day" : plural(days, "day"), perDay(read, days)].filter(Boolean).join(" · "));
     }
@@ -68,7 +87,6 @@
     return [readings.length ? "Set aside" : "Not read yet", ""];
   });
   let foldOpen = $state(false), asking = $state(null);
-  $effect(() => { book?.key; foldOpen = false; asking = null; });
   async function page(e) {
     const b = book, n = Math.max(0, Math.min(b.pages || Infinity, Math.round(+e.currentTarget.value || 0)));
     try { await setPage(b, n); } catch (err) { toast(err.message); return; }
@@ -79,165 +97,127 @@
     const tied = entries.filter((e) => e.readingId === r.id).length;
     try { await deleteReading(r); } catch (err) { toast(err.message); return; }
     asking = null;
-    if (tied) { entries = await entriesOf(book); toast(`Reading deleted; ${kinds(entries.filter((e) => !e.readingId))} kept`); }
+    if (tied) { entries = await entriesOf(book); toast(`Reading deleted; its ${plural(tied, "note")} kept`); }
   }
 
-  /* ---------- The entries ---------- */
-  let filter = $state("all"), byPage = $state(false);
-  $effect(() => { book?.key; filter = "all"; byPage = false; });
-  function kinds(list) {
-    const n = list.filter((e) => e.kind === "note").length, h = list.length - n;
-    return [n && plural(n, "note"), h && plural(h, "highlight")].filter(Boolean).join(" and ");
-  }
-  const kindsHere = $derived(new Set(entries.map((e) => e.kind)).size);
-  const paged = $derived(entries.filter((e) => e.page != null).length);
-  // In page order, entries without a page follow the rest, newest first.
-  const newest = (x, y) => Date.parse(y.createdAt) - Date.parse(x.createdAt);
-  const shown = $derived(entries.filter((e) => kindsHere < 2 || filter === "all" || e.kind === filter)
-    .sort(byPage && paged > 1 ? (x, y) => (x.page ?? Infinity) - (y.page ?? Infinity) || newest(x, y) : newest));
+  /* ---------- The notes ---------- */
+  let byPage = $state(false), rfilter = $state(""), group = $state(false), menu = $state(false), editing = $state(null), editResume = $state(null);
+  // Another book starts afresh.
+  const bookKey = $derived(book && `${book.key}/${single}`);
+  $effect(() => { bookKey; untrack(() => { byPage = false; rfilter = ""; group = false; menu = false; foldOpen = false; asking = null; editing = null; composeKey++; composeResume = null; composeReading = ""; }); });
+  const placed = $derived(entries.filter((e) => e.where && (e.where.kind === "page" || e.where.kind === "loc")).length);
+  const shown = $derived(entries.filter((e) => !ui.owner || !rfilter || e.readingId === rfilter).sort(byPage && placed > 1 ? byPlace : newest));
+  const grouped = $derived(ui.owner && group && readings.length > 1);
+  const loose = $derived(shown.filter((e) => !readings.some((r) => r.id === e.readingId)));
+  const publicCount = $derived(entries.filter((e) => e.public).length);
+  const visitorsRead = $derived(!!st?.notes && !book?.notesHidden);
 
-  // Writing: one form writes a new entry at the top, or edits one in its place.
-  let form = $state(), quoteEl = $state(), textEl = $state();
-  let kind = $state("note"), quote = $state(""), text = $state(""), pageNo = $state(""), readingId = $state(""), isPublic = $state(false);
-  let editing = $state(null), open = $state(false), err = $state(""), busy = $state(false);
-  // A new entry belongs to the reading under way, or else the last one; the owner can choose another or none.
-  function reset(o = {}) {
-    kind = o.kind || "note"; quote = o.quote || ""; text = o.text || ""; pageNo = o.page != null ? String(o.page) : "";
-    readingId = o.readingId ?? newestFirst[0]?.id ?? ""; isPublic = !!o.public;
-    editing = o.id || null; open = !!o.id; err = "";
-  }
-  $effect(() => { book?.key; reset(); });
+  // Writing: the editor at the top is remounted (fresh) after a note is kept or thrown away.
+  let composeKey = $state(0), composeResume = $state(null), composeReading = $state(""), composer = $state();
+  const defaultReading = $derived(newestFirst[0]?.id ?? "");
   // Opened to write about a reading ("Add a note" after finishing).
   export async function begin(id) {
-    reset({ readingId: id }); open = true;
+    composeReading = id; composeResume = null; composeKey++;
     await tick();
-    if (!touch()) textEl?.focus({ preventScroll: true });
+    composer?.begin();
   }
-  async function choose(k) {
-    kind = k; open = true; err = "";
-    await tick();
-    if (!touch()) (k === "highlight" ? quoteEl : textEl)?.focus();
-  }
-  async function edit(e) {
-    reset(e);
-    await tick();
-    if (!touch()) (e.kind === "highlight" ? quoteEl : textEl)?.focus({ preventScroll: true });
-  }
-  function cancel() { reset(); document.activeElement?.blur?.(); }
-  async function save(ev) {
-    ev.preventDefault();
-    const hl = kind === "highlight", q = quote.trim(), t = text.trim(), raw = pageNo.trim();
-    err = hl && !q ? "Copy in the passage first." : !hl && !t ? "Write something first." : "";
-    if (!err && hl && raw && (!/^\d+$/.test(raw) || +raw < 1 || (book.pages && +raw > book.pages))) err = book.pages ? `Pages run from 1 to ${fmt(book.pages)}.` : "Enter a page number.";
-    if (err) return;
-    const input = { kind, text: t, quote: hl ? q : "", page: hl && raw ? +raw : null, readingId, public: isPublic };
-    const b = book, was = editing;
-    busy = true;
-    try {
-      entries = was ? await updateEntry(b, { id: was }, input) : await addEntry(b, input);
-    } catch (e) {
-      err = e.message; busy = false;
-      return;
-    }
-    busy = false; reset();
+  async function create(input) {
+    const b = book;
+    entries = await addEntry(b, input);
+    composeKey++; composeResume = null; composeReading = "";
     document.activeElement?.blur?.();
-    const what = hl ? "Highlight" : "Note";
-    toast(!was && input.public ? `${what} saved; visitors can read it` : `${what} saved`);
+    toast(input.public && visitorsRead ? "Note saved; visitors can read it" : "Note saved");
   }
+  function dropDraft(draft, written) {
+    composeKey++; composeResume = null;
+    if (written) toast("Draft discarded", { label: "Undo", run: () => { composeResume = draft; composeKey++; } });
+  }
+  async function save(e, input) {
+    entries = await updateEntry(book, e, input);
+    editing = null; editResume = null;
+    toast("Note saved");
+  }
+  function dropEdit(e, draft, changed) {
+    editing = null; editResume = null;
+    if (changed) toast("Changes discarded", { label: "Undo", run: () => { editResume = draft; editing = e.id; } });
+  }
+  function edit(e) { editResume = null; editing = e.id; menu = false; }
   async function remove(e) {
     const b = book;
     try { entries = await deleteEntry(b, e); } catch (er) { toast(er.message); return; }
-    toast(`${e.kind === "highlight" ? "Highlight" : "Note"} deleted`, { label: "Undo", run: async () => {
-      try { const list = await restoreEntry(b, e); if (book === b) entries = list; } catch (er) { toast(er.message); }
+    if (editing === e.id) editing = null;
+    toast("Note deleted", { label: "Undo", run: async () => {
+      try { const list = await restoreEntry(b, e); if (book?.id === b.id) entries = list; } catch (er) { toast(er.message); }
     } });
   }
-  // Fields grow with what's written in them.
-  $effect(() => { quote; text; kind; tick().then(() => form?.querySelectorAll("textarea").forEach((el) => { el.style.height = "auto"; el.style.height = el.scrollHeight + "px"; })); });
-
-  const facts = $derived(!book ? "" : [book.translator && `Translated by ${book.translator}`, book.publisher, book.published, book.pages && plural(book.pages, "page")].filter(Boolean).join(" · "));
-  const kick = $derived(!book ? "" : [BINDING_NAMES[bindingOf(book)], ui.owner && book.hidden && "Hidden from the website",
-    book.reading ? (ui.owner ? "Reading now" : "Currently reading") : ui.owner && book.readCount ? times(book.readCount) : ""].filter(Boolean).join(" · "));
-  const I = { lock: `<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>`, eye: `<path d="M2.5 12C3.5 10.2 7 6 12 6s8.5 4.2 9.5 6c-1 1.8-4.5 6-9.5 6s-8.5-4.2-9.5-6Z"/><circle cx="12" cy="12" r="3"/>` };
+  async function copy(url) {
+    try { await navigator.clipboard.writeText(url); toast("Link copied"); } catch { toast(url); }
+  }
+  const pageURL = () => `${location.origin}/${book.address}/notes`;
+  // A note's date leads to its own page, and its own page to all of them: links, so they open in a new tab
+  // too; a plain click goes there here.
+  function follow(ev, go) {
+    if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey || ev.button) return;
+    ev.preventDefault();
+    go();
+  }
+  async function toggleHidden() {
+    menu = false;
+    const hide = !book.notesHidden;
+    try { await setNotesHidden(book, hide); } catch (err) { toast(err.message); return; }
+    toast(hide ? "This book’s notes are hidden from visitors" : "Visitors can read this book’s public notes");
+  }
+  // The menu closes on a click outside it, or Esc.
+  $effect(() => {
+    if (!menu) return;
+    const away = (e) => { if (!e.target.closest?.(".nb-bar .more")) menu = false; };
+    const esc = (e) => { if (e.key === "Escape") { e.stopPropagation(); menu = false; } };
+    document.addEventListener("pointerdown", away); addEventListener("keydown", esc, true);
+    return () => { document.removeEventListener("pointerdown", away); removeEventListener("keydown", esc, true); };
+  });
+  const open = (e) => openBook(shelved(), e.currentTarget.closest(".nb-head").querySelector(".cv-btn img"));
 </script>
 
-{#snippet composer()}
-  <form class="nb-compose" class:open class:hl={kind === "highlight"} novalidate bind:this={form} onsubmit={save} onfocusin={() => (open = true)} oninput={() => (open = true)}>
-    <div class="seg" role="group" aria-label="Kind">
-      <button type="button" aria-pressed={kind === "note"} onclick={() => choose("note")}>Note</button>
-      <button type="button" aria-pressed={kind === "highlight"} onclick={() => choose("highlight")}>Highlight</button>
-    </div>
-    {#if kind === "highlight"}<textarea name="quote" rows="1" placeholder="The passage, as printed" aria-label="Passage" bind:value={quote} bind:this={quoteEl}></textarea>{/if}
-    <textarea name="text" rows="1" placeholder={kind === "highlight" ? "A thought on it, if you like" : "Write a note"} aria-label={kind === "highlight" ? "Your thought" : "Note"} bind:value={text} bind:this={textEl}></textarea>
-    <div class="nb-more">
-      {#if kind === "highlight"}<label>Page<input name="page" inputmode="numeric" autocomplete="off" bind:value={pageNo}></label>{/if}
-      {#if readings.length}
-        <label>Reading<select name="reading" bind:value={readingId}>
-          {#each newestFirst as r (r.id)}<option value={r.id}>{r.outcome === "reading" ? "This reading" : endedText(r)}</option>{/each}
-          <option value="">None in particular</option>
-        </select></label>
-      {/if}
-      <button type="button" class="nb-vis" aria-pressed={isPublic} title={isPublic ? "Visitors can read it on this page" : "Only you can see it"} onclick={() => (isPublic = !isPublic)}>
-        <svg class="i" viewBox="0 0 24 24" aria-hidden="true">{@html isPublic ? I.eye : I.lock}</svg>{isPublic ? "Public" : "Only you"}
-      </button>
-      <span class="nb-btns"><button type="button" class="btn sm" onclick={cancel}>Cancel</button><button type="submit" class="btn sm primary" disabled={busy}>Save</button></span>
-      <p class="nb-err" role="alert">{err}</p>
-    </div>
-  </form>
+{#snippet svg(name)}<svg class="i" viewBox="0 0 24 24" aria-hidden="true">{@html ICON[name]}</svg>{/snippet}
+
+{#snippet note(e)}
+  {#if ui.owner && editing === e.id}
+    <NoteEditor entry={e} resume={editResume} href="/{book.address}/notes/{e.id}" onopen={() => onNote(shelved(), e.id)} onsave={(input) => save(e, input)} ondiscard={(d, changed) => dropEdit(e, d, changed)} ondelete={() => remove(e)} />
+  {:else}
+    <li class="nb-e">
+      {#if e.pre}<p class="txt">{e.pre}</p>{/if}
+      {#if e.quote}<blockquote>{e.quote}</blockquote>{/if}
+      {#if e.text}<p class="txt">{e.text}</p>{/if}
+      <div class="nb-meta">
+        {#if e.where}<span class="mi where">{@render svg("place")}{whereText(e.where)}</span>{/if}
+        {#if single}<span class="mi">{@render svg("date")}{noteDate(e.createdAt)}</span>
+        {:else}<a class="mi dt" href="/{book.address}/notes/{e.id}" onclick={(ev) => follow(ev, () => onNote(shelved(), e.id))}>{@render svg("date")}{noteDate(e.createdAt)}</a>{/if}
+        {#if ui.owner && shortName(e.readingId)}<span class="mi">{@render svg("reading")}{shortName(e.readingId)}</span>{/if}
+        {#if ui.owner && !e.public}<span class="mi">{@render svg("lock")}Only me</span>{/if}
+        <span class="nb-tools">
+          {#if e.public && visitorsRead}<button type="button" class="lnk" onclick={() => copy(`${pageURL()}/${e.id}`)}>{@render svg("link")}Copy link</button>{/if}
+          {#if ui.owner}<button type="button" class="lnk" onclick={() => edit(e)}>{@render svg("pen")}Edit</button>{/if}
+        </span>
+      </div>
+    </li>
+  {/if}
 {/snippet}
 
 <section class="nb" id="notes" hidden={!book} aria-labelledby="nb-title">
   {#if book}
-    <header class="nb-head">
-      <button type="button" class="nb-cover" aria-label="Open the book" onclick={(e) => openBook(shelved(), e.currentTarget.querySelector("img"))}><img src={book.thumb} alt=""></button>
-      <div>
-        <p class="nb-kick">{kick}</p>
-        <h2 id="nb-title">{book.title}</h2>
-        <p class="nb-by">{book.author}</p>
-        <p class="nb-facts">{facts}</p>
-      </div>
-    </header>
-    <div class="nb-cols">
-      <div class="nb-main">
-        <div class="nb-bar">
-          <h3>{entries.length ? kinds(entries) : "Notes and highlights"}</h3>
-          {#if kindsHere > 1}
-            <div class="seg" role="group" aria-label="Show">
-              {#each [["all", "All"], ["note", "Notes"], ["highlight", "Highlights"]] as [v, label] (v)}<button type="button" aria-pressed={filter === v} onclick={() => (filter = v)}>{label}</button>{/each}
-            </div>
-          {/if}
-          {#if paged > 1}
-            <div class="seg" role="group" aria-label="Order">
-              <button type="button" aria-pressed={!byPage} onclick={() => (byPage = false)}>Newest</button><button type="button" aria-pressed={byPage} onclick={() => (byPage = true)}>By page</button>
-            </div>
-          {/if}
+    <div class="nb2">
+      <aside class="nb-side" class:open={foldOpen}>
+        <div class="nb-head">
+          <button type="button" class="cv-btn" aria-label="Details for {book.title}" onclick={open}><img src={book.face} alt=""><span class="cv-hint">Click for details</span></button>
+          <div>
+            <h2 id="nb-title"><button type="button" onclick={open}>{book.title}</button></h2>
+            <p class="nb-by">{book.author}</p>
+            <button type="button" class="tap-hint" onclick={open}>Tap for details {@render svg("chev")}</button>
+          </div>
         </div>
-        {#if ui.owner && !editing}{@render composer()}{/if}
-        <ol class="nb-list">
-          {#each shown as e (e.id)}
-            <li class="nb-e">
-              {#if editing === e.id}
-                {@render composer()}
-              {:else}
-                {#if e.kind === "highlight"}<blockquote>{e.quote}</blockquote>{/if}
-                {#if e.text}<p class="txt">{e.text}</p>{/if}
-                <div class="nb-meta">
-                  <span>{[e.page != null && `Page ${fmt(e.page)}`, ui.owner && nameOf(e.readingId), shortDate(Date.parse(e.createdAt))].filter(Boolean).join(" · ")}</span>
-                  {#if ui.owner}
-                    {#if e.public}<span class="pub"><svg class="i" viewBox="0 0 24 24" aria-hidden="true">{@html I.eye}</svg>Public</span>{/if}
-                    <span class="nb-tools"><button type="button" onclick={() => edit(e)}>Edit</button><button type="button" onclick={() => remove(e)}>Delete</button></span>
-                  {/if}
-                </div>
-              {/if}
-            </li>
-          {/each}
-        </ol>
-        {#if ui.owner && !entries.length}<p class="nb-empty">Nothing kept yet. A note can be a line or a page; a highlight keeps a passage you liked, and its page.</p>{/if}
-      </div>
-      {#if ui.owner}
-        <aside class="nb-side" class:open={foldOpen} aria-labelledby="nb-rd-h">
-          <h3 id="nb-rd-h">Readings</h3>
+        {#if ui.owner}
           <button type="button" class="nb-sum" aria-expanded={foldOpen} onclick={() => (foldOpen = !foldOpen)}>
-            <span><b>{summary[0]}</b>{summary[1] ? ` · ${summary[1]}` : ""}</span><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+            <span><b>{summary[0]}</b>{summary[1] ? ` · ${summary[1]}` : ""}</span>{@render svg("chevron")}
           </button>
           <div class="nb-fold">
             {#if readings.length}
@@ -252,11 +232,11 @@
                         <div class="meter"><div class="bar" role="img" aria-label="{pct} percent read"><i style="--v: {pct}%"></i></div></div>
                       {/if}
                       <label class="pg">On page <input type="number" min="0" max={book.pages || undefined} value={Math.min(book.page, book.pages || Infinity)} inputmode="numeric" onchange={page}>{#if book.pages} of {fmt(book.pages)}{/if}</label>
-                      <div class="r-tools"><button type="button" onclick={() => hooks.finishReading(book)}>Finished</button><button type="button" onclick={() => hooks.setAside(book)}>Set aside</button></div>
+                      <div class="r-tools"><button type="button" class="lnk" onclick={() => hooks.finishReading(book)}>Finished</button><button type="button" class="lnk" onclick={() => hooks.setAside(book)}>Set aside</button></div>
                     {:else if asking === r.id}
                       <div class="r-ask"><span>Delete this reading?</span><button type="button" class="btn sm danger" onclick={() => removeReading(r)}>Delete</button><button type="button" class="btn sm" onclick={() => (asking = null)}>Keep it</button></div>
                     {:else}
-                      <div class="r-tools"><button type="button" onclick={() => onCorrect(book, r)}>Edit</button><button type="button" onclick={() => (asking = r.id)}>Delete</button></div>
+                      <div class="r-tools"><button type="button" class="lnk" onclick={() => onCorrect(book, r)}>Edit</button><button type="button" class="lnk" onclick={() => (asking = r.id)}>Delete</button></div>
                     {/if}
                   </li>
                 {/each}
@@ -268,8 +248,68 @@
               <div class="acts"><button type="button" class="btn sm" onclick={() => hooks.startReading(book)}>Reading now</button><button type="button" class="btn sm" onclick={() => hooks.markRead(book)}>{book.readCount ? "Mark as read again" : "Mark as read"}</button></div>
             {/if}
           </div>
-        </aside>
-      {/if}
+        {/if}
+      </aside>
+
+      <div class="nb-main">
+        {#if single}
+          {#if one}
+            <ol class="nb-list one">{@render note(one)}</ol>
+            <a class="lnk nb-all" href="/{book.address}/notes" onclick={(ev) => follow(ev, () => onAll(shelved()))}>{entries.length > 1 ? `All ${entries.length} notes on this book` : "This book’s notes page"}{@render svg("chev")}</a>
+          {/if}
+        {:else}
+          {#if ui.owner}
+            {#key composeKey}
+              <NoteEditor bind:this={composer} resume={composeResume} readingId={composeReading || defaultReading} startsPublic={!!st?.startsPublic} onsave={create} ondiscard={dropDraft} />
+            {/key}
+          {/if}
+          <div class="nb-bar">
+            <h3>{plural(shown.length, "note")}</h3>
+            {#if ui.owner && rfilter}
+              <button type="button" class="btn sm" aria-pressed="true" aria-label="Showing the {shortName(rfilter)} only. Show all." onclick={() => (rfilter = "")}>{shortName(rfilter)}{@render svg("x")}</button>
+            {/if}
+            {#if placed > 1}
+              <div class="seg" role="group" aria-label="Order">
+                <button type="button" aria-pressed={!byPage} onclick={() => (byPage = false)}>Newest</button><button type="button" aria-pressed={byPage} onclick={() => (byPage = true)}>By page</button>
+              </div>
+            {/if}
+            {#if ui.owner}
+              <span class="more">
+                <button type="button" class="btn icon more-btn" aria-label="More" aria-haspopup="menu" aria-expanded={menu} onclick={() => (menu = !menu)}>{@render svg("more")}</button>
+                {#if menu}
+                  <div class="menu" role="menu" aria-label="More">
+                    <p class="info">{!st?.notes ? "Notes are switched off for visitors in Settings." : book.notesHidden ? `Hidden from visitors. ${publicCount} of ${entries.length} are marked public.` : `Visitors can read ${publicCount} of ${entries.length}.`}</p>
+                    {#if st?.notes}<button type="button" role="menuitem" onclick={toggleHidden}>{@render svg(book.notesHidden ? "eye" : "lock")}{book.notesHidden ? "Show to visitors" : "Hide from visitors"}</button>{/if}
+                    <button type="button" role="menuitem" disabled={!visitorsRead} onclick={() => { menu = false; copy(pageURL()); }}>{@render svg("link")}Copy link</button>
+                    <button type="button" role="menuitem" onclick={() => { menu = false; onExport(book); }}>{@render svg("down")}Download Markdown</button>
+                    {#if readings.length > 1}
+                      <p class="info sep">Readings</p>
+                      {#each [["", "All readings"], ...readings.map((r) => [r.id, shortName(r.id)])] as [id, label] (id)}
+                        <button type="button" role="menuitemradio" aria-checked={rfilter === id} onclick={() => { rfilter = id; menu = false; }}>{#if rfilter === id}{@render svg("check")}{:else}<span class="ph"></span>{/if}<span>{label}</span></button>
+                      {/each}
+                      <button type="button" role="menuitemcheckbox" aria-checked={group} onclick={() => { group = !group; menu = false; }}>{#if group}{@render svg("check")}{:else}<span class="ph"></span>{/if}<span>Group by reading</span></button>
+                    {/if}
+                  </div>
+                {/if}
+              </span>
+            {/if}
+          </div>
+          {#if grouped}
+            {#each newestFirst as r (r.id)}
+              {@const list = shown.filter((e) => e.readingId === r.id)}
+              {#if list.length}
+                <section class="rd"><h4 class="rd-cap">{nameOf(r.id)} · {r.outcome === "reading" ? "under way" : endedText(r).toLowerCase()}</h4><ol class="nb-list">{#each list as e (e.id)}{@render note(e)}{/each}</ol></section>
+              {/if}
+            {/each}
+            {#if loose.length}
+              <section class="rd"><h4 class="rd-cap">Not from a reading</h4><ol class="nb-list">{#each loose as e (e.id)}{@render note(e)}{/each}</ol></section>
+            {/if}
+          {:else}
+            <ol class="nb-list">{#each shown as e (e.id)}{@render note(e)}{/each}</ol>
+          {/if}
+          {#if ui.owner && !entries.length}<p class="nb-empty">Nothing kept yet. A line you liked, a thought, or both.</p>{/if}
+        {/if}
+      </div>
     </div>
   {/if}
 </section>

@@ -4,7 +4,7 @@ import { BINDING_NAMES, bindingOf, fmt, isPhone, plural } from "../engine/model.
 const $ = (box, sel) => box.querySelector(sel);
 const plot = (box, name) => box.querySelector(`[data-chart="${name}"] .plot`);
 
-export function renderStats(box, list, { owner, hidden, openFromStats, setPage }) {
+export function renderStats(box, list, { owner, progress, hidden, openFromStats, setPage }) {
   const n = list.length;
   const pages = list.reduce((t, b) => t + (b.pages || 0), 0);
   const authors = new Set(list.map((b) => b.author)).size;
@@ -21,7 +21,7 @@ export function renderStats(box, list, { owner, hidden, openFromStats, setPage }
     kpi("Written", years.length ? `${Math.min(...years)}–${Math.max(...years)}` : "—", years.length ? `${Math.max(...years) - Math.min(...years)} years from first to last` : "no dates yet"),
   ].join("");
 
-  renderReadingCards(box, list, owner, openFromStats, setPage);
+  renderReadingCards(box, list, owner, progress, openFromStats, setPage);
   // When they were written: the decades that have books, in order.
   const decades = new Map();
   [...years].sort((a, z) => a - z).forEach((y) => { const d = Math.floor(y / 10) * 10; decades.set(d, (decades.get(d) || 0) + 1); });
@@ -54,13 +54,14 @@ export function renderStats(box, list, { owner, hidden, openFromStats, setPage }
 }
 
 // The books being read: how far in (the owner keeps the page up to date here), when each was started,
-// and where it stands among the rest of the library by length and by age.
-function renderReadingCards(box, list, owner, openFromStats, setPage) {
+// and where it stands among the rest of the library by length and by age. Visitors see how far in only if
+// the owner lets them (progress).
+function renderReadingCards(box, list, owner, progress, openFromStats, setPage) {
   const now = list.filter((x) => x.reading).sort((a, b) => b.readingSince - a.readingSince);
   $(box, ".reading-block").hidden = !now.length;
-  $(box, ".reading-cards").replaceChildren(...now.map((b) => readingCard(b, list, owner, openFromStats, setPage)));
+  $(box, ".reading-cards").replaceChildren(...now.map((b) => readingCard(b, list, owner, progress, openFromStats, setPage)));
 }
-function readingCard(b, list, owner, openFromStats, setPage) {
+function readingCard(b, list, owner, progress, openFromStats, setPage) {
   const card = document.createElement("article");
   card.className = "chart reading-card";
   const share = (f) => Math.round(list.filter((x) => x !== b && f(x)).length / Math.max(1, list.length - 1) * 100);
@@ -68,13 +69,13 @@ function readingCard(b, list, owner, openFromStats, setPage) {
   const days = b.readingSince ? Math.max(0, Math.round((Date.now() - b.readingSince) / 864e5)) : null;
   const left = Math.max(0, (b.pages || 0) - page), plural2 = (n, w) => `${fmt(n)} ${w}${n === 1 ? "" : "s"}`;
   card.innerHTML = `<img alt=""><div class="body"><div class="who"><b></b><span></span></div>
-    <div class="progress"><div class="line"><div class="big">${pct}%<small>${b.pages ? `page ${fmt(page)} of ${fmt(b.pages)}` : "page count unknown"}</small></div>
+    ${progress ? `<div class="progress"><div class="line"><div class="big">${pct}%<small>${b.pages ? `page ${fmt(page)} of ${fmt(b.pages)}` : "page count unknown"}</small></div>
       ${owner && b.pages ? `<label class="page">On page <input type="number" min="0" max="${b.pages}" value="${page}" inputmode="numeric"></label>` : ""}</div>
-      <div class="meter"><div class="bar" role="img" aria-label="${pct} percent read"><i style="--v: ${pct}%"></i></div></div></div>
+      <div class="meter"><div class="bar" role="img" aria-label="${pct} percent read"><i style="--v: ${pct}%"></i></div></div></div>` : ""}
     <ul class="facts">
-      ${days !== null ? `<li><b>${days === 0 ? "Today" : plural2(days, "day")}</b>${days === 0 ? "started" : "since starting"}</li>` : ""}
-      ${b.pages ? `<li><b>${fmt(left)}</b>pages to go${left ? ` · about ${plural2(Math.max(1, Math.round(left / 30)), "day")}` : ""}</li>
-      <li><b>${share((x) => x.pages && x.pages < b.pages)}%</b>of the library is shorter</li>` : ""}
+      ${progress && days !== null ? `<li><b>${days === 0 ? "Today" : plural2(days, "day")}</b>${days === 0 ? "started" : "since starting"}</li>` : ""}
+      ${b.pages && progress ? `<li><b>${fmt(left)}</b>pages to go${left ? ` · about ${plural2(Math.max(1, Math.round(left / 30)), "day")}` : ""}</li>` : ""}
+      ${b.pages ? `<li><b>${share((x) => x.pages && x.pages < b.pages)}%</b>of the library is shorter</li>` : ""}
       ${b.published ? `<li><b>${share((x) => x.published && x.published > b.published)}%</b>of the library is older</li>` : ""}
     </ul></div>`;
   const img = card.querySelector("img"); img.src = b.thumb; img.addEventListener("click", () => openFromStats(b, img));

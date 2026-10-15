@@ -1,9 +1,10 @@
 // The open book: the flight out of the shelf (or up from a cover on the stats page or a notes page), the title page,
 // stepping between books, putting it back. Its markup is made here and only ever filled in, never
 // re-rendered, so nothing redraws text on a layer while it flies.
-import { $, EASE, BINDING_NAMES, DIM, dimIn, dimOut, bestCover, bindingOf, cover, coverImg, isPhone, lastName, motionOK, root, settled, tone, touch } from "./model.js";
+import { $, EASE, BINDING_NAMES, DIM, dimIn, dimOut, bestCover, bindingOf, cover, coverImg, fmt, isPhone, lastName, motionOK, root, settled, tone, touch } from "./model.js";
 import { onResize, scale, setPeek, slots, view, visibleBooks } from "./shelf.js";
 import { pickColor } from "../lib/colorpicker.js";
+import { ms, shortDate, shortWhen, whenText } from "../lib/dates.js";
 
 const I = (d) => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
 const ICONS = {
@@ -13,6 +14,9 @@ const ICONS = {
   hide: I(`<path d="M3 3l18 18M10.6 6.1A9.8 9.8 0 0 1 12 6c5 0 8.5 4.2 9.5 6-.4.8-1.3 2.1-2.6 3.3M6.3 7.4C4.4 8.7 3 10.7 2.5 12c1 1.8 4.5 6 9.5 6 1.7 0 3.2-.5 4.5-1.2"/>`),
   search: I(`<circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/>`),
   notes: I(`<path d="M6 3.5h8.5L18 7v13.5H6zM9 11h6M9 14.5h6M9 18h3.5"/>`),
+  link: I(`<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>`),
+  more: I(`<circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/>`),
+  out: I(`<path d="M14 5h5v5M19 5l-8 8M17 14v5H5V7h5"/>`),
 };
 const MARKUP = `
 <div class="scrim" id="scrim"></div>
@@ -41,19 +45,30 @@ const MARKUP = `
             <div><dt id="d-id-t">ISBN</dt><dd id="d-isbn"></dd></div>
             <div id="d-issue-row" hidden><dt>Issue</dt><dd id="d-issue"></dd></div>
           </dl>
+          <p class="rline owner-only" id="d-reading"></p>
           <div class="actbar">
-          <div class="actions">
-            <button type="button" class="act" id="copy">${I(`<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>`)}Copy link</button>
-            <a class="act" id="search-one" target="_blank" rel="noopener" hidden></a>
-            <button type="button" class="act" id="search-many" hidden>${ICONS.search}Search on…</button>
-            <button type="button" class="act" id="notes-btn">${ICONS.notes}Notes</button>
-            <button type="button" class="act owner-only" id="edit">${I(`<path d="M4 20h4L19 9l-4-4L4 16v4ZM14 6l4 4"/>`)}Edit</button>
-            <button type="button" class="act owner-only" id="reading"></button>
-            <button type="button" class="act owner-only" id="reading2"></button>
-            <button type="button" class="act owner-only" id="hide"></button>
-            <button type="button" class="act owner-only warn" id="remove">${I(`<path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12"/>`)}Remove</button>
+          <div class="ptools">
+            <span class="tool-wrap owner-only">
+              <button type="button" class="tool" id="reading-btn" aria-haspopup="menu" aria-expanded="false"><span class="ic">${ICONS.read}</span><span class="nm">Reading</span></button>
+              <div class="tmenu" role="menu" aria-label="Reading" hidden><button type="button" role="menuitem" id="reading"></button><button type="button" role="menuitem" id="reading2"></button></div>
+            </span>
+            <button type="button" class="tool" id="notes-btn"><span class="ic" id="notes-ic"></span><span class="nm">Notes</span></button>
+            <button type="button" class="tool" id="copy" aria-label="Copy link" title="Copy link"><span class="ic">${ICONS.link}</span><span class="nm">Link</span></button>
+            <a class="tool" id="search-one" target="_blank" rel="noopener" hidden><span class="ic">${ICONS.search}</span><span class="nm">Search</span></a>
+            <span class="tool-wrap" id="search-many" hidden>
+              <button type="button" class="tool" aria-haspopup="menu" aria-expanded="false"><span class="ic">${ICONS.search}</span><span class="nm">Search</span></button>
+              <div class="tmenu" role="menu" aria-label="Search on" hidden><p class="tcap">Search on</p><span id="source-links"></span></div>
+            </span>
+            <span class="tool-wrap owner-only">
+              <button type="button" class="tool" aria-label="More" aria-haspopup="menu" aria-expanded="false"><span class="ic">${ICONS.more}</span><span class="nm">More</span></button>
+              <div class="tmenu" role="menu" aria-label="More" hidden>
+                <button type="button" role="menuitem" id="edit">${I(`<path d="M4 20h4L19 9l-4-4L4 16v4ZM14 6l4 4"/>`)}<span>Edit details</span></button>
+                <button type="button" role="menuitem" id="hide"></button>
+                <hr>
+                <button type="button" role="menuitem" class="warn" id="remove">${I(`<path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12"/>`)}<span>Remove</span></button>
+              </div>
+            </span>
           </div>
-          <div class="sources" id="sources"><span>Search on</span><span id="source-links"></span><button type="button" class="act" id="sources-x" aria-label="Back">${I(`<path d="M6 6l12 12M18 6 6 18"/>`)}</button></div>
           <div class="confirm" id="confirm">
             <span>Remove this book?</span>
             <button type="button" class="act solid" id="remove-yes" style="background:#a3321f">Remove</button>
@@ -163,7 +178,7 @@ function shelfPose(b) {
      sweep across the books beside it or the plank below it;
    - the stage is clipped to its own gap in the row, widened only by how far its front has come out,
      and to the plank's top edge, so whatever is still inside stays hidden as a real shelf hides it.
-   Once it is clear the eye drifts back to the middle of the window and the clip falls away. */
+   Once it is clear the eye drifts back to where it rests (the stage's middle) and the clip falls away. */
 function flightPath(p, b, z0) {
   const W = size.W, P = 1800;
   const clear = W * p.s + 10, cx = p.r.left + p.r.width / 2, cy = p.r.top + p.r.height / 2;
@@ -173,7 +188,7 @@ function flightPath(p, b, z0) {
   for (let i = 0, n = 40; i <= n; i++) {
     const t = i / n, out = smooth(0, .36, t), go = smooth(.22, 1, t), turn = smooth(.3, 1, t);
     const z = lerp(z0, clear, out) * (1 - go);
-    const ex = lerp(lerp(ex0, cx, out), innerWidth / 2, go), ey = lerp(lerp(ey0, cy, out), innerHeight / 2, go);
+    const ex = lerp(lerp(ex0, cx, out), eyeX(), go), ey = lerp(lerp(ey0, cy, out), eyeY(), go);
     frames.push({ transform: pose(p.x * (1 - go), p.y * (1 - go) - 28 * Math.sin(Math.PI * go), z, lerp(p.s, 1, go), lerp(-W / 2, restBack(b), turn), 6 * Math.sin(Math.PI * turn), 90 * (1 - turn)) });
     const inside = go < .02 && z < clear, k = z / (P - z);
     const dx = inside ? k * (Math.abs(cx - ex) + p.r.width / 2) + 2 : 4000;
@@ -197,15 +212,30 @@ const SOURCES = {
   goodreads: { name: "Goodreads", url: (b) => `https://www.goodreads.com/search?q=${b.isbn || encodeURIComponent(b.title + " " + b.author)}` },
 };
 // One source: a "Search on Goodreads" link beside Copy link. Several: "Search on…" opens the row of them.
+// Search: one site is a link straight there; several are a list under the one tool.
 function fillLinks(b) {
   const on = Object.keys(SOURCES).filter((k) => view.settings.sources.includes(k));
   const one = $("search-one"), many = $("search-many");
   one.hidden = on.length !== 1; many.hidden = on.length < 2;
-  if (on.length === 1) { one.href = SOURCES[on[0]].url(b); one.innerHTML = `${ICONS.search}Search on ${SOURCES[on[0]].name}`; }
-  $("source-links").replaceChildren(...on.map((k) => Object.assign(document.createElement("a"), { className: "act", href: SOURCES[k].url(b), target: "_blank", rel: "noopener", textContent: SOURCES[k].name })));
-  if (on.length < 2) reader.classList.remove("searching");
+  if (on.length === 1) { one.href = SOURCES[on[0]].url(b); one.title = one.ariaLabel = `Search on ${SOURCES[on[0]].name}`; }
+  $("source-links").innerHTML = on.map((k) => `<a role="menuitem" href="${SOURCES[k].url(b)}" target="_blank" rel="noopener">${ICONS.out}<span>${SOURCES[k].name}</span></a>`).join("");
 }
 const timesText = (n) => n === 1 ? "Read once" : n === 2 ? "Read twice" : `Read ${n} times`;
+// The owner's line about the reading, under the details: under way since when and on which page; or how often
+// it was read and when last; or set aside; or not read yet.
+const thisYear = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" });
+const since = (t) => (new Date(t).getFullYear() === new Date().getFullYear() ? thisYear.format(t) : shortDate(t));
+function readingLine(b) {
+  const page = b.page ? (b.pages ? `page ${fmt(Math.min(b.page, b.pages))} of ${fmt(b.pages)}` : `page ${fmt(b.page)}`) : "";
+  if (b.reading) return [`Reading since ${since(b.readingSince)}`, page].filter(Boolean).join(" · ");
+  const last = b.history.filter((r) => r.outcome === "finished").sort((x, y) => (ms(y.ended) || 0) - (ms(x.ended) || 0))[0];
+  if (b.readCount) {
+    const when = !last || last.ended.precision === "unknown" ? "" : last.ended.precision === "year" ? `last in ${whenText(last.ended)}` : `last ${shortWhen(last.ended)}`;
+    return [timesText(b.readCount), when].filter(Boolean).join(" · ");
+  }
+  if (b.history.length) { const stopped = b.history.at(-1).progress?.at(-1)?.page; return stopped ? `Set aside on page ${fmt(stopped)}` : "Set aside"; }
+  return "Not read yet";
+}
 
 export function fill(b) {
   current = b;
@@ -224,12 +254,17 @@ export function fill(b) {
   const list = visibleBooks(), i = list.findIndex((x) => x.key === b.key);
   [list[(i + 1) % list.length], list[(i - 1 + list.length) % list.length]].forEach((n) => n && cover(n.cover));   // the neighbours, ready for stepping
   // The line above the title: the binding, and whether it's being read or (for the owner) how often it was.
-  const times = b.readCount || 0;
-  $("d-kicker").textContent = [BINDING_NAMES[bindingOf(b)], b.reading ? (view.owner ? "Reading now" : "Currently reading") : view.owner && times ? timesText(times) : ""].filter(Boolean).join(" · ");
-  // Its notes page: always the owner's to write in; for visitors, once something on it is public.
+  // For visitors, whether it is being read; the owner has the line about the reading under the details.
+  $("d-kicker").textContent = [BINDING_NAMES[bindingOf(b)], !view.owner && b.reading ? "Currently reading" : ""].filter(Boolean).join(" · ");
+  $("d-reading").textContent = view.owner ? readingLine(b) : "";
+  // Its notes page: always the owner's to write in; for visitors, once something on it is public. How many it
+  // has stands for its icon (none yet: the notes icon).
   $("notes-btn").hidden = !view.owner && !b.entries;
-  $("reading").innerHTML = b.reading ? `${ICONS.finished}Finished reading` : `${ICONS.read}Reading now`;
-  $("reading2").innerHTML = b.reading ? `${ICONS.aside}Set aside` : `${ICONS.mark}Mark as read`;
+  $("notes-ic").innerHTML = b.entries ? `<b class="num">${fmt(b.entries)}</b>` : ICONS.notes;
+  $("notes-btn").ariaLabel = b.entries ? `Notes, ${fmt(b.entries)}` : "Notes";
+  $("reading").innerHTML = b.reading ? `${ICONS.finished}<span>Finished reading</span>` : `${ICONS.read}<span>Reading now</span>`;
+  $("reading2").innerHTML = b.reading ? `${ICONS.aside}<span>Set aside</span>` : `${ICONS.mark}<span>Mark as read</span>`;
+  closeMenu();
   // "Title: Subtitle" sets the subtitle on its own line; long titles step down in size so they fit the page.
   const [title, ...more] = b.title.split(/:\s+/), sub = more.join(": ");
   $("d-title").textContent = title;
@@ -243,7 +278,7 @@ export function fill(b) {
   $("d-issue-row").hidden = !b.issue; $("d-issue").textContent = b.issue;
   $("d-pages").textContent = b.pages ? b.pages.toLocaleString("en-US") : "Unknown";
   $("folio").textContent = `${(i + 1).toLocaleString("en-US")} of ${list.length.toLocaleString("en-US")}`;
-  $("hide").innerHTML = b.hidden ? `${ICONS.show}Show on website` : `${ICONS.hide}Hide from website`;
+  $("hide").innerHTML = b.hidden ? `${ICONS.show}<span>Show on website</span>` : `${ICONS.hide}<span>Hide from website</span>`;
   reader.classList.toggle("is-hidden", !!b.hidden);
   reader.classList.remove("editing", "asking");
   fillLinks(b);
@@ -258,7 +293,10 @@ let soloFrom = null;   // the cover on the page (stats or notes) a book rose fro
 // Where the eye stands for a book over a cover: straight in front of it, so on the way up (and back down)
 // only its face shows, never the edges of its pages.
 const coverEye = (img) => { const r = img.getBoundingClientRect(); return `${Math.round(r.left + r.width / 2)}px ${Math.round(r.top + r.height / 2)}px`; };
-const restEye = () => `${Math.round(carry.offsetLeft + size.W / 2)}px ${Math.round(carry.offsetTop + size.H / 2)}px`;   // the closed book's centre at rest
+// Where the eye stands while the book rests: the stage's own middle (its perspective origin, which leaves out the
+// page's scroll bar). Every flight's eye starts or ends exactly there, or the book twitches as the eye snaps.
+const eyeX = () => stage.clientWidth / 2, eyeY = () => stage.clientHeight / 2;
+const restEye = () => `${eyeX()}px ${eyeY()}px`;
 // The closed book's pose that sits exactly over a cover on the page: centred on it, scaled to its height.
 function coverPose(b, img) {
   const r = img.getBoundingClientRect();
@@ -391,9 +429,13 @@ export async function closeOnto(under) {
   if (!isOpen() || busy) return false;
   if (reader.classList.contains("editing")) { hooks.toast("Save or cancel your changes first"); return false; }
   const img = await under();
+  // The page beneath is drawn, and its cover decoded, before the book starts to close: drawn in the same
+  // frames as the closing, a whole new page under it makes the book stutter as it sets off.
+  await img?.decode?.().catch(() => {});
+  await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)));
+  pageAt = scrollY;   // the page put beneath starts at its top; the book doesn't take it back to the shelf's place
   if (soloFrom) soloFrom.style.visibility = "";
-  reader.classList.add("solo");
-  soloFrom = returnFocus = img || null;
+  soloFrom = returnFocus = img || null;   // the page stays as it is (its stepping and folio too) while the book closes
   if (img) img.style.visibility = "hidden";
   await closeBook();
   return true;
@@ -401,16 +443,27 @@ export async function closeOnto(under) {
 // Next and previous swap the book in your hands: the cover plate changes at once, the page fades through.
 function step(dir) {
   if (busy || !current || reader.classList.contains("solo")) return;
-  if (reader.classList.contains("editing")) return hooks.toast("Save or cancel your changes first");
+  if (!canLeave()) return;
   const list = visibleBooks();
   const i = list.findIndex((b) => b.key === current.key);
   const next = list[(i + dir + list.length) % list.length];
-  markOut(next);
-  fill(next);
-  hooks.opened(next);
+  showInHand(next, dir);
+  hooks.stepped(next);
+}
+// A book swapped into hand, by a step or by Back and Forward over the books stepped through.
+export function showInHand(b, dir) {
+  if (!isOpen() || b.key === current?.key) return;
+  markOut(b);
+  fill(b);
   page.scrollTop = 0;
   leaf.getAnimations().forEach((a) => a.cancel());
-  if (motionOK()) leaf.animate([{ opacity: .15, transform: `translateX(${dir * 14}px)` }, { opacity: 1, transform: "none" }], { duration: 300, easing: EASE });
+  if (motionOK()) leaf.animate([{ opacity: .15, transform: `translateX(${(dir || 1) * 14}px)` }, { opacity: 1, transform: "none" }], { duration: 300, easing: EASE });
+}
+// The book may be left (or swapped) unless an edit is under way.
+export function canLeave() {
+  if (!reader.classList.contains("editing")) return true;
+  hooks.toast("Save or cancel your changes first");
+  return false;
 }
 // The book in hand changed on the server (an edit, a reading): show it as it is now.
 export function refill(b, fade = false) {
@@ -479,12 +532,34 @@ function zoom() {
   unzoom = back;
 }
 
-// Esc on the open book: an edit, a question or the sources close before the book does.
+// Esc on the open book: a menu, an edit or a question closes before the book does.
 export function dismissInBook() {
   if (!isOpen()) return false;
+  if (closeMenu(true)) return true;
   for (const c of ["editing", "asking"]) if (reader.classList.contains(c)) { reader.classList.remove(c); return true; }
-  if (reader.classList.contains("searching")) { reader.classList.remove("searching"); $("search-many").focus({ preventScroll: true }); return true; }
   return false;
+}
+// The tools' menus (Reading, Search on several sites, More): one open at a time, above its tool; a choice, a
+// click elsewhere or Esc closes it, and the arrow keys move through it. Opened from the keyboard, its first
+// item takes focus.
+let openMenu = null;
+function toggleMenu(wrap, fromKey) {
+  const was = openMenu === wrap;
+  closeMenu();
+  if (was) return;
+  openMenu = wrap;
+  wrap.querySelector(".tmenu").hidden = false;
+  wrap.querySelector(".tool").ariaExpanded = "true";
+  if (fromKey) wrap.querySelector("[role=menuitem]")?.focus({ preventScroll: true });
+}
+function closeMenu(refocus = false) {
+  if (!openMenu) return false;
+  const wrap = openMenu, tool = wrap.querySelector(".tool");
+  openMenu = null;
+  wrap.querySelector(".tmenu").hidden = true;
+  tool.ariaExpanded = "false";
+  if (refocus) tool.focus({ preventScroll: true });
+  return true;
 }
 
 /* ---------- The owner's tools on the open book ---------- */
@@ -582,8 +657,17 @@ export function mountReader(el) {
   $("thumb").addEventListener("click", zoom);
   onResize.push(() => { if (isOpen() && !busy) { measure(); fill(current); carry.style.transform = `translateX(${size.shift}px)`; } });
 
-  $("search-many").addEventListener("click", () => { reader.classList.add("searching"); $("source-links").querySelector("a")?.focus({ preventScroll: true }); });
-  $("sources-x").addEventListener("click", () => { reader.classList.remove("searching"); $("search-many").focus({ preventScroll: true }); });
+  reader.querySelectorAll(".tool-wrap > .tool").forEach((t) => t.addEventListener("click", (e) => toggleMenu(t.parentElement, e.detail === 0)));
+  reader.querySelectorAll(".tmenu").forEach((m) => {
+    m.addEventListener("click", (e) => { if (e.target.closest("[role=menuitem]")) closeMenu(); });
+    m.addEventListener("keydown", (e) => {
+      if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+      e.preventDefault(); e.stopPropagation();
+      const items = [...m.querySelectorAll("[role=menuitem]")], i = items.indexOf(document.activeElement);
+      items[(i + (e.key === "ArrowDown" ? 1 : items.length - 1)) % items.length]?.focus();
+    });
+  });
+  document.addEventListener("pointerdown", (e) => { if (openMenu && !openMenu.contains(e.target)) closeMenu(); });
   $("copy").addEventListener("click", () => {
     const link = `${location.origin}/${current.address}`;
     navigator.clipboard?.writeText(link).then(() => hooks.toast("Link copied"), () => hooks.toast(link));

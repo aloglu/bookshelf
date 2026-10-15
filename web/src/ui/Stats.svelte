@@ -18,7 +18,7 @@
   function draw() {
     if (!box || !active) return;
     const list = data.books, hidden = list.filter((b) => b.hidden).length;
-    renderStats(box, list, { owner: ui.owner, hidden, openFromStats, setPage: page });
+    renderStats(box, list, { owner: ui.owner, progress: ui.owner || !!data.library?.settings.showProgress, hidden, openFromStats, setPage: page });
   }
   $effect(() => { data.books; ui.owner; if (active) tick().then(draw); });
   function table(e) {

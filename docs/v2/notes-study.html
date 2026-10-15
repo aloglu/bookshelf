@@ -1,0 +1,1415 @@
+<title>Bookshelf Notes Study</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..700&family=Instrument+Sans:wght@400..700&display=swap">
+<style>
+
+:root {
+  --wall-l: #e9e0d0; --wall2-l: #ded2bf; --ink-l: #2b1f16; --muted-l: #75634f; --surface-l: #f6efe3; --line-l: rgba(43, 31, 22, .16); --accent-l: #2f4f3c; --accent-ink-l: #f3ead8;
+  --wall-d: #17110d; --wall2-d: #100b08; --ink-d: #f0e4d0; --muted-d: #ad9a80; --surface-d: #241a12; --line-d: rgba(240, 228, 208, .12);
+  --side: 18px; --crown: 18px; --base: 16px; --ribbon-day: #8e2532; --ribbon-night: #8e2532; --ribbon: var(--ribbon-day);
+  --wall: var(--wall-l); --wall-2: var(--wall2-l); --ink: var(--ink-l); --muted: var(--muted-l);
+  --surface: var(--surface-l); --line: var(--line-l); --accent: var(--accent-l); --accent-ink: var(--accent-ink-l);
+  --scrim: rgba(43, 31, 22, .42);
+  --shade: rgba(40, 24, 10, .34); --shadow: rgba(40, 24, 10, .42);
+  /* Paper stays paper in both modes; the evening sheet is just a little dimmer. */
+  --paper: #f7f1e5; --paper-ink: #2a2018; --paper-muted: #7a6956; --paper-line: rgba(42, 32, 24, .15); --paper-accent: #2f4f3c;
+  --display: "Fraunces Variable", "Iowan Old Style", Georgia, serif;
+  --ui: "Instrument Sans Variable", "Segoe UI", system-ui, sans-serif;
+  --ease: cubic-bezier(.22, 1, .36, 1);
+  --faded: saturate(.15) contrast(.7) brightness(1.12);
+  --danger: #a3321f; --field: rgba(43, 31, 22, .04);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --wood: var(--wood-night); --wood-v: var(--wood-night-v, none); --wood-back: var(--wood-night-back, none); --ribbon: var(--ribbon-night);
+    --wall: var(--wall-d); --wall-2: var(--wall2-d); --ink: var(--ink-d); --muted: var(--muted-d);
+    --surface: var(--surface-d); --line: var(--line-d); --accent: #c9a35a; --accent-ink: #1c130c;
+    --scrim: rgba(6, 3, 1, .66);
+    --shade: rgba(0, 0, 0, .5); --shadow: rgba(0, 0, 0, .7);
+    --paper: #e6dcc7; --paper-muted: #6e5f4e;
+    --danger: #e8896c; --field: rgba(240, 228, 208, .05);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --wood: var(--wood-night); --wood-v: var(--wood-night-v, none); --wood-back: var(--wood-night-back, none); --ribbon: var(--ribbon-night);
+  --wall: var(--wall-d); --wall-2: var(--wall2-d); --ink: var(--ink-d); --muted: var(--muted-d);
+  --surface: var(--surface-d); --line: var(--line-d); --accent: #c9a35a; --accent-ink: #1c130c;
+  --scrim: rgba(6, 3, 1, .66);
+  --shade: rgba(0, 0, 0, .5); --shadow: rgba(0, 0, 0, .7);
+  --paper: #e6dcc7; --paper-muted: #6e5f4e;
+  --danger: #e8896c; --field: rgba(240, 228, 208, .05);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { scrollbar-gutter: stable; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }   /* iOS would otherwise enlarge small text in wide blocks on its own */   /* a search that shortens the page never shifts the header sideways */
+body {
+  background: radial-gradient(1200px 500px at 50% -120px, var(--wall), var(--wall-2) 75%);
+  background-color: var(--wall-2);
+  color: var(--ink); font-family: var(--ui); font-size: 15px;
+  min-height: 100vh; -webkit-font-smoothing: antialiased;
+  padding-inline: 16px; overflow-x: clip;
+  transition: background-color .4s;
+}
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.wrap { max-width: 1200px; margin: 0 auto; }
+
+.tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.field { display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 14px; width: 250px; border-radius: 8px; background: var(--surface); border: 1px solid var(--line); color: var(--muted); box-shadow: inset 0 1px 2px rgba(0,0,0,.08); }
+.field:focus-within { border-color: color-mix(in oklab, var(--accent) 60%, transparent); }
+/* Search folds into an icon at the head of the tools. Hovered, tapped, focused, or holding a query, the field
+   grows out of the icon (on a click or tap, never on hover) as an overlay toward the free space beside it (leftward on a wide screen, across
+   the row on a phone), so nothing else in the row ever moves or wraps. It grows by its width, not a
+   transform, so its text never re-settles. */
+.search { position: relative; flex: none; width: 40px; height: 40px; }
+.search .field { position: absolute; right: 0; top: 0; z-index: 4; width: 40px; padding: 0 10px; overflow: hidden; cursor: pointer; transition: width .26s var(--ease), border-color .2s; }
+.search .field .i { flex: none; }
+.search .field:focus-within, .search.has-query .field { width: 270px; cursor: text; }
+.btn.icon[aria-pressed="true"] { background: color-mix(in oklab, var(--accent) 16%, var(--surface)); border-color: color-mix(in oklab, var(--accent) 40%, transparent); }
+.field input { all: unset; flex: 1; min-width: 0; color: var(--ink); font-size: .92rem; }
+.field input::placeholder { color: var(--muted); }
+.seg { position: relative; isolation: isolate; display: flex; height: 40px; padding: 3px; border-radius: 8px; background: var(--surface); border: 1px solid var(--line); }
+.seg button { padding: 0 12px; border-radius: 5px; color: var(--muted); font-size: .86rem; font-weight: 500; transition: background-color .2s, color .28s var(--ease); }
+/* The chosen button's highlight is one pill behind them all (lib/pill.js), which slides to a new choice. */
+.seg .pill { position: absolute; z-index: -1; top: 3px; bottom: 3px; left: 0; width: var(--w, 0); border-radius: 5px; transform: translateX(var(--x, 3px)) scaleX(var(--sx, 1)); transform-origin: 0 0; background: color-mix(in oklab, var(--accent) 16%, transparent); pointer-events: none; }
+.seg .pill.ready { transition: transform .28s var(--ease); }
+.seg .pill.none { display: none; }
+/* The sort's direction: an arrow on the active button, up for A to Z and oldest first, down the other way.
+   Every sort button keeps its room, so the buttons never change width. */
+.seg .dir { width: 12px; height: 12px; margin-left: 4px; flex: none; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; visibility: hidden; transition: rotate .2s; }
+.seg button:has(.dir) { display: inline-flex; align-items: center; justify-content: center; }
+.seg .dir.shown { visibility: visible; }
+.seg .dir.down { rotate: 180deg; }
+@media (prefers-reduced-motion: reduce) { .seg .dir, .seg .pill.ready, .seg button { transition: none; } }
+.seg button[aria-pressed="true"], .seg button[aria-selected="true"] { background: color-mix(in oklab, var(--accent) 16%, transparent); color: var(--ink); }
+.seg:has(> .pill) > button[aria-pressed="true"], .seg:has(> .pill) > button[aria-selected="true"] { background: none; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; white-space: nowrap; height: 40px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); font-size: .88rem; font-weight: 500; }
+a.btn { color: var(--ink); text-decoration: none; }
+/* A new version is out: a small dot on Settings (and on the phone's menu), in the accent so red stays the ribbon's. */
+.btn.dot, .pm-list .dot, .dtabs .dot { position: relative; }
+.dtabs .dot::after { content: ""; position: absolute; top: 6px; right: 8px; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+.btn.dot::after, .pm-list .dot::after { content: ""; position: absolute; top: 7px; right: 7px; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 2px var(--surface); }
+.pm-list .dot::after { top: 50%; right: 14px; translate: 0 -50%; }   /* downloads look like the buttons beside them */
+.btn.icon { width: 40px; padding: 0; }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+.btn:active { transform: translateY(1px); }
+.btn:disabled { opacity: .45; cursor: default; transform: none; }
+.shelf { position: relative; padding-top: 44px; content-visibility: auto; contain-intrinsic-size: auto 360px; overflow-clip-margin: 36px; }   /* shelves out of view are not laid out or painted, so a big library costs what a screenful does */
+.books {
+  position: relative; display: flex; justify-content: center; align-items: flex-end; gap: 2px;
+  height: var(--row-h); padding-inline: 6px;
+}
+.books.full { justify-content: space-between; }
+.plank {
+  position: relative; z-index: 1; height: 13px; border-radius: 5px;
+  background:
+    linear-gradient(rgba(255,255,255,.34), rgba(255,255,255,.1) 3px, transparent 50%, rgba(0,0,0,.24)),
+    var(--wood) var(--wx, 0) center / 1024px auto;
+  box-shadow: 0 12px 16px -10px var(--shadow), 0 3px 4px -2px var(--shade);
+}
+@property --glow { syntax: "<number>"; inherits: false; initial-value: 0; }
+.slot {
+  --pull: 40px; --lift: 4px;
+  position: relative; flex: none; width: var(--t); height: var(--h);
+}
+.slot:focus-visible { outline-offset: 4px; }
+.slot.peek { z-index: 3; }
+.slot.out .spine { visibility: hidden; transition: none; inset: 0; }
+.spine {
+  position: absolute; inset: 0; overflow: hidden;
+  display: flex; flex-direction: column; align-items: center; justify-content: space-between; gap: 8px; padding-block: 16px 13px;
+  color: var(--fg); border-radius: 4px / 3px;   /* softened like a real spine's turned-in cloth */
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(0,0,0,.34), rgba(255,255,255,.12) 20%, rgba(255,255,255,0) 48%, rgba(0,0,0,.08) 72%, rgba(0,0,0,.36)),
+    linear-gradient(rgba(0,0,0,.18), transparent 6px, transparent calc(100% - 5px), rgba(0,0,0,.25)),
+    var(--cloth), var(--c);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.16);
+  transition: box-shadow .3s var(--ease), top .3s var(--ease), bottom .3s var(--ease);
+}
+.slot.peek .spine { top: calc(-1 * var(--lift)); bottom: var(--lift); box-shadow: inset 0 0 0 1px rgba(0,0,0,.16), 0 14px 22px -10px rgba(0,0,0,.55); }
+.spine::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(rgba(255, 244, 224, calc(.14 * var(--glow))), transparent 60%); transition: --glow .3s var(--ease); pointer-events: none; }
+.slot.peek .spine::after { --glow: 1; }
+/* The book being read has its ribbon marker out: it hangs from the foot of the spine over the front of the
+   plank, forked at the end, clear of the lettering. */
+.slot.reading { z-index: 2; }
+.slot.reading::after {
+  content: ""; position: absolute; left: 50%; top: calc(100% - 3px); width: 7px; height: 30px; translate: -50% 0; pointer-events: none;
+  background: linear-gradient(90deg, rgba(0,0,0,.25), transparent 35%, rgba(255,255,255,.18) 55%, transparent 75%, rgba(0,0,0,.25)), var(--ribbon);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 82%, 0 100%); filter: drop-shadow(0 2px 2px rgba(0,0,0,.35));
+}
+.slot.reading.out::after { display: none; }
+.slot.reading::after { transition: top .3s var(--ease); }   /* by position, like the spine it hangs from */
+.slot.peek.reading::after { top: calc(100% - 3px - var(--lift)); }
+/* Bindings. A paperback is the plain spine above; the others add what tells them apart on a real shelf,
+   all in paint, nothing that would bulk up a big library. The same rules draw the book in flight (its
+   lengths scaled by --k), so a book never changes its binding on the way out.
+   - Hardcover: a rounded spine, light down the middle and falling away to the edges; a crease along each
+     joint where the boards hinge; and the boards' edges standing proud at head and tail.
+   - Cloth: the same boards, a fine woven texture, and the title stamped in gilt.
+   - Leather: a deeper, burnished skin, a raised band at head and tail with a gilt rule beside it, and gilt
+     lettering pressed in.
+   Every binding keeps the spine in its cover's own color: the shading on top is no darker than a
+   paperback's, so only the texture and the details tell the bindings apart. */
+:root:not([data-plain]) :is(.slot[data-b="hardcover"] .spine, .tome[data-b="hardcover"] .t-spine, .slot[data-b="cloth"] .spine, .tome[data-b="cloth"] .t-spine) {
+  --j: clamp(calc(2.5px * var(--k, 1)), 9%, calc(6px * var(--k, 1)));
+  background:
+    linear-gradient(90deg, transparent var(--j), rgba(0,0,0,.26) var(--j), rgba(255,255,255,.1) calc(var(--j) + 1px * var(--k, 1)), transparent calc(var(--j) + 2px * var(--k, 1)),
+      transparent calc(100% - var(--j) - 2px * var(--k, 1)), rgba(255,255,255,.1) calc(100% - var(--j) - 1px * var(--k, 1)), rgba(0,0,0,.26) calc(100% - var(--j)), transparent calc(100% - var(--j))),
+    linear-gradient(90deg, rgba(0,0,0,.32), transparent 24%, rgba(255,255,255,.12) 50%, transparent 76%, rgba(0,0,0,.34)),
+    linear-gradient(rgba(255,255,255,.16) 0 calc(2px * var(--k, 1)), rgba(0,0,0,.24) calc(2px * var(--k, 1)), transparent calc(8px * var(--k, 1)),
+      transparent calc(100% - 8px * var(--k, 1)), rgba(0,0,0,.28) calc(100% - 2px * var(--k, 1)), rgba(255,255,255,.12) calc(100% - 2px * var(--k, 1))),
+    var(--weave, linear-gradient(transparent, transparent)), var(--cloth), var(--c);
+}
+:root:not([data-plain]) :is(.slot[data-b="cloth"] .spine, .tome[data-b="cloth"] .t-spine) {
+  --weave: repeating-linear-gradient(0deg, rgba(255,255,255,.06) 0 calc(1px * var(--k, 1)), transparent 0 calc(2px * var(--k, 1))),
+    repeating-linear-gradient(90deg, rgba(0,0,0,.08) 0 calc(1px * var(--k, 1)), transparent 0 calc(2px * var(--k, 1)));
+}
+:root:not([data-plain]) :is(.slot[data-b="leather"] .spine, .tome[data-b="leather"] .t-spine) {
+  --gilt: #d8b467;
+  background:
+    linear-gradient(transparent calc(8px * var(--k, 1)), rgba(255,255,255,.2) calc(8px * var(--k, 1)), rgba(0,0,0,.34) calc(11px * var(--k, 1)), transparent calc(11px * var(--k, 1)),
+      transparent calc(13px * var(--k, 1)), var(--gilt) calc(13px * var(--k, 1)), var(--gilt) calc(14px * var(--k, 1)), transparent calc(14px * var(--k, 1)),
+      transparent calc(100% - 14px * var(--k, 1)), var(--gilt) calc(100% - 14px * var(--k, 1)), var(--gilt) calc(100% - 13px * var(--k, 1)), transparent calc(100% - 13px * var(--k, 1)),
+      transparent calc(100% - 11px * var(--k, 1)), rgba(255,255,255,.18) calc(100% - 11px * var(--k, 1)), rgba(0,0,0,.34) calc(100% - 8px * var(--k, 1)), transparent calc(100% - 8px * var(--k, 1))),
+    linear-gradient(90deg, rgba(0,0,0,.32), transparent 22%, rgba(255,236,200,.13) 46%, transparent 70%, rgba(0,0,0,.34)),
+    radial-gradient(120% 40% at 50% 30%, rgba(255,230,190,.06), transparent 70%),
+    var(--cloth), var(--cloth), var(--c);
+}
+/* Leather lettering keeps clear of the bands at head and tail. */
+:root:not([data-plain]) :is(.slot[data-b="leather"] .spine, .tome[data-b="leather"] .t-face) { padding-block: 25px 23px; }
+:root:not([data-plain]) :is(.slot[data-b="leather"], .tome[data-b="leather"]) .st { max-height: calc(var(--h) - 106px); }
+/* Gilt lettering for leather and cloth, pressed in: a hair of shadow above, light below. */
+:root:not([data-plain]) :is(.slot[data-b="leather"], .slot[data-b="cloth"], .tome[data-b="leather"], .tome[data-b="cloth"]) :is(.st, .sa) {
+  color: #e2c27a; text-shadow: 0 -1px 0 rgba(0,0,0,.35), 0 1px 0 rgba(255,240,200,.12);
+}
+.st, .sa { writing-mode: vertical-rl; text-orientation: sideways; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.st { font-family: var(--display); font-weight: 600; font-size: clamp(10px, calc(var(--t) * .4), 16px); max-height: calc(var(--h) - 88px); }
+.sa { font-size: clamp(7.5px, calc(var(--t) * .27), 10.5px); letter-spacing: .14em; text-transform: uppercase; opacity: .82; max-height: 84px; }   /* a long name shortens before it can crowd the title */
+.slot.is-hidden .spine { filter: var(--faded); }
+.slot.is-hidden .eye { display: block; }
+.eye { display: none; position: absolute; left: 50%; bottom: 8px; translate: -50% 0; width: 13px; height: 13px; color: var(--fg); }
+
+/* Cards over the shelf: signing in, adding a book, Settings and the rest. They float, standing off the page by
+   their shadow and edge, and dim it as the open book does (decided 2026-10-13). On a phone a card sits at the
+   foot of the screen, clear of every edge and above the home indicator. On iOS, Safari colours its bars from
+   the page and changes them on its own schedule, so they can lag a moment behind a card's closing. */
+.modal { position: fixed; inset: 0; z-index: 25; display: grid; place-items: center; padding: 16px; }
+.modal-scrim { position: absolute; inset: 0; background: var(--scrim); }   /* the open book's dimming: one color, one timing (DIM in model.js) */
+.card {
+  position: relative; width: min(460px, 100%); max-height: calc(100vh - 32px); overflow: auto;
+  padding: 28px; border-radius: 14px; background: var(--surface); border: 1px solid color-mix(in oklab, var(--ink) 16%, transparent);
+  box-shadow: 0 28px 70px -18px rgba(0,0,0,.6), 0 3px 12px rgba(0,0,0,.28);
+}
+.card.wide { width: min(620px, 100%); }
+.card:focus { outline: none; }   /* on a touch screen the card itself takes focus as it opens (lib/panels.js); that needs no ring */
+.card h2 { margin: 0 0 4px; padding-right: 44px; font-family: var(--display); font-weight: 600; font-size: 1.75rem; line-height: 1.1; letter-spacing: -.01em; font-variation-settings: "opsz" 72; }
+.lede { margin: 0 0 22px; color: var(--muted); font-size: .9rem; line-height: 1.45; }
+.x { position: absolute; top: 16px; right: 16px; }
+.stack { display: grid; gap: 14px; }
+.lab { display: grid; gap: 6px; min-width: 0; font-size: .78rem; color: var(--muted); }
+.inp { width: 100%; height: 42px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--field); color: var(--ink); font: inherit; font-size: .95rem; }
+.inp:focus { outline: 2px solid color-mix(in oklab, var(--accent) 70%, transparent); outline-offset: -1px; }
+select.inp { appearance: none; background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%); background-position: calc(100% - 17px) 18px, calc(100% - 12px) 18px; background-size: 5px 5px; background-repeat: no-repeat; padding-right: 30px; }
+select.inp option { background: var(--surface); color: var(--ink); }   /* the open list in the page's colors, not the browser's light ones */
+.inp.isbn { height: 52px; font-family: var(--display); font-size: 1.35rem; letter-spacing: .01em; font-variant-numeric: lining-nums tabular-nums; }   /* set as the title page sets it */
+.row-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+.row-btns.end { justify-content: flex-end; }
+.err { margin: 0; min-height: 1.3em; color: var(--danger); font-size: .84rem; }
+.fine { margin: 0; color: var(--muted); font-size: .8rem; line-height: 1.5; }
+.fine .link, .credit-links .link { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: color-mix(in oklab, var(--ink) 35%, transparent); }
+.tag { font-variant-numeric: tabular-nums; padding: 1px 7px; border-radius: 5px; background: color-mix(in oklab, var(--ink) 8%, transparent); color: var(--ink); }
+.status { display: flex; align-items: center; gap: 10px; min-height: 1.4em; margin: 0; font-size: .9rem; color: var(--muted); }
+.status.ok { color: var(--ink); }
+.spin { width: 15px; height: 15px; border-radius: 50%; border: 2px solid color-mix(in oklab, var(--muted) 35%, transparent); border-top-color: var(--accent); animation: spin .7s linear infinite; }
+@keyframes spin { to { rotate: 1turn; } }
+.check2 { display: flex; align-items: center; gap: 8px; font-size: .88rem; color: var(--ink); }
+.check2 input { accent-color: var(--accent); width: 16px; height: 16px; }
+.btn.danger { background: #a3321f; color: #fff; border-color: transparent; }
+.lab .opt { color: var(--muted); font-weight: 400; }
+.wordmark { margin: 0 0 18px; font-family: var(--display); font-size: .82rem; font-style: italic; color: var(--muted); }
+
+/* A setting that is on or off: what it does on the left, a switch on the right. */
+.toggle { display: flex; align-items: center; justify-content: space-between; gap: 16px; cursor: pointer; }
+.toggle b { display: block; font-weight: 600; font-size: .92rem; }
+.toggle small { display: block; margin-top: 2px; color: var(--muted); font-size: .8rem; line-height: 1.4; }
+.toggle input, .switch { appearance: none; flex: none; position: relative; width: 38px; height: 22px; margin: 0; border-radius: 99px; background: color-mix(in oklab, var(--ink) 18%, transparent); cursor: pointer; transition: background-color .28s var(--ease); }
+.toggle input::after, .switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: var(--surface); box-shadow: 0 1px 3px rgba(0,0,0,.3); transition: left .28s var(--ease); }
+.toggle input:checked, .switch:checked { background: var(--accent); }
+.toggle input:checked::after, .switch:checked::after { left: 19px; }
+@media (prefers-reduced-motion: reduce) { .toggle input, .toggle input::after, .switch, .switch::after { transition: none; } }
+.snav { display: flex; flex-direction: column; gap: 2px; padding: 24px 12px; border-right: 1px solid var(--line); background: color-mix(in oklab, var(--ink) 3%, var(--surface)); }
+.snav h2 { margin: 0 10px 16px; padding: 0; font-size: 1.5rem; }
+.snav button:not(.x) { display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 10px; border-radius: 8px; color: var(--muted); text-align: left; font-size: .9rem; font-weight: 500; transition: background-color .2s, color .2s; }
+.snav button:not(.x) .i { width: 17px; height: 17px; }
+.snav button:not(.x)[aria-current="true"] { background: color-mix(in oklab, var(--accent) 16%, transparent); color: var(--ink); }
+@media (hover: hover) { .snav button:not(.x):not([aria-current="true"]):hover { background: color-mix(in oklab, var(--ink) 5%, transparent); color: var(--ink); } }
+.snav .chev { display: none; margin-left: auto; }
+.snav .dot::after { content: ""; width: 7px; height: 7px; margin-left: auto; border-radius: 50%; background: var(--accent); }
+.snav .spacer { flex: 1; }
+.snav .ver { margin: 0 10px; color: var(--muted); font-size: .74rem; }
+.snav .phone-x { display: none; }
+.spane { min-width: 0; overflow: auto; padding: 22px 30px 34px; }
+.spane-head { display: flex; align-items: center; gap: 12px; min-height: 40px; }
+.spane-head h2 { flex: 1; margin: 0; padding: 0; font-size: 1.5rem; }
+.spane-head .back { display: none; }
+.sbody { display: grid; gap: 26px; margin-top: 22px; }
+.sgroup { display: grid; min-width: 0; }
+.sgroup h3 { margin: 0 0 2px; color: var(--muted); font-size: .72rem; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; }
+.sgroup .sdesc { margin: 4px 0 4px; color: var(--muted); font-size: .8rem; line-height: 1.45; }
+.sgroup .fine { margin-top: 8px; }
+.srow { display: grid; grid-template-columns: minmax(8rem, 13rem) minmax(0, 1fr); gap: 6px 18px; align-items: center; min-height: 52px; padding: 9px 0; }
+.srow.full { grid-template-columns: minmax(0, 1fr); }
+.sname { font-size: .92rem; }
+.sname small { display: block; color: var(--muted); font-size: .78rem; line-height: 1.35; }
+.sctl { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; min-width: 0; }
+.srow.full .sctl > :not(.btn) { flex: 1 1 100%; }
+.srow.full .sctl > .btn { margin-left: auto; }
+.sctl .swatches, .sctl .woods { justify-content: flex-end; }
+.sctl .bad { border-color: var(--danger); }
+.sctl .iconpick img { width: 42px; height: 42px; border-radius: 10px; }
+.sctl .backups { width: 100%; }
+.sctl select.inp { width: auto; max-width: 100%; text-overflow: ellipsis; }   /* never wider than its place beside the name; a long choice shortens */
+.range { display: flex; align-items: center; gap: 12px; width: 100%; max-width: 300px; }
+.range input { flex: 1; }
+.range output { min-width: 4.6em; text-align: right; font-size: .86rem; font-variant-numeric: tabular-nums; }
+.sgroup.aligned .seg { min-width: 19rem; }
+.sgroup.aligned .seg button { flex: 1 0 auto; }
+.drop { display: grid; place-items: center; gap: 4px; padding: 18px; border-radius: 10px; border: 1.5px dashed var(--line); text-align: center; color: var(--muted); font-size: .86rem; cursor: pointer; transition: border-color .2s, background-color .2s; }
+.drop b { color: var(--ink); font-weight: 600; }
+.drop.over { border-color: var(--accent); background: color-mix(in oklab, var(--accent) 8%, transparent); }
+.btn.sm { height: 32px; padding: 0 10px; font-size: .8rem; }
+
+/* The study's own rules. Everything above this file is the app's real stylesheet (tokens, controls, spines, cards,
+   settings rows), so what is judged here is what the app will look like. This file adds only the new screens. */
+:root {
+  --display: "Fraunces", "Iowan Old Style", Georgia, serif;
+  --ui: "Instrument Sans", "Segoe UI", system-ui, sans-serif;
+  --wood-day: url("data:image/jpeg;base64,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");
+  --wood-night: url("data:image/jpeg;base64,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");
+  --wood: var(--wood-day);
+  --row-h: 292px; --cloth: linear-gradient(transparent, transparent);
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --wood: var(--wood-night); } }
+:root[data-theme="dark"] { --wood: var(--wood-night); }
+body { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1, h2, h3 { text-wrap: balance; }
+.i { pointer-events: none; }
+
+/* ---------- The study's controls (not part of the app) ---------- */
+.studybar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 40; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-inline: -16px; padding: 10px 16px; background: var(--surface); border-bottom: 1px solid var(--line); }
+.studybar .name { margin-right: auto; font-family: var(--display); font-weight: 600; font-size: 1.05rem; font-variation-settings: "opsz" 36; }
+.studybar .seg { height: 34px; }
+.studybar .seg button { font-size: .8rem; padding: 0 10px; }
+.dn { max-width: 760px; margin: 40px auto 0; padding: 18px 20px; border-radius: 12px; border: 1px dashed var(--line); color: var(--muted); font-size: .86rem; line-height: 1.55; }
+.dn h3 { margin: 0 0 8px; font-size: .72rem; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; }
+.dn ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+.dn b { color: var(--ink); font-weight: 600; }
+.opt-panel { max-width: 760px; margin: 28px auto 0; display: grid; gap: 12px; padding: 18px 20px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line); }
+.opt-panel h3 { margin: 0; color: var(--muted); font-size: .72rem; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; }
+.opt-panel p { margin: 0; color: var(--muted); font-size: .86rem; line-height: 1.5; }
+
+/* ---------- The screen: a desktop window, or a phone ---------- */
+.screen { position: relative; container-type: inline-size; width: 100%; min-height: calc(100svh - 70px); padding-bottom: 60px; }
+.screen.phone { width: 390px; max-width: 100%; margin: 22px auto 40px; min-height: 780px; padding-inline: 16px; border-radius: 30px; border: 1px solid var(--line); background: radial-gradient(900px 400px at 50% -80px, var(--wall), var(--wall-2) 75%); background-color: var(--wall-2); box-shadow: 0 30px 70px -30px rgba(0,0,0,.5); overflow: clip; }
+.page { max-width: 1200px; margin: 0 auto; }
+.screen.phone .page { max-width: none; }
+.layer { position: sticky; top: 0; z-index: 30; display: grid; place-items: center; height: 100svh; margin-bottom: -100svh; padding: 16px; pointer-events: none; }
+.screen.phone .layer { height: 780px; margin-bottom: -780px; padding: 12px; align-items: end; }
+.layer > * { pointer-events: auto; }
+.layer .scrim { position: absolute; top: 0; bottom: 0; left: -100vw; right: -100vw; background: var(--scrim); pointer-events: auto; }
+.layer .card { z-index: 1; }
+.screen.phone .layer .scrim { left: 0; right: 0; }
+.screen.phone .layer .card { width: 100%; max-height: 92%; padding: 22px; }
+
+/* ---------- Header ---------- */
+.hd { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px 24px; align-items: end; padding-block: 34px 8px; }
+.hd .brand h1 { margin: 0; font-family: var(--display); font-weight: 600; font-size: clamp(2.1rem, 5vw, 3.1rem); line-height: 1; letter-spacing: -.02em; font-variation-settings: "opsz" 120; }
+.hd .brand h1 a { color: inherit; text-decoration: none; }
+.hd .tools { flex-wrap: nowrap; justify-content: flex-end; }
+.hd .reading-row { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; min-height: 40px; margin-top: 8px; color: var(--muted); font-size: .9rem; }
+.hd .reading-row .cv { --cw: 22px; }
+.hd .reading-row b { color: var(--ink); font-family: var(--display); font-weight: 600; font-size: 1.05em; }
+.hd .reading-row .jot { margin-left: 4px; }
+.btn.icon.sm { width: 32px; height: 32px; }
+.btn.icon .i { width: 18px; height: 18px; }
+.btn.icon.sm .i { width: 16px; height: 16px; }
+.hd .tools .new-dot { position: relative; }
+.hd .tools .new-dot::after { content: ""; position: absolute; top: 7px; right: 7px; width: 7px; height: 7px; border-radius: 50%; background: var(--ribbon); box-shadow: 0 0 0 2px var(--surface); }
+@container (max-width: 640px) {
+  .hd { padding-block: 24px 6px; gap: 8px 12px; }
+  .hd .brand h1 { font-size: 2rem; }
+  .hd .tools { gap: 6px; }
+  .hd .reading-row { font-size: .84rem; }
+  .hd .desk-only { display: none; }
+}
+@container (min-width: 641px) { .hd .phone-btn { display: none; } }
+
+/* ---------- Covers drawn in CSS (a plain cloth cover with its title stamped on, as the app draws one) ---------- */
+.cv { --cw: 112px; position: relative; display: inline-flex; flex: none; width: var(--cw); aspect-ratio: 2 / 3; padding: calc(var(--cw) * .12) calc(var(--cw) * .1); border-radius: 2px 4px 4px 2px; background: linear-gradient(90deg, rgba(0,0,0,.34), rgba(0,0,0,0) 9%), linear-gradient(rgba(255,255,255,.06), rgba(0,0,0,.14)), var(--c); color: var(--fg); box-shadow: 0 14px 26px -14px rgba(0,0,0,.65); overflow: hidden; align-items: center; justify-content: center; text-align: center; font-family: var(--display); font-weight: 600; line-height: 1.12; font-size: calc(var(--cw) * .1); letter-spacing: .01em; font-variation-settings: "opsz" 24; }
+.cv span { display: block; overflow-wrap: break-word; hyphens: auto; }
+.cv::after { content: ""; position: absolute; left: 12%; right: 12%; bottom: 14%; height: 1px; background: currentColor; opacity: .45; }
+button.cv { padding: calc(var(--cw) * .12) calc(var(--cw) * .1); cursor: pointer; }
+.cv.sm { --cw: 22px; border-radius: 1px 2px 2px 1px; box-shadow: 0 3px 8px -3px rgba(0,0,0,.5); font-size: 0; }
+.cv.sm::after { display: none; }
+
+/* The book's page: a title page, reduced to what this study shows (the flight is not acted out here). */
+.bookcard.card { width: min(760px, 100%); padding: 0; display: grid; grid-template-columns: 220px minmax(0, 1fr); overflow: hidden; }
+.bookcard .board { display: grid; place-items: center; padding: 34px 20px; background: color-mix(in oklab, var(--c) 40%, #1b130d); }
+.bookcard .page-r { position: relative; padding: 38px 34px 30px; background: var(--paper); color: var(--paper-ink); text-align: center; display: grid; justify-items: center; gap: 0; }
+.bookcard .x { color: var(--paper-ink); }
+.bookcard .kick { margin: 0; font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; color: var(--paper-muted); }
+.bookcard h2 { margin: 14px 0 0; padding: 0; font-size: 2.1rem; color: var(--paper-ink); }
+.bookcard .by { margin: 10px 0 0; font-family: var(--display); font-variant-caps: all-small-caps; letter-spacing: .08em; font-size: 1.1rem; }
+.bookcard .facts { margin: 14px 0 0; color: var(--paper-muted); font-size: .84rem; }
+.bookcard .acts { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 6px; margin-top: 22px; }
+.act { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border-radius: 99px; color: var(--paper-ink); font-size: .84rem; font-weight: 500; border: 1px solid var(--paper-line); background: transparent; }
+.act.solid { background: var(--paper-accent); color: #f3ead8; border-color: transparent; }
+.act .i { width: 15px; height: 15px; }
+.act .ct { font-variant-numeric: tabular-nums; opacity: .75; }
+@media (hover: hover) { .act:hover { background: color-mix(in oklab, var(--paper-accent) 10%, transparent); } .act.solid:hover { background: color-mix(in oklab, var(--paper-accent) 88%, black); } }
+.screen.phone .bookcard.card { grid-template-columns: 1fr; max-height: 92%; overflow: auto; }
+.screen.phone .bookcard .board { padding: 22px; }
+.screen.phone .bookcard .board .cv { --cw: 96px !important; }
+.screen.phone .bookcard .page-r { padding: 26px 20px 22px; }
+
+/* ---------- All notes ---------- */
+.tl { max-width: none; margin: 0 auto; padding-block: 26px 40px; }
+.tl-head h2 { margin: 0; font-family: var(--display); font-weight: 600; font-size: clamp(1.9rem, 4.6vw, 2.8rem); line-height: 1.05; font-variation-settings: "opsz" 72; }
+.tl-head p { margin: 10px 0 0; color: var(--muted); font-size: .94rem; }
+.tl-month { margin: 34px 0 4px; color: var(--muted); font-size: .72rem; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; }
+.tl-e { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 18px; padding: 20px 0; border-bottom: 1px solid var(--line); }
+.tl-e .cv { --cw: 52px !important; }
+.tl-e .bk { display: block; margin: 0 0 10px; color: var(--muted); font-size: .78rem; letter-spacing: .06em; text-transform: uppercase; text-align: left; }
+.tl-e .bk b { color: var(--ink); font-weight: 600; }
+@media (hover: hover) { .tl-e .bk:hover b { text-decoration: underline; text-underline-offset: 3px; } }
+.tl-e .nb-e { display: grid; padding: 0; border: 0; }
+@container (max-width: 640px) { .tl-e { grid-template-columns: 40px minmax(0, 1fr); gap: 14px; } .tl-e .cv { --cw: 40px !important; } }
+
+/* ---------- Settings, export and import ---------- */
+.set-card.card { position: relative; display: grid; grid-template-columns: 200px minmax(0, 1fr); width: min(900px, 100%); max-height: none; margin: 30px auto 0; padding: 0; overflow: hidden; }
+.set-card .spane { padding: 22px 30px 34px; }
+.set-card .snav { padding: 24px 12px; }
+.snav button.cur { background: color-mix(in oklab, var(--accent) 16%, transparent); color: var(--ink); }
+.set-card .sdesc { margin-bottom: 8px; }
+.sgroup + .sgroup { margin-top: 4px; }
+.bookrow { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto auto; align-items: center; gap: 14px; padding: 9px 0; }
+.bookrow .cv { --cw: 30px; font-size: 0; border-radius: 1px 3px 3px 1px; }
+.bookrow .cv::after { display: none; }
+.bookrow b { display: block; font-family: var(--display); font-weight: 600; font-size: 1rem; line-height: 1.25; }
+.bookrow small { color: var(--muted); font-size: .78rem; }
+.bookrow .state { color: var(--muted); font-size: .8rem; text-align: right; white-space: nowrap; }
+.sctl select.inp { min-width: 11em; }
+.seg.wide button { flex: 1 0 auto; }
+.mdprev { margin: 0; padding: 16px 18px; max-height: 340px; overflow: auto; border-radius: 10px; background: var(--field); border: 1px solid var(--line); font: .8rem/1.55 ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--ink); }
+.imp-list { display: grid; gap: 0; margin: 14px 0 4px; padding: 0; list-style: none; border-top: 1px solid var(--line); }
+.imp-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: .9rem; }
+.imp-list b { font-family: var(--display); font-weight: 600; }
+.imp-list small { color: var(--muted); font-size: .78rem; }
+.imp-list .st2 { grid-row: 1 / span 2; grid-column: 2; align-self: center; text-align: right; color: var(--muted); font-size: .8rem; }
+.imp-list .st2.ok { color: var(--ink); }
+.imp-list .skip { opacity: .6; }
+@container (max-width: 700px) {
+  .set-card.card { grid-template-columns: 1fr; }
+  .set-card .snav { flex-direction: row; flex-wrap: wrap; border-right: 0; border-bottom: 1px solid var(--line); padding: 14px 12px; }
+  .set-card .snav h2 { width: 100%; margin-bottom: 6px; }
+  .set-card .spane { padding: 18px 18px 30px; }
+  .srow { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .sctl { justify-content: flex-start; }
+  .bookrow { grid-template-columns: 30px minmax(0, 1fr) auto; }
+  .bookrow .state { display: none; }
+  .sgroup.aligned .seg { min-width: 0; width: 100%; }
+}
+
+/* ---------- Toast and menu ---------- */
+.toast { position: fixed; z-index: 60; left: 50%; bottom: calc(22px + env(safe-area-inset-bottom, 0px)); translate: -50% 0; display: flex; align-items: center; gap: 14px; max-width: calc(100vw - 32px); padding: 10px 12px 10px 16px; border-radius: 12px; background: var(--ink); color: var(--wall-2); box-shadow: 0 18px 40px -16px rgba(0,0,0,.6); font-size: .9rem; animation: tin .3s var(--ease); }
+@keyframes tin { from { opacity: 0; translate: -50% 10px; } }
+.toast button { font-weight: 600; color: inherit; text-decoration: underline; text-underline-offset: 3px; padding: 4px 6px; }
+.pm-list { display: grid; margin-top: 6px; }
+.pm-list button { display: flex; align-items: center; gap: 14px; padding: 13px 4px; font-size: 1rem; text-align: left; border-top: 1px solid var(--line); }
+.pm-list button .i { color: var(--muted); }
+@media (prefers-reduced-motion: reduce) { .toast { animation: none; } }
+@container (max-width: 640px) { .opt-panel .seg.wide { flex-direction: column; height: auto; } .opt-panel .seg.wide button { height: 36px; } }
+
+.key { display: block; margin-top: 8px; line-height: 2.4; }
+.key .btn, .key .lnk { vertical-align: middle; pointer-events: none; }
+
+/* Finder (Settings): type to narrow, never a list of every book */
+.finder { display: grid; gap: 6px; margin-top: 10px; }
+.fsearch { position: relative; display: block; }
+.fsearch .i { position: absolute; left: 11px; top: 50%; translate: 0 -50%; width: 16px; height: 16px; color: var(--muted); }
+.fsearch input { width: 100%; padding-left: 34px; }
+.fcap { margin: 6px 0 0; color: var(--muted); font-size: .78rem; letter-spacing: .02em; }
+.flist { display: grid; margin: 0; padding: 0; list-style: none; }
+.flist li { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line); }
+.flist li:last-child { border-bottom: 0; }
+.flist .cv { --cw: 28px !important; font-size: 0; border-radius: 1px 3px 3px 1px; }
+.flist .cv::after { display: none; }
+.flist b { display: block; font-family: var(--display); font-weight: 600; font-size: 1rem; line-height: 1.25; }
+.flist small { color: var(--muted); font-size: .78rem; }
+.flist.hidden { border-bottom: 1px solid var(--line); margin-bottom: 14px; }
+.sfind { padding: 14px 0 4px; }
+.sfind .sname small { display: block; }
+
+/* Several books under way: the header's small covers fan out */
+.hd .reading-row .fan { display: inline-flex; }
+.hd .reading-row .fan .cv + .cv { margin-left: -9px; }
+
+
+
+/* =========================================================================================
+   A book's notes. One control height (--ctl) for everything you tap: 36px with a pointer, 44px on a phone.
+   ========================================================================================= */
+.page { --ctl: 36px; }
+.nb2 { display: grid; gap: 18px; padding-block: 22px 40px; }
+.nb-side { min-width: 0; }
+.nb-head { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 20px; align-items: center; }
+.nb-kick { margin: 0 0 8px; color: var(--muted); font-size: .74rem; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; }
+.nb-head h2 button { all: unset; cursor: pointer; }
+.nb-head h2 { margin: 0; font-family: var(--display); font-weight: 600; font-size: clamp(1.9rem, 4.6vw, 2.6rem); line-height: 1.05; letter-spacing: -.012em; font-variation-settings: "opsz" 72; }
+.nb-by { margin: 8px 0 0; font-family: var(--display); font-size: 1.12rem; font-style: italic; font-variation-settings: "opsz" 36; }
+.nb-facts { margin: 10px 0 0; color: var(--muted); font-size: .86rem; }
+.prog { display: grid; gap: 8px; margin-top: 16px; max-width: 340px; }
+.prog .bar { height: 5px; border-radius: 3px; background: color-mix(in oklab, var(--ink) 12%, transparent); overflow: hidden; }
+.prog .bar i { display: block; height: 100%; width: var(--v); background: var(--ribbon); }
+.prog .pg { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; color: var(--muted); font-size: .86rem; font-variant-numeric: tabular-nums; }
+.prog .pace { flex-basis: 100%; }
+.prog .pg input { width: 4.2em; height: var(--ctl); padding: 0 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--field); color: var(--ink); font: inherit; font-variant-numeric: tabular-nums; }
+.nb-main { min-width: 0; }
+@container (min-width: 900px) {
+  .nb2 { grid-template-columns: 220px minmax(0, 1fr); gap: 48px; }
+  .nb-head h2 { font-size: 1.9rem; overflow-wrap: anywhere; }
+  .nb-side { position: sticky; top: 16px; align-self: start; }
+  .nb-head { grid-template-columns: 1fr; justify-items: start; gap: 22px; }
+  .nb-head .cv { --cw: 200px !important; }
+}
+
+/* The list's header: a count, the order, and one menu. */
+.nb-bar { display: flex; align-items: center; gap: 10px; min-height: var(--ctl); margin: 24px 0 4px; }
+.nb-bar h3 { margin: 0 auto 0 0; color: var(--muted); font-size: .72rem; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; }
+.nb-bar .seg { height: var(--ctl); padding: 2px; }
+.nb-bar .seg button { padding: 0 12px; font-size: .8rem; }
+.more { position: relative; display: inline-flex; }
+.more-btn.btn.icon { width: var(--ctl); height: var(--ctl); }
+.menu { position: absolute; z-index: 20; top: calc(100% + 6px); right: 0; width: max-content; max-width: min(300px, calc(100vw - 32px)); display: grid; padding: 6px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); box-shadow: 0 18px 40px -14px rgba(0,0,0,.6); }
+.menu .info { margin: 0; padding: 10px 12px 8px; color: var(--muted); font-size: .82rem; line-height: 1.4; }
+.menu button { display: flex; align-items: center; gap: 12px; min-height: var(--ctl); padding: 0 12px; border-radius: 8px; background: none; color: var(--ink); font-size: .92rem; text-align: left; }
+.menu button .i { width: 16px; height: 16px; color: var(--muted); }
+.menu button:disabled { opacity: .45; }
+.menu .info.sep { margin-top: 4px; padding-top: 12px; border-top: 1px solid var(--line); font-size: .72rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; }
+.menu .ph { width: 16px; height: 16px; flex: none; }
+@media (hover: hover) { .menu button:hover:not(:disabled) { background: color-mix(in oklab, var(--ink) 7%, transparent); } }
+
+/* The list: rows, a hairline between them. A second reading only gets a caption. */
+.nb-list { margin: 0; padding: 0; list-style: none; }
+.rd + .rd { margin-top: 8px; }
+.rd-cap { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 26px 0 0; padding-bottom: 8px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: .72rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; }
+.rd-cap .lnk { letter-spacing: 0; text-transform: none; font-weight: 400; }
+.nb-e { display: grid; gap: 8px; padding: 18px 0; border-bottom: 1px solid var(--line); }
+.rd .nb-e:last-child { border-bottom: 0; }
+.nb-e blockquote { margin: 0; padding-left: 12px; border-left: 2px solid var(--ribbon); font-family: var(--display); font-size: 1.16rem; line-height: 1.5; font-variation-settings: "opsz" 24; white-space: pre-wrap; text-wrap: pretty; }
+.nb-e .txt { margin: 0; font-family: var(--display); font-size: 1.04rem; line-height: 1.55; font-variation-settings: "opsz" 18; white-space: pre-wrap; text-wrap: pretty; }
+.nb-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 12px; min-height: 28px; color: var(--muted); font-size: .8rem; }
+.nb-meta .who { display: inline-flex; align-items: baseline; }
+.nb-meta .where { color: var(--ink); font-weight: 500; font-variant-numeric: tabular-nums; }
+.nb-meta .where:not(:empty) + .dt::before { content: "·"; margin: 0 6px; }
+.nb-meta .priv { display: inline-flex; align-items: center; gap: 5px; }
+.nb-meta .priv .i { width: 13px; height: 13px; }
+.nb-meta .saved:not(:empty)::before { content: "✓ "; }
+.nb-tools { display: flex; align-items: center; gap: 4px 18px; margin-left: auto; }
+.nb-empty { margin: 0; padding: 26px 0; color: var(--muted); font-size: .94rem; line-height: 1.55; text-align: center; font-family: var(--display); font-style: italic; }
+.nb-e.editing { gap: 14px; margin-inline: -12px; padding-inline: 12px; border-radius: 10px; background: color-mix(in oklab, var(--ink) 3%, transparent); border-bottom-color: transparent; }
+.nb-e.editing .nb-tools { gap: 8px 14px; }
+.ed { cursor: text; outline: none; border-radius: 6px; background: color-mix(in oklab, var(--ink) 5%, transparent); box-shadow: 0 0 0 5px color-mix(in oklab, var(--ink) 5%, transparent); transition: background-color .15s, box-shadow .15s; }
+.ed:empty::before { content: attr(data-ph); color: var(--muted); opacity: .7; }
+.ed:focus { background: color-mix(in oklab, var(--ink) 9%, transparent); box-shadow: 0 0 0 5px color-mix(in oklab, var(--ink) 9%, transparent); }
+.nb-e blockquote.ed { border-radius: 0 6px 6px 0; }
+.nb-meta .where.ed { min-width: 3em; }
+
+/* The editor: a quote from the book (optional), your thoughts, and one row. */
+.cp { display: grid; padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.cp:focus-within { border-color: color-mix(in oklab, var(--accent) 45%, var(--line)); }
+.cp-body { display: grid; gap: 12px; }
+.cp-bar { display: none; align-items: center; gap: 10px; min-height: var(--ctl); color: var(--muted); font-size: .95rem; text-align: left; background: none; }
+.cp-bar .i { width: 16px; height: 16px; }
+.cp textarea { display: block; width: 100%; padding: 0; border: 0; background: none; color: var(--ink); resize: none; field-sizing: content; font-family: var(--display); line-height: 1.55; font-variation-settings: "opsz" 24; }
+.cp textarea:focus { outline: none; }
+.cp textarea::placeholder { color: var(--muted); opacity: .8; }
+.cp .cq { flex: none; min-height: 1.6em; padding-left: 12px; border-left: 2px solid color-mix(in oklab, var(--ribbon) 45%, transparent); font-size: 1.12rem; }
+.cp .cq:focus { border-left-color: var(--ribbon); }
+.cp .ct { flex: 1 1 auto; min-height: 1.6em; font-size: 1.05rem; }
+.cp-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding-top: 12px; border-top: 1px solid var(--line); }
+.cp-opts, .cp-act { display: flex; align-items: center; gap: 8px; }
+.cp .err { margin: 0; min-height: 0; }
+.cp .err:empty { display: none; }
+.pagef { display: inline-flex; align-items: center; gap: 8px; height: var(--ctl); padding: 0 14px; border: 1px solid var(--line); border-radius: 99px; color: var(--muted); font-size: .84rem; }
+.pagef:focus-within { border-color: color-mix(in oklab, var(--accent) 60%, transparent); }
+.pagef input { width: 4em; min-width: 0; height: 100%; padding: 0; border: 0; background: none; color: var(--ink); font: inherit; field-sizing: content; max-width: 7em; outline: none; }
+.pagef input::placeholder { color: var(--muted); opacity: .8; }
+
+.lnk { display: inline-flex; align-items: center; gap: 5px; position: relative; padding: 3px 0; background: none; color: var(--muted); font-size: .82rem; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: color-mix(in oklab, currentColor 30%, transparent); }
+.lnk::after { content: ""; position: absolute; inset: -10px -8px; }
+@media (hover: hover) { .lnk:hover { color: var(--ink); } }
+
+@container (max-width: 640px) {
+  .page { --ctl: 44px; }
+  .nb2 { gap: 14px; padding-block: 14px 32px; }
+  .nb-head { grid-template-columns: 56px minmax(0, 1fr); gap: 14px; }
+  .nb-head .cv { --cw: 56px !important; }
+  .nb-head h2 { font-size: 1.5rem; }
+  .nb-kick { margin-bottom: 4px; }
+  .nb-by { margin-top: 3px; font-size: 1rem; }
+  .nb-facts { margin-top: 4px; font-size: .78rem; }
+  .prog { margin-top: 10px; max-width: none; }
+  .prog .pace { display: none; }
+  .cp:not(.open) .cp-body { display: none; }
+  .cp:not(.open) .cp-bar { display: flex; }
+  .cp { padding: 12px 14px; }
+  .cp textarea { font-size: 16px; }
+  .cp-opts { flex: 1 0 100%; }
+  .cp-act { flex: 1 0 100%; justify-content: space-between; }
+  .pagef input, .prog .pace { flex-basis: 100%; }
+.prog .pg input { font-size: 16px; }
+  .nb-bar { margin-top: 18px; }
+  .nb-meta { font-size: .86rem; }
+  .lnk { font-size: .88rem; }
+  .nb-e { padding: 16px 0; }
+}
+
+.bookcard .bprog { display: grid; gap: 8px; width: 100%; max-width: 300px; margin-top: 16px; text-align: left; }
+.bookcard .bprog .bar { height: 5px; border-radius: 3px; background: var(--paper-line); overflow: hidden; }
+.bookcard .bprog .bar i { display: block; height: 100%; width: var(--v); background: var(--paper-accent); }
+.bookcard .bprog .pg { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; color: var(--paper-muted); font-size: .86rem; }
+.bookcard .bprog .pg input { width: 4.2em; height: 34px; padding: 0 8px; border: 1px solid var(--paper-line); border-radius: 8px; background: transparent; color: var(--paper-ink); font: inherit; font-variant-numeric: tabular-nums; }
+.bookcard .bprog .pace { flex-basis: 100%; }
+
+.cv-btn { position: relative; display: inline-block; padding: 0; border: 0; background: none; border-radius: 4px; cursor: pointer; }
+.cv-hint { position: absolute; left: 0; right: 0; bottom: 0; padding: 22px 10px 12px; border-radius: 0 0 4px 2px; background: linear-gradient(transparent, rgba(0,0,0,.72)); color: #f4ead8; font-size: .82rem; font-weight: 500; text-align: center; opacity: 0; transition: opacity .18s; pointer-events: none; }
+@media (hover: hover) { .cv-btn:hover .cv-hint { opacity: 1; } }
+.cv-btn:focus-visible .cv-hint { opacity: 1; }
+.tap-hint { display: none; align-items: center; gap: 2px; margin-top: 8px; padding: 0; background: none; color: var(--muted); font-size: .86rem; }
+.tap-hint .i { width: 14px; height: 14px; }
+.cv-hint { display: none; }
+@container (min-width: 900px) { .cv-hint { display: block; } }
+@container (max-width: 640px) { .tap-hint { display: inline-flex; } }
+
+/* v8 */
+.bookcard.card { width: min(880px, 100%); grid-template-columns: 240px minmax(0, 1fr); }
+.bookcard .page-r { padding: 36px 36px 30px; }
+.bookcard .bprog { max-width: none; margin-top: 20px; }
+.bookcard .acts { margin-top: 24px; gap: 8px; }
+input[type=number] { appearance: textfield; -moz-appearance: textfield; }
+input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.cv:has(> span:empty)::after { display: none; }
+@container (max-width: 640px) {
+  .cp-opts, .cp-act { display: contents; }
+}
+
+.screen.phone .bookcard .x { color: var(--fg); background: color-mix(in oklab, var(--fg) 16%, transparent); border-color: transparent; }
+.screen.phone .bookcard .bprog .pg { justify-content: center; text-align: center; }
+
+/* v10: the footer is one row of equal pills; Page turns into its own field */
+.btn[hidden], .pg-on[hidden] { display: none !important; }
+.pg-on { cursor: text; gap: 6px; }
+.pg-on input, .pg-on .where { width: 4.5em; min-width: 0; height: 100%; padding: 0; border: 0; background: none; color: var(--ink); font: inherit; font-weight: 500; outline: none; box-shadow: none; field-sizing: content; max-width: 9em; display: inline-flex; align-items: center; }
+.pg-on .where.ed, .pg-on .where.ed:focus { background: none; box-shadow: none; border-radius: 0; }
+.pg-on:focus-within { border-color: color-mix(in oklab, var(--accent) 60%, transparent); }
+/* a Page button holding a number reads as switched on, like Passage and Public */
+.pg-on:has(input:not(:placeholder-shown)), .pg-on:has(.ed:not(:empty)) { background: color-mix(in oklab, var(--accent) 16%, var(--surface)); border-color: color-mix(in oklab, var(--accent) 40%, transparent); }
+.pg-on:has(input:not(:placeholder-shown)):focus-within, .pg-on:has(.ed:not(:empty)):focus-within { border-color: color-mix(in oklab, var(--accent) 60%, transparent); }
+.pg-on .ed:empty::before { content: attr(data-ph); color: var(--muted); opacity: .8; }
+/* editing a note: the same surface as the composer, nothing tinted, nothing outside the column */
+.nb-e.editing { gap: 12px; margin-inline: 0; padding: 14px 16px; border: 1px solid color-mix(in oklab, var(--accent) 45%, var(--line)); border-radius: 12px; background: var(--surface); }
+.nb-e.editing .ed, .nb-e.editing .ed:focus { background: none; box-shadow: none; border-radius: 0; }
+.nb-e.editing blockquote.ed { border-radius: 0; }
+.nb-e.editing .nb-meta { min-height: 0; }
+@container (max-width: 640px) {
+  .nb-e.editing { padding: 12px 14px; }
+  .cp-foot { flex-wrap: nowrap; gap: 6px; }
+  .pg-on input, .pg-on .where { flex: 1 1 auto; width: 100%; max-width: none; }
+  @media (pointer: coarse) { .pg-on input, .pg-on .where { font-size: 16px; } }
+}
+
+/* v11: icon pills, static sizes, a way out of the editor */
+.btn .lb { white-space: nowrap; }
+.pg-add { width: auto; }
+.pg-on { width: 140px; }
+.pg-on { cursor: text; }
+.pg-on input, .pg-on .where { flex: 1 1 auto; width: 100%; min-width: 0; max-width: none; field-sizing: fixed; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.ed { min-height: 1.5em; }
+.pg-on .ed { min-height: 0; }
+.cp, .nb-e.editing { position: relative; }
+.cp-x { position: absolute; top: 8px; right: 8px; z-index: 2; width: var(--ctl); height: var(--ctl); }
+.cp-x .i { width: 18px; height: 18px; }
+.nb-e.editing:has(.cp-x) .cp-fields > :first-child, .cp-body:has(.cp-x) .cp-fields > :first-child { padding-right: calc(var(--ctl) + 8px); }
+.bookcard .bprog .pace { flex-basis: auto; margin-left: auto; }
+.bookcard .bprog .pg { flex-wrap: nowrap; }
+.screen.phone .layer .bookcard.card { padding: 0; }
+.screen.phone .bookcard .x { top: 12px; right: 12px; }
+.screen.phone .bookcard .bprog .pg { flex-wrap: wrap; }
+.screen.phone .bookcard .bprog .pace { flex-basis: 100%; margin-left: 0; }
+@container (max-width: 640px) {
+  .cp-foot { gap: 6px; }
+  .cp-foot .btn, .cp-foot .pg-add, .cp-foot .pg-on { flex: 1 1 0; width: auto; min-width: 0; padding: 0; justify-content: center; gap: 5px; }
+  .cp-foot .btn .lb { display: none; }
+  .cp-foot .btn.primary .lb, .cp-foot .btn.primary { display: inline-flex; }
+  .cp-foot .pg-on input, .cp-foot .pg-on .where { text-align: left; }
+}
+
+/* v12 */
+.cp-fields { display: flex; flex-direction: column; gap: 8px; min-height: 7.4em; }
+.pg-on { gap: 7px; }
+.pg-kind { padding: 0; background: none; color: var(--ink); font: inherit; font-weight: 500; text-decoration: underline dotted; text-underline-offset: 4px; white-space: nowrap; }
+.pg-on { position: relative; }
+.btn[aria-pressed="true"] .i { color: var(--ink); }
+@container (max-width: 640px) {
+  .cp-foot .pg-add, .cp-foot .pg-on { flex: 1.7 1 0; }
+  .cp-foot .pg-add .lb { display: inline; }
+  .cp-foot .pg-add { gap: 5px; }
+  .cp-foot .btn.primary { flex: 1.2 1 0; }
+  .cp-foot .pg-on, .cp-foot .pg-add { padding: 0 8px; }
+  .cp-foot .pg-on svg { margin-left: 0; }
+  .cp-foot .pg-on input, .cp-foot .pg-on .where { padding-right: 0; }
+}
+
+/* v13: the app's own .btn everywhere in the editor (no pills) */
+.cp .btn, .nb-e .btn, .nb-bar .btn:not(.icon) { height: var(--ctl); padding: 0 14px; font-size: .84rem; }
+.cp .btn .i, .nb-e .btn .i, .nb-bar .btn .i { width: 15px; height: 15px; }
+.cp .btn.icon, .nb-e .btn.icon { width: var(--ctl); padding: 0; }
+.cp .btn.icon .i, .nb-e .btn.icon .i { width: 18px; height: 18px; }
+.cp .btn.primary, .nb-e .btn.primary { padding: 0 20px; font-weight: 600; }
+.btn[aria-pressed="true"]:not(.icon) { background: color-mix(in oklab, var(--accent) 16%, var(--surface)); border-color: color-mix(in oklab, var(--accent) 40%, transparent); }
+.btn.sm { height: 32px; }
+.pg-on { width: 140px; }
+.pg-add, .pg-on { justify-content: flex-start; }
+.pg-on { padding: 0 3px; gap: 6px; cursor: text; }
+/* the same inset, radius and tint as the app's segmented control */
+.pg-kind { display: inline-flex; align-items: center; flex: none; gap: 3px; height: calc(var(--ctl) - 8px); padding: 0 6px 0 10px; border-radius: 5px; border: 0; background: none; color: var(--ink); font: inherit; font-weight: 500; white-space: nowrap; text-decoration: none; }
+.pg-on input, .pg-on .where { flex: 1 1 auto; width: 100%; min-width: 0; max-width: none; height: auto; padding: 0 4px; line-height: 1.3; align-self: center; display: block; }
+.pg-on .ed { min-height: 0; }
+.pg-on .ed:empty { min-height: 1.3em; }
+.del { color: var(--danger); }
+.nb-meta .del { margin: -4px 0; }
+@container (max-width: 640px) {
+  .cp-foot .btn { flex: 1 1 0; width: auto; min-width: 0; padding: 0; gap: 5px; }
+  .cp-foot .pg-add, .cp-foot .pg-on { flex: 2.2 1 0; }
+  .cp-foot .pg-add, .cp-foot .pg-on { padding: 0; }
+  .cp-foot .pg-add { justify-content: center; }
+  .cp-foot .pg-on .pg-kind { margin-left: 4px; }
+  .cp-foot .btn.primary { flex: 1.3 1 0; padding: 0; }
+  .pg-kind { padding: 0 8px; }
+}
+
+/* an edited note sits as far from what is above it as the text of a note does */
+.nb-e.editing { margin-top: 20px; }
+@container (max-width: 640px) { .nb-e.editing { margin-top: 14px; } }
+
+/* the kind switch is a plain control with a swap mark, never tinted like a chosen state; hover only */
+.pg-kind .i { width: 12px; height: 12px; color: var(--muted); }
+.pg-kind:hover { background: color-mix(in oklab, var(--ink) 8%, transparent); }
+.pg-kind:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+</style>
+<div class="studybar">
+  <span class="name">Notes study</span>
+  <div class="seg" role="group" aria-label="Screen">
+    <button type="button" data-pressed="scene:notes">A book’s notes</button><button type="button" data-pressed="scene:timeline">All notes</button><button type="button" data-pressed="scene:settings">Settings</button>
+  </div>
+  <div class="seg" role="group" aria-label="Viewer"><button type="button" data-pressed="role:owner">Owner</button><button type="button" data-pressed="role:visitor">Visitor</button></div>
+  <div class="seg" role="group" aria-label="Device"><button type="button" data-pressed="device:desktop">Desktop</button><button type="button" data-pressed="device:phone">Phone</button></div>
+  <div class="seg" role="group" aria-label="Theme"><button type="button" data-pressed="theme:auto">Auto</button><button type="button" data-pressed="theme:light">Day</button><button type="button" data-pressed="theme:dark">Evening</button></div>
+</div>
+<main id="screen" class="screen"></main>
+<div id="toast-slot"></div>
+<script>
+
+/* The study. Data is made up; every server action is acted out in the page. Passages are from books in the public domain. */
+const NOW = new Date("2026-10-14T12:00:00");
+const $ = (s, r = document) => r.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const plural = (n, w) => `${n.toLocaleString("en-US")} ${w}${n === 1 ? "" : "s"}`;
+
+const IC = {
+  search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
+  stats: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+  pen: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/>',
+  lock: '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
+  eye: '<path d="M2.5 12C3.5 10.2 7 6 12 6s8.5 4.2 9.5 6c-1 1.8-4.5 6-9.5 6s-8.5-4.2-9.5-6Z"/><circle cx="12" cy="12" r="3"/>',
+  copy: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/>',
+  down: '<path d="M12 4v11M7 11l5 5 5-5M5 20h14"/>',
+  up: '<path d="M12 16V5M7 9l5-5 5 5M5 20h14"/>',
+  link: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
+  x: '<path d="M6 6l12 12M18 6 6 18"/>',
+  menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
+  user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+  book: '<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2Z"/><path d="M4 21V5"/>',
+  chevron: '<path d="m6 9 6 6 6-6"/>',
+  swap: '<path d="m8 9 4-4 4 4M8 15l4 4 4-4"/>',
+  quote: '<path d="M5 5v14" stroke-width="2.4"/><path d="M10 8h9M10 12h9M10 16h5"/>',
+  check: '<path d="m5 12 5 5 9-10"/>',
+  hash: '<path d="M9 4 7 20M17 4l-2 16M4.5 9h16M3.5 15h16"/>',
+  trash: '<path d="M4 7h16M10 7V4h4v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/>',
+  more: '<circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/>',
+  chev: '<path d="m9 6 6 6-6 6"/>',
+  file: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5"/>',
+};
+const svg = (n, cls = "") => `<svg class="i ${cls}" viewBox="0 0 24 24" aria-hidden="true">${IC[n]}</svg>`;
+
+/* ---------- Data ---------- */
+const BOOKS = [
+  { id: "middlemarch", title: "Middlemarch", author: "George Eliot", sur: "Eliot", year: 1871, pages: 880, c: "#6b2f2a", fg: "#f3e3cf", b: "hardcover", publisher: "Penguin Classics" },
+  { id: "walden", title: "Walden", author: "Henry David Thoreau", sur: "Thoreau", year: 1854, pages: 352, c: "#3f5a45", fg: "#efe8d6", b: "cloth", publisher: "Princeton University Press" },
+  { id: "moby-dick", title: "Moby-Dick", author: "Herman Melville", sur: "Melville", year: 1851, pages: 635, c: "#1f3b57", fg: "#eadfc8", b: "hardcover", publisher: "Penguin Classics" },
+  { id: "austerlitz", title: "Austerlitz", author: "W. G. Sebald", sur: "Sebald", year: 2001, pages: 298, c: "#6f6a62", fg: "#f1ece2", b: "paperback", publisher: "Modern Library" },
+  { id: "stoner", title: "Stoner", author: "John Williams", sur: "Williams", year: 1965, pages: 278, c: "#a47c3c", fg: "#2a1c10", b: "paperback", publisher: "NYRB Classics" },
+  { id: "invisible-cities", title: "Invisible Cities", author: "Italo Calvino", sur: "Calvino", year: 1972, pages: 165, c: "#2f6f79", fg: "#f2ede0", b: "paperback", publisher: "Harcourt" },
+  { id: "pale-fire", title: "Pale Fire", author: "Vladimir Nabokov", sur: "Nabokov", year: 1962, pages: 246, c: "#b4492e", fg: "#fbefe0", b: "paperback", publisher: "Vintage" },
+  { id: "remains-of-the-day", title: "The Remains of the Day", author: "Kazuo Ishiguro", sur: "Ishiguro", year: 1989, pages: 258, c: "#3c3a52", fg: "#ece5d3", b: "hardcover", publisher: "Knopf" },
+  { id: "giovannis-room", title: "Giovanni’s Room", author: "James Baldwin", sur: "Baldwin", year: 1956, pages: 169, c: "#8d7b4c", fg: "#241a0e", b: "paperback", publisher: "Dial Press" },
+].map((b) => ({ ...b, t: Math.max(18, Math.min(80, b.pages * 0.085 + 7)), h: Math.round(Math.max(222, Math.min(280, 196 + 3.1 * b.title.length)) * (b.b === "hardcover" || b.b === "cloth" ? 1.07 : 1)), notesHidden: b.id === "austerlitz" }));
+const bookOf = (id) => BOOKS.find((b) => b.id === id);
+
+const READINGS = [
+  { id: "mm1", book: "middlemarch", started: "2022-07-20", ended: "2022-09-02", outcome: "finished" },
+  { id: "mm2", book: "middlemarch", started: "2026-09-30", ended: null, outcome: "reading" },
+  { id: "wd1", book: "walden", started: "2025-06-01", ended: "2025-06-20", outcome: "finished" },
+  { id: "md1", book: "moby-dick", started: null, ended: "2024", outcome: "finished", year: true },
+  { id: "au1", book: "austerlitz", started: "2025-03-02", ended: "2025-03-02", outcome: "finished" },
+  { id: "au2", book: "austerlitz", started: "2026-10-03", ended: null, outcome: "reading" },
+  { id: "st1", book: "stoner", started: "2025-11-08", ended: "2025-11-12", outcome: "finished" },
+];
+let PROGRESS = { middlemarch: 412, austerlitz: 91 };
+
+const W = (k, n, to) => ({ k, n, to });
+let ENTRIES = [
+  { id: 1, book: "middlemarch", reading: "mm2", quote: "If we had a keen vision and feeling of all ordinary human life, it would be like hearing the grass grow and the squirrel’s heart beat, and we should die of that roar which lies on the other side of silence.", text: "Read this on the train and had to put the book down.", where: W("page", 252), public: true, at: "2026-10-06T08:40:00" },
+  { id: 2, book: "middlemarch", reading: "mm2", quote: "", text: "Casaubon is the saddest man in the book, and Eliot knows it. Everyone else is allowed to be a little ridiculous; he is allowed to be afraid.", where: W("page", 301), public: false, at: "2026-10-10T22:05:00" },
+  { id: 3, book: "middlemarch", reading: "mm2", quote: "It is a narrow mind which cannot look at a subject from various points of view.", text: "", where: { k: "chapter", n: 63 }, public: true, at: "2026-10-11T19:30:00" },
+  { id: 4, book: "middlemarch", reading: "mm1", quote: "", text: "First time through. Slow to start, then I couldn’t stop. Lydgate’s chapters are the best.", where: null, public: true, at: "2022-09-02T21:00:00" },
+  { id: 5, book: "middlemarch", reading: "mm1", quote: "for the growing good of the world is partly dependent on unhistoric acts; and that things are not so ill with you and me as they might have been, is half owing to the number who lived faithfully a hidden life, and rests in unvisited tombs.", text: "", where: W("page", 880), public: true, at: "2022-09-02T20:41:00" },
+  { id: 6, book: "walden", reading: "wd1", quote: "The mass of men lead lives of quiet desperation.", text: "Everyone quotes this line. The one after it is harder: what is called resignation is confirmed desperation.", where: W("loc", 214, 215), public: false, at: "2025-06-04T07:15:00" },
+  { id: 7, book: "walden", reading: "wd1", quote: "I went to the woods because I wished to live deliberately, to front only the essential facts of life, and see if I could not learn what it had to teach, and not, when I came to die, discover that I had not lived.", text: "", where: W("loc", 1102), public: true, at: "2025-06-09T18:22:00" },
+  { id: 8, book: "moby-dick", reading: "md1", quote: "It is not down on any map; true places never are.", text: "", where: W("page", 85), public: true, at: "2024-03-12T21:10:00" },
+  { id: 9, book: "moby-dick", reading: "md1", quote: "", text: "Skipped the cetology chapters on the first pass and went back for them. Glad I did.", where: null, public: true, at: "2024-05-30T10:00:00" },
+  { id: 10, book: "austerlitz", reading: "au1", quote: "", text: "Read it in two sittings. The photographs do half the work.", where: null, public: false, at: "2025-03-02T23:10:00" },
+  { id: 11, book: "austerlitz", reading: "au1", quote: "", text: "The waiting-room scene again. Read it twice aloud.", where: W("page", 12), public: false, at: "2025-03-02T22:15:00" },
+  { id: 12, book: "stoner", reading: "st1", quote: "", text: "A life that looks small from the outside and is not. I cried at the end, which I did not expect from a novel about a professor.", where: null, public: true, at: "2025-11-12T21:00:00" },
+];
+ENTRIES.push({ id: 13, book: "walden", reading: "wd1", quote: "Our life is frittered away by detail.", text: "Went back to the chapter on Sounds before dawn. True of my week, at least.", where: W("loc", 2198), public: true, at: "2025-06-12T06:50:00" });
+let nextId = 100;
+
+const S = {
+  role: "owner", scene: "notes", device: "desktop", theme: "auto", modal: null,
+  bookId: "middlemarch", settingsSection: "visitors",
+  settings: { notes: true, timeline: true, startsPublic: false },
+  menu: null, order: "new", vis: "all", tlMode: "all",
+  cp: { quote: "", text: "", where: "", reading: "", public: false, open: false, showQuote: false, showPage: false }, edit: null, add: null, rfilter: null, group: false, err: "",
+  bf: { hide: "", export: "" },
+  exp: { includePrivate: true, book: "middlemarch", preview: "" },
+  imp: { stage: "idle", parsed: null, public: false, name: "" },
+  toast: null,
+};
+
+/* ---------- What each viewer may read ---------- */
+const owner = () => S.role === "owner";
+const notesOpen = (b) => owner() || (S.settings.notes && !b.notesHidden);
+const allOf = (id) => ENTRIES.filter((e) => e.book === id);
+const seen = (id) => { const b = bookOf(id); return owner() ? allOf(id) : notesOpen(b) ? allOf(id).filter((e) => e.public) : []; };
+const timelineOpen = () => owner() || (S.settings.notes && S.settings.timeline);
+
+/* ---------- Dates and places ---------- */
+const fmtD = (iso, year) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", ...(year || new Date(iso).getFullYear() !== NOW.getFullYear() ? { year: "numeric" } : {}) });
+const fmtLong = (d) => new Date(d + "T12:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+const days = (a, b) => Math.round((new Date(b + "T12:00:00") - new Date(a + "T12:00:00")) / 86400000) + 1;
+const whereText = (w) => !w ? "" : w.k === "page" ? `Page ${w.n.toLocaleString("en-US")}` : w.k === "loc" ? `Location ${w.n.toLocaleString("en-US")}${w.to ? "–" + w.to.toLocaleString("en-US") : ""}` : `Chapter ${w.n}`;
+const whereNum = (w) => w && (w.k === "page" || w.k === "loc") ? w.n : Infinity;
+const KINDS = { page: "Page", chapter: "Ch.", loc: "Loc." }, LONG = { page: "Page", chapter: "Chapter", loc: "Location" }, NEXT = { page: "chapter", chapter: "loc", loc: "page" };
+function whereFrom(kind, raw) {
+  const m = String(raw).trim().match(/^(\d+)(?:\s*[–-]\s*(\d+))?$/); if (!m) return null;
+  return kind === "loc" ? { k: "loc", n: +m[1], ...(m[2] ? { to: +m[2] } : {}) } : { k: kind, n: +m[1] };
+}
+const whereField = (w) => !w ? "" : w.k === "loc" && w.to ? `${w.n}–${w.to}` : String(w.n);
+const ORD = ["First", "Second", "Third", "Fourth", "Fifth"];
+const readingsOf = (id) => READINGS.filter((r) => r.book === id).sort((a, b) => (a.started || a.ended) < (b.started || b.ended) ? -1 : 1);
+const ORD_S = ["1st", "2nd", "3rd", "4th", "5th"];
+const nowBooks = () => BOOKS.filter((b) => READINGS.some((r) => r.book === b.id && r.outcome === "reading"));
+const readingName = (r) => { const l = readingsOf(r.book); return l.length < 2 ? "" : `${ORD[l.indexOf(r)] || "Reading " + (l.indexOf(r) + 1)} reading`; };
+
+/* ---------- Pieces ---------- */
+const cover = (b, cw, cls = "") => `<span class="cv ${cls}" style="--cw:${cw}px;--c:${b.c};--fg:${b.fg}"><span>${cls === "bare" ? "" : esc(b.title)}</span></span>`;
+function toast(msg, action) { S.toast = { msg, action }; clearTimeout(toast.t); toast.t = setTimeout(() => { S.toast = null; paintToast(); }, action ? 7000 : 3200); paintToast(); }
+function paintToast() { const el = $("#toast-slot"); el.innerHTML = S.toast ? `<div class="toast" role="status"><span>${esc(S.toast.msg)}</span>${S.toast.action ? `<button type="button" data-act="toast-act">${esc(S.toast.action.label)}</button>` : ""}</div>` : ""; }
+
+function header(active) {
+  const o = owner(), tl = timelineOpen();
+  const reading = BOOKS.filter((b) => READINGS.some((r) => r.book === b.id && r.outcome === "reading"));
+  const rb = reading[0], fan = reading.slice(0, 3).map((b) => cover(b, 22, "sm")).join("");
+  return `<header class="hd">
+    <div class="brand"><h1><a href="#" data-act="soon:The shelf">Back Room Books</a></h1></div>
+    <div class="tools">
+      <button type="button" class="btn icon" aria-label="Search">${svg("search")}</button>
+      <button type="button" class="btn icon desk-only" aria-label="Statistics" data-act="soon:Statistics page">${svg("stats")}</button>
+      ${tl ? `<button type="button" class="btn icon desk-only ${o && !S.seenNotes ? "new-dot" : ""}" aria-label="All notes" title="All notes" aria-pressed="${active === "timeline"}" data-act="scene:timeline">${svg("pen")}</button>` : ""}
+      ${o ? `<button type="button" class="btn icon" aria-label="Add a book" data-act="soon:Add a book">${svg("plus")}</button><button type="button" class="btn icon desk-only" aria-label="Settings" data-act="scene:settings">${svg("gear")}</button>` : `<button type="button" class="btn icon desk-only" aria-label="Sign in" data-act="soon:Sign in">${svg("user")}</button>`}
+      <button type="button" class="btn icon phone-btn" aria-label="Menu" data-act="modal:menu">${svg("menu")}</button>
+    </div>
+    ${rb ? `<div class="reading-row"><span class="fan">${fan}</span><span>Now reading <b>${esc(rb.title)}</b>${reading.length === 1 ? ` by ${esc(rb.author)}` : reading.length === 2 ? ` and <b>${esc(reading[1].title)}</b>` : ` and ${reading.length - 1} more`}</span></div>` : ""}
+  </header>`;
+}
+
+function bookCard() {
+  const b = bookOf(S.bookId), n = seen(b.id).length, o = owner();
+  const r = READINGS.find((x) => x.book === b.id && x.outcome === "reading");
+  const showCount = S.scene !== "notes";
+  const can = o || n > 0;
+  return `<div class="layer"><div class="scrim" data-act="close"></div>
+    <div class="card bookcard" role="dialog" aria-label="${esc(b.title)}" style="--c:${b.c};--fg:${b.fg}">
+      <button type="button" class="btn icon x" aria-label="Close" data-act="close">${svg("x")}</button>
+      <div class="board">${cover(b, 170, "bare")}</div>
+      <div class="page-r">
+        <p class="kick">${{ paperback: "Paperback", hardcover: "Hardcover", cloth: "Cloth" }[b.b]}${r ? " · Reading now" : ""}</p>
+        <h2>${esc(b.title)}</h2><p class="by">${esc(b.author)}</p>
+        <p class="facts">${esc(b.publisher)} · ${b.year} · ${plural(b.pages, "page")}</p>
+        ${r && o ? progress(b) : ""}
+        <div class="acts">
+          ${can && S.scene !== "notes" ? `<button type="button" class="act solid" data-act="notes-of:${b.id}">${svg("pen")}Notes${showCount && (n || !o) ? ` <span class="ct">· ${n}</span>` : ""}</button>` : ""}
+          <button type="button" class="act" data-act="soon:Copy link">${svg("link")}Copy link</button>
+          ${o && r ? `<button type="button" class="act" data-act="soon:Finished reading">Finished reading</button><button type="button" class="act" data-act="soon:Set aside">Set aside</button>` : ""}
+          ${o ? `<button type="button" class="act" data-act="soon:Edit">Edit</button>` : ""}
+        </div>
+      </div></div></div>`;
+}
+
+/* ---------- Scene: a book's notes ---------- */
+const partsHTML = (e, ed) => {
+  const add = S.add && S.add.id === e.id ? S.add.f : "";
+  const part = (f, val, tag, cls, ph, lab) => ed ? `<${tag} class="${cls} ed" contenteditable="plaintext-only" role="textbox" aria-multiline="true" aria-label="${lab}" data-ed="${f}" data-id="${e.id}" data-ph="${ph}">${esc(val)}</${tag}>` : `<${tag} class="${cls}">${esc(val)}</${tag}>`;
+  const qh = e.quote || (ed && add === "quote") ? part("quote", e.quote, "blockquote", "", "The passage, as printed in the book", "Passage") : "";
+  const th = e.text || ed ? part("text", e.text, "p", "txt", e.quote || e.pre || add === "quote" ? "" : "Your thoughts", "Your thoughts") : "";
+  const ph = e.pre ? part("pre", e.pre, "p", "txt", "Your thoughts", "Your thoughts") : "";
+  return ph + qh + th;
+};
+const rdLabel = (e) => { const rs = readingsOf(e.book), i = rs.findIndex((r) => r.id === e.reading); return rs.length < 2 || i < 0 ? "" : `${ORD_S[i] || i + 1 + "th"} reading`; };
+const visChip = (pressed, act) => `<button type="button" class="btn" aria-pressed="${pressed}" aria-label="${pressed ? "Public" : "Only me"}" data-act="${act}" title="${pressed ? "Public: visitors can read this. Click to make it private." : "Only me: only you can read this. Click to let visitors read it."}">${svg(pressed ? "eye" : "lock")}<span class="lb">${pressed ? "Public" : "Only me"}</span></button>`;
+const passChip = (act, on) => `<button type="button" class="btn" aria-pressed="${on}" aria-label="Passage" title="A passage from the book" data-act="${act}">${svg("quote")}<span class="lb">Passage</span></button>`;
+const pageChip = (act, on, kind, kindAct, field) => `<button type="button" class="btn pg-add" aria-label="Page" title="Where in the book" data-act="${act}"${on ? " hidden" : ""}>${svg("plus")}<span class="lb">Page</span></button><span class="btn pg-on"${on ? "" : " hidden"}><button type="button" class="pg-kind" aria-label="${LONG[kind]}: tap to switch between page, chapter and location" title="${LONG[kind]}. Tap to switch between page, chapter and location" data-act="${kindAct}">${KINDS[kind]}${svg("swap")}</button>${field}</span>`;
+function entryHTML(e) {
+  const o = owner(), shared = e.public && notesOpen(bookOf(e.book)), ed = o && S.edit === e.id;
+  const add = S.add && S.add.id === e.id ? S.add.f : "";
+  const where = ed ? "" : e.where ? `<span class="where">${esc(whereText(e.where))}</span>` : "";
+  const rd = o && !ed ? rdLabel(e) : "";
+  const wk = e.where ? e.where.k : (S.add && S.add.id === e.id && S.add.kind) || "page";
+  const foot = ed ? `<button type="button" class="btn icon cp-x" aria-label="Discard changes" title="Discard changes" data-act="ecancel">${svg("x")}</button><div class="cp-foot"><div class="cp-opts">${passChip(`epass:${e.id}`, !!(e.quote || add === "quote"))}${pageChip(`addpart:${e.id}:where`, !!(e.where || add === "where"), wk, `ekind:${e.id}`, `<span class="where ed" contenteditable="plaintext-only" inputmode="numeric" role="textbox" aria-label="${LONG[wk]} number" data-ed="where" data-id="${e.id}" data-ph="212">${esc(whereField(e.where))}</span>`)}</div><div class="cp-act">${visChip(e.public, `vis:${e.id}`)}<button type="button" class="btn primary" data-act="done">Done</button></div></div>` : "";
+  const tools = ed
+    ? `<button type="button" class="btn icon del" aria-label="Delete this note" title="Delete this note" data-act="del:${e.id}">${svg("trash")}</button>`
+    : `${shared ? `<button type="button" class="lnk" data-act="copylink:${e.id}">Copy link</button>` : ""}${o ? `<button type="button" class="lnk" data-act="edit:${e.id}">Edit</button>` : ""}`;
+  const info = [rd ? `<span>${rd}</span>` : "", o && !ed && !e.public ? `<span class="priv">${svg("lock")}Only me</span>` : ""].filter(Boolean).join("");
+  return `<li class="nb-e ${ed ? "editing" : ""}" id="e${e.id}">
+    ${ed ? `<div class="cp-fields">${partsHTML(e, ed)}</div>` : partsHTML(e, ed)}${foot}
+    <div class="nb-meta"><span class="who">${where}<span class="dt">${fmtD(e.at)}</span></span>${info}<span class="saved" role="status"></span><span class="nb-tools">${tools}</span></div></li>`;
+}
+function composer() {
+  const c = S.cp, has = c.quote || c.text || c.pre || c.where, pre = c.showQuote && c.hasPre;
+  const area = (cls, id, rows, ph, lab, bind, val) => `<textarea class="${cls}" id="${id}" rows="${rows}" placeholder="${ph}" aria-label="${lab}" data-bind="${bind}">${esc(val)}</textarea>`;
+  return `<form class="cp ${c.open || has ? "open" : ""}" id="cp-nw" novalidate data-form="cp">
+    <button type="button" class="cp-bar" data-act="cp-open">${svg("pen")}Write a note</button>
+    <div class="cp-body">
+      ${c.open || has ? `<button type="button" class="btn icon cp-x" aria-label="Discard this note" title="Discard this note" data-act="cp-cancel">${svg("x")}</button>` : ""}<div class="cp-fields">${pre ? area("ct pre", "cp-pre", 1, "", "Your thoughts", "cp.pre", c.pre) : ""}${c.showQuote ? area("cq", "cp-quote", 1, "The passage, as printed in the book", "Passage", "cp.quote", c.quote) : ""}${area(pre ? "ct after" : "ct", "cp-text", 1, c.showQuote ? "" : "What did you think?", "Your thoughts", "cp.text", c.text)}</div>
+      <div class="cp-foot">
+        <div class="cp-opts">${passChip("cp-quote", c.showQuote)}${pageChip("cp-page", c.showPage, c.wkind, "cp-kind", `<input id="cp-where" autocomplete="off" inputmode="numeric" pattern="[0-9]*" placeholder="212" aria-label="${LONG[c.wkind]} number" data-bind="cp.where" value="${esc(c.where)}">`)}</div>
+        <div class="cp-act">${visChip(c.public, "cp-vis")}<button type="submit" class="btn primary">Save</button></div>
+      </div>
+      <p class="err" role="alert" id="cp-err">${esc(S.err)}</p></div></form>`;
+}
+function readingHead(r, b) {
+  const nm = readingName(r) || "Reading";
+  let when;
+  if (r.outcome === "reading") when = `since ${fmtD(r.started + "T12:00:00", true)}`;
+  else when = `${r.outcome === "finished" ? "finished" : "set aside"} ${r.year ? r.ended : fmtD(r.ended + "T12:00:00", true)}`;
+  return `<h4 class="rd-cap"><span>${nm} · ${when}</span>${owner() ? `<button type="button" class="lnk" data-act="soon:Edit reading">Edit reading</button>` : ""}</h4>`;
+}
+function sorted(list) {
+  const nw = (a, b) => Date.parse(b.at) - Date.parse(a.at);
+  return list.slice().sort(S.order === "place" ? (a, b) => whereNum(a.where) - whereNum(b.where) || nw(a, b) : nw);
+}
+function progress(b) {
+  const rd = READINGS.find((r) => r.book === b.id && r.outcome === "reading"); if (!rd) return "";
+  const pg = PROGRESS[b.id] || 0, pct = Math.round(pg / b.pages * 100), d = days(rd.started, "2026-10-14");
+  return `<div class="prog bprog"><div class="bar" role="img" aria-label="${pct} percent read"><i style="--v:${pct}%"></i></div>
+    <label class="pg">On page <input type="number" value="${pg}" min="0" max="${b.pages}" inputmode="numeric" data-act-change="page:${b.id}" aria-label="Page you are on"> of ${b.pages.toLocaleString("en-US")} · ${pct}%<span class="pace">${plural(d, "day")} in · ${plural(Math.max(1, Math.round(pg / d)), "page")} a day</span></label></div>`;
+}
+const menuHTML = (scope) => {
+  const b = bookOf(S.bookId), master = S.settings.notes, book = scope === "book";
+  const pub = book ? allOf(b.id).filter((e) => e.public).length : ENTRIES.filter((e) => e.public && master && !bookOf(e.book).notesHidden).length;
+  const total = book ? allOf(b.id).length : ENTRIES.length;
+  const off = book ? (!master || b.notesHidden) : !(master && S.settings.timeline);
+  return `<div class="menu" role="menu" aria-label="More">
+    <p class="mi info">${!master ? "Notes are switched off for visitors in Settings." : book ? (b.notesHidden ? `Hidden from visitors. ${pub} of ${total} are marked public.` : `Visitors can read ${pub} of ${total}.`) : (S.settings.timeline ? `Visitors can read ${pub} of ${total}.` : "Visitors can’t see this page. Turn it on in Settings.")}</p>
+    ${book && master ? `<button type="button" role="menuitem" data-act="book-toggle">${svg(b.notesHidden ? "eye" : "lock")}${b.notesHidden ? "Show to visitors" : "Hide from visitors"}</button>` : ""}
+    <button type="button" role="menuitem" data-act="copylink:${book ? "book" : "timeline"}" ${off ? "disabled" : ""}>${svg("link")}Copy link</button>
+    <button type="button" role="menuitem" data-act="export:${book ? "book" : "all"}">${svg("down")}Download Markdown</button>
+    ${book && readingsOf(b.id).length > 1 ? `<p class="mi info sep">Readings</p>${[["", "All readings"], ...readingsOf(b.id).map((r, i) => [r.id, `${ORD_S[i] || i + 1 + "th"} reading`])].map(([id, l]) => `<button type="button" role="menuitem" data-act="rfilter:${id}">${svg("check")}<span>${l}</span>${(S.rfilter || "") === id ? "" : ""}</button>`.replace(svg("check"), (S.rfilter || "") === id ? svg("check") : '<span class="ph"></span>')).join("")}<button type="button" role="menuitem" data-act="group-toggle">${S.group ? svg("check") : '<span class="ph"></span>'}<span>Group by reading</span></button>` : ""}</div>`;
+};
+const moreBtn = (scope) => `<span class="more"><button type="button" class="btn icon more-btn" aria-label="More" aria-haspopup="menu" aria-expanded="${S.menu === scope}" data-act="menu:${scope}">${svg("more")}</button>${S.menu === scope ? menuHTML(scope) : ""}</span>`;
+const legend = () => `<li><b>One set of controls, used the same way everywhere.</b> <span class="key"><span class="btn primary">Save</span> commits what you wrote · <span class="btn">${svg("plus")}Page</span> adds or sets something on a note · <span class="lnk">Edit</span> acts on a note. Nothing else on the page is a button: text that isn’t underlined is information.</span></li>`;
+function notesScene() {
+  const b = bookOf(S.bookId), o = owner();
+  const all = seen(b.id);
+  const side = `<aside class="nb-side"><header class="nb-head"><button type="button" class="cv-btn" aria-label="Details for ${esc(b.title)}" data-act="book:${b.id}">${cover(b, 112, "bare")}<span class="cv-hint">Click for details</span></button>
+    <div class="info"><h2><button type="button" data-act="book:${b.id}">${esc(b.title)}</button></h2><p class="nb-by">${esc(b.author)}</p><button type="button" class="tap-hint" data-act="book:${b.id}">Tap for details ${svg("chev")}</button></div></header></aside>`;
+  if (!o && (!notesOpen(b) || !all.length)) return `<div class="page">${header("notes")}<div class="nb2">${side}<div class="nb-main"><p class="nb-empty">There are no notes to read for this book.</p></div></div></div>`;
+  const total = allOf(b.id).length, rs = readingsOf(b.id).slice().reverse();
+  const shown = all.filter((e) => !o || !S.rfilter || e.reading === S.rfilter);
+  const places = all.filter((e) => e.where && (e.where.k === "page" || e.where.k === "loc")).length;
+  const fl = S.rfilter && o ? rs.find((r) => r.id === S.rfilter) : null;
+  const bar = `<div class="nb-bar"><h3>${plural(shown.length, "note")}</h3>
+    ${fl ? `<button type="button" class="btn sm" aria-pressed="true" data-act="rfilter:" aria-label="Showing ${esc(ORD_S[readingsOf(b.id).indexOf(fl)])} reading only. Show all.">${ORD_S[readingsOf(b.id).indexOf(fl)]} reading${svg("x")}</button>` : ""}
+    ${places > 1 ? `<div class="seg" role="group" aria-label="Order">${[["new", "Newest"], ["place", "By page"]].map(([v, l]) => `<button type="button" aria-pressed="${S.order === v}" data-act="order:${v}">${l}</button>`).join("")}</div>` : ""}
+    ${o ? moreBtn("book") : ""}</div>`;
+  let body;
+  if (o && S.group && rs.length > 1) {
+    body = rs.map((r) => { const es = sorted(shown.filter((e) => e.reading === r.id)); return es.length ? `<section class="rd">${readingHead(r, b)}<ol class="nb-list">${es.map((e) => entryHTML(e)).join("")}</ol></section>` : ""; }).join("");
+    const loose = sorted(shown.filter((e) => !rs.some((r) => r.id === e.reading)));
+    if (loose.length) body += `<section class="rd"><h4 class="rd-cap"><span>Not from a reading</span></h4><ol class="nb-list">${loose.map((e) => entryHTML(e)).join("")}</ol></section>`;
+  } else body = `<ol class="nb-list">${sorted(shown).map((e) => entryHTML(e)).join("")}</ol>`;
+  const notes = [
+    `<b>The page is as wide as the shelf.</b> The book sits in a narrow column (cover, title, author) and the notes take the rest. On a phone the same three things are a short head, so the notes start high.`,
+    `<b>The book’s page holds the rest.</b> The cover is large and says “Click for details” when you point at it (on a phone, a “Tap for details” line sits under the author at all times). Cover or title opens it: publisher, year, pages, and, while you are reading it, your progress (bar, the page you’re on) with Finished reading and Set aside. Nothing about the book is left on the notes page to edit.`,
+    `<b>The editor is a fixed window.</b> One place for your thoughts, always. <b>+ Passage</b> and <b>+ Page</b> are buttons under it; each adds its own field (the passage above your words, the page beside the buttons) and tapping it again takes it away. Page also takes <i>loc. 4000</i> or <i>Chapter 3</i>.`,
+    `<b>Readings don’t group the list.</b> A note from one of several readings says so in its own line (“2nd reading”). To look at one reading, open ⋯ and choose it; a small chip in the header shows the filter and removes it. “Group by reading” is a switch in the same menu, off unless you turn it on.`,
+    `<b>Edit is a link.</b> It makes the note’s passage, thoughts and page editable where they are; missing parts are added with + Passage and + Page, and the button sets Only me / Public. Done puts it back.`,
+    `Switch to <b>Visitor</b> to compare: they get the list and nothing else.`,
+  ];
+  return `<div class="page">${header("notes")}<div class="nb2">${side}
+    <div class="nb-main">${o ? composer() : ""}${bar}${body}${o && !total ? `<p class="nb-empty">Nothing kept yet. A line you liked, a thought, or both.</p>` : ""}</div></div>
+    <aside class="dn"><h3>Notes on this screen</h3><ul>${legend()}${notes.map((x) => `<li>${x}</li>`).join("")}</ul></aside></div>`;
+}
+
+/* ---------- Scene: all notes ---------- */
+function timelineScene() {
+  const o = owner();
+  if (!timelineOpen()) return `<div class="page">${header("timeline")}<div class="tl"><div class="gate" style="padding:12vh 0"><svg class="i" viewBox="0 0 24 24">${IC.lock}</svg><h2>This page is switched off.</h2></div></div></div>`;
+  const visitorView = !o || S.tlMode === "visitors";
+  const shown = (e) => e.public && S.settings.notes && !bookOf(e.book).notesHidden;
+  const es = ENTRIES.filter((e) => !visitorView || shown(e)).sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
+  let cur = "", rows = "";
+  for (const e of es) {
+    const b = bookOf(e.book), m = new Date(e.at).toLocaleDateString("en-US", { month: "long", year: "numeric" });
+    if (m !== cur) { cur = m; rows += `<h3 class="tl-month">${m}</h3>`; }
+    rows += `<article class="tl-e"><button type="button" class="cv-btn" style="padding:0;border:0;background:none;align-self:start" aria-label="${esc(b.title)}" data-act="notes-of:${b.id}">${cover(b, 52, "bare")}</button>
+      <div><button type="button" class="bk" data-act="notes-of:${b.id}"><b>${esc(b.title)}</b> · ${esc(b.author)}</button>
+      <ul class="nb-list" style="padding:0"><li class="nb-e">${partsHTML(e, false)}
+      <div class="nb-meta"><span class="who">${e.where ? `<span class="where">${esc(whereText(e.where))}</span>` : ""}<span class="dt">${fmtD(e.at)}</span></span>
+      ${o && !visitorView && !e.public ? `<span class="priv">${svg("lock")}Only me</span>` : ""}
+      ${shown(e) ? `<span class="nb-tools"><button type="button" class="lnk" data-act="copylink:${e.id}">Copy link</button></span>` : ""}</div></li></ul></div></article>`;
+  }
+  const pubCount = ENTRIES.filter(shown).length, live = S.settings.notes && S.settings.timeline;
+  const bar = o ? `<div class="nb-bar"><h3>${plural(es.length, "note")}</h3><div class="seg" role="group" aria-label="View"><button type="button" aria-pressed="${S.tlMode === "all"}" data-act="tl-mode:all">Everything</button><button type="button" aria-pressed="${S.tlMode === "visitors"}" data-act="tl-mode:visitors">As visitors see it</button></div>${moreBtn("all")}</div>` : "";
+  return `<div class="page">${header("timeline")}<div class="tl"><div class="tl-head"><h2>Notes</h2><p>What I’ve been keeping from my books, newest first.</p></div>${bar}${rows || `<p class="nb-empty">Nothing public yet.</p>`}</div>
+    <aside class="dn"><h3>Notes on this screen</h3><ul>
+      <li><b>Not a blog.</b> There is nothing to write here: an entry always belongs to a book, written on the book. This page only reads them back, newest first, each led by its book.</li>
+      <li>Like Statistics, it is the owner’s always; Settings decides whether visitors get it. “As visitors see it” shows exactly their list.</li>
+      <li>The header is the same as on a book’s page: the count, a view switch, and ⋯ for what visitors can read, Copy link and Markdown. Nothing can be changed from this page, so the “Only me” on a note is plain text.</li>
+      <li><b>When it grows:</b> a long timeline will page by month (a “Show older” row), and a book filter will join the view switch. A library of 500 books will not make this page longer than the notes themselves.</li></ul></aside></div>`;
+}
+
+/* ---------- Markdown ---------- */
+function mdEntry(e, priv) {
+  const body = [e.quote ? e.quote.split("\n").map((l) => "> " + l).join("\n") : "", e.text].filter(Boolean).join("\n\n");
+  const meta = [e.where ? whereText(e.where) : "", fmtD(e.at, true), priv && !e.public ? "Private" : ""].filter(Boolean).join(" · ");
+  return `${body}\n\n*${meta}*\n`;
+}
+function mdBook(b, priv, h) {
+  const es = allOf(b.id).filter((e) => priv || e.public); if (!es.length) return "";
+  const rs = readingsOf(b.id), hh = "#".repeat(h), sub = "#".repeat(h + 1);
+  let out = `${hh} ${b.title}\n\n*${b.author} · ${b.year}*\n\n`;
+  const groups = rs.map((r) => [r, es.filter((e) => e.reading === r.id)]).filter(([, l]) => l.length);
+  const loose = es.filter((e) => !rs.some((r) => r.id === e.reading));
+  const asc = (l) => l.slice().sort((a, c) => Date.parse(a.at) - Date.parse(c.at));
+  if (rs.length < 2 && !loose.length) out += asc(es).map((e) => mdEntry(e, priv)).join("\n");
+  else {
+    for (const [r, l] of groups) out += `${sub} ${readingName(r) ? readingName(r) + " — " : ""}${r.outcome === "reading" ? "under way" : r.year ? "finished " + r.ended : "finished " + fmtD(r.ended + "T12:00:00", true)}\n\n` + asc(l).map((e) => mdEntry(e, priv)).join("\n") + "\n";
+    if (loose.length) out += `${sub} Not tied to a reading\n\n` + asc(loose).map((e) => mdEntry(e, priv)).join("\n");
+  }
+  return out.trimEnd() + "\n";
+}
+function mdFor(scope, priv) {
+  if (scope === "book") { const b = bookOf(S.exp.book); return `---\ntitle: "${b.title}"\nauthor: "${b.author}"\nyear: ${b.year}\nnotes: ${allOf(b.id).filter((e) => priv || e.public).length}\n---\n\n` + (mdBook(b, priv, 1) || "(No notes to export.)\n"); }
+  const blocks = BOOKS.map((b) => mdBook(b, priv, 2)).filter(Boolean);
+  return `# Notes from Back Room Books\n\n*${plural(blocks.length, "book")} · exported ${fmtLong("2026-10-14")}${priv ? "" : " · public notes only"}*\n\n` + blocks.join("\n");
+}
+function exportCard() {
+  const e = S.exp, scope = e.scope, b = bookOf(e.book);
+  const text = mdFor(scope, e.includePrivate);
+  return `<div class="layer"><div class="scrim" data-act="close"></div><div class="card wide" role="dialog" aria-label="Export notes">
+    <button type="button" class="btn icon x" aria-label="Close" data-act="close">${svg("x")}</button>
+    <h2>${scope === "book" ? `Notes on ${esc(b.title)}` : "All your notes"}</h2>
+    <p class="lede">Plain Markdown. It opens in Obsidian, Notion, or any text editor. ${scope === "book" ? "One file for this book." : "One file, a heading for each book."}</p>
+    <div class="stack"><label class="toggle"><span><b>Include notes only you can see</b><small>Off exports just what visitors can read.</small></span><input type="checkbox" id="exp-priv" ${e.includePrivate ? "checked" : ""} data-act-change="exp-priv"></label>
+    <pre class="mdprev" tabindex="0" aria-label="Preview">${esc(text)}</pre>
+    <div class="row-btns end"><button type="button" class="btn" data-act="exp-copy">${svg("copy")}Copy</button><button type="button" class="btn primary" data-act="exp-save">${svg("down")}Save as file</button></div></div></div></div>`;
+}
+
+/* ---------- Kindle clippings ---------- */
+const SAMPLE = `﻿Middlemarch (George Eliot)
+- Your Highlight on page 412 | Location 6120-6121 | Added on Saturday, 10 October 2026 21:14:09
+
+What do we live for, if it is not to make life less difficult to each other?
+==========
+Middlemarch (George Eliot)
+- Your Note on page 412 | Location 6121 | Added on Saturday, 10 October 2026 21:15:30
+
+Dorothea to Rosamond. This is the chapter where the book turns kind.
+==========
+Middlemarch (George Eliot)
+- Your Highlight on page 380 | Location 5710-5711 | Added on Thursday, 8 October 2026 20:02:11
+
+Every limit is a beginning as well as an ending.
+==========
+Middlemarch (George Eliot)
+- Your Highlight on page 380 | Location 5710-5712 | Added on Thursday, 8 October 2026 20:02:40
+
+Every limit is a beginning as well as an ending. Who can quit young lives after being long in company with them
+==========
+Middlemarch (George Eliot)
+- Your Bookmark on page 301 | Location 4503 | Added on Monday, 5 October 2026 22:30:00
+
+
+==========
+Walden (Henry David Thoreau)
+- Your Highlight on Location 214-215 | Added on Wednesday, 4 June 2025 07:15:22
+
+The mass of men lead lives of quiet desperation.
+==========
+Walden (Henry David Thoreau)
+- Your Highlight on Location 2203-2204 | Added on Saturday, 14 June 2025 06:40:05
+
+Simplify, simplify.
+==========
+Moby-Dick (Herman Melville)
+- Your Highlight on Location 12-12 | Added on Tuesday, 12 March 2024 21:01:12
+
+Call me Ishmael.
+==========
+Austerlitz (W. G. Sebald)
+- Your Note on page 91 | Location 1371 | Added on Sunday, 2 March 2025 22:50:48
+
+The station chapters again: railway halls as cathedrals to time.
+==========
+Frankenstein (Mary Shelley)
+- Your Highlight on page 64 | Location 977-978 | Added on Friday, 3 January 2025 23:12:09
+
+Beware; for I am fearless, and therefore powerful.
+==========
+Pride and Prejudice (Jane Austen)
+- Your Highlight on page 3 | Location 41-42 | Added on Sunday, 5 January 2025 18:02:51
+
+It is a truth universally acknowledged, that a single man in possession of a good fortune, must be in want of a wife.
+==========
+`;
+const norm = (s) => s.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, " ").trim();
+function parseClippings(text) {
+  const out = [];
+  for (const blk of text.replace(/^﻿/, "").split(/={5,}/).map((x) => x.trim()).filter(Boolean)) {
+    const lines = blk.split(/\r?\n/), head = (lines[0] || "").replace(/^﻿/, "").trim(), meta = lines[1] || "", body = lines.slice(2).join("\n").trim();
+    const m = head.match(/^(.*?)\s*\(([^()]*)\)\s*$/), title = (m ? m[1] : head).trim(), author = m ? m[2].trim() : "";
+    const type = /Your Highlight/i.test(meta) ? "highlight" : /Your Note/i.test(meta) ? "note" : null; if (!type || !body) continue;
+    const pg = meta.match(/page\s+(\d+)/i), loc = meta.match(/Location\s+(\d+)(?:-(\d+))?/i), when = meta.match(/Added on\s+(?:\w+,\s+)?(.+)$/i);
+    const d = when ? new Date(when[1]) : null;
+    out.push({ title, author, type, page: pg ? +pg[1] : null, loc: loc ? +loc[1] : null, locTo: loc && loc[2] ? +loc[2] : null, text: body, at: d && !isNaN(d) ? d.toISOString().slice(0, 19) : "2026-10-14T12:00:00" });
+  }
+  // A note beside a highlight belongs to it; a longer copy of a highlight replaces the shorter.
+  const items = [];
+  for (const c of out) {
+    const last = items.filter((i) => i.title === c.title && i.quote);
+    if (c.type === "note") {
+      const h = last.reverse().find((i) => i.loc != null && c.loc != null && c.loc >= i.loc && c.loc <= (i.locTo ?? i.loc) + 1);
+      if (h) { h.text = c.text; continue; }
+      items.push({ ...c, quote: "", text: c.text }); continue;
+    }
+    const dup = last.find((i) => i.quote.startsWith(c.text) || c.text.startsWith(i.quote));
+    if (dup) { if (c.text.length > dup.quote.length) { dup.quote = c.text; dup.locTo = c.locTo; dup.at = c.at; } continue; }
+    items.push({ ...c, quote: c.text, text: "" });
+  }
+  return items;
+}
+function planImport(items) {
+  const by = new Map();
+  for (const i of items) { if (!by.has(i.title)) by.set(i.title, { title: i.title, author: i.author, items: [] }); by.get(i.title).items.push(i); }
+  return [...by.values()].map((g) => {
+    const book = BOOKS.find((b) => norm(b.title) === norm(g.title.split(":")[0]));
+    const fresh = book ? g.items.filter((i) => !allOf(book.id).some((e) => i.quote && e.quote && norm(e.quote) === norm(i.quote))) : [];
+    return { ...g, book, fresh, same: book ? g.items.length - fresh.length : 0 };
+  });
+}
+function importCard() {
+  const im = S.imp;
+  if (im.stage === "idle") return `<div class="drop" id="drop" data-act="pick-file" tabindex="0" role="button" aria-label="Choose a clippings file"><b>Drop My Clippings.txt here</b><span>or choose it. Kindle keeps it in its Documents folder.</span></div>
+    <input type="file" id="clip-file" accept=".txt,text/plain" hidden><div class="row-btns" style="margin-top:10px"><button type="button" class="btn sm" data-act="import-sample">Use a sample file</button></div>`;
+  const plan = planImport(im.parsed), add = plan.reduce((n, g) => n + g.fresh.length, 0), books = plan.filter((g) => g.fresh.length).length;
+  return `<p class="fine" style="margin-bottom:6px">Read ${plural(im.parsed.length, "clipping")} from ${plural(plan.length, "book")}${im.name ? ` in <b>${esc(im.name)}</b>` : ""}. A note beside a highlight became one entry, repeated highlights were folded together, bookmarks were left out.</p>
+    <ul class="imp-list">${plan.map((g) => g.book ? `<li><b>${esc(g.book.title)}</b><small>${g.fresh.length ? `${g.fresh.length} to add` : "Nothing new"}${g.same ? `${g.fresh.length ? ", " : ". "}${g.same} already here` : ""}</small><span class="st2 ${g.fresh.length ? "ok" : ""}">${g.fresh.length ? "On your shelf" : "Up to date"}</span></li>` : `<li class="skip"><b>${esc(g.title)}</b><small>${esc(g.author)} · ${plural(g.items.length, "clipping")}</small><span class="st2">Not on your shelf, skipped</span></li>`).join("")}</ul>
+    <div class="srow" style="padding-bottom:0"><div class="sname">Imported notes are<small>Page is used when Kindle gives one, otherwise the location.</small></div><div class="sctl"><div class="seg" role="group" aria-label="Imported notes are"><button type="button" aria-pressed="${!im.public}" data-act="imp-vis:0">Only me</button><button type="button" aria-pressed="${im.public}" data-act="imp-vis:1">Public</button></div></div></div>
+    <div class="row-btns end" style="margin-top:8px"><button type="button" class="btn" data-act="import-cancel">Cancel</button><button type="button" class="btn primary" data-act="import-run" ${add ? "" : "disabled"}>Add ${plural(add, "note")} to ${plural(books || 0, "book")}</button></div>`;
+}
+
+/* ---------- A book finder: type to narrow, never a list of every book ---------- */
+function finder(kind) {
+  const q = S.bf[kind], n = norm(q);
+  const pool = BOOKS.filter((b) => allOf(b.id).length && (kind === "export" || !b.notesHidden));
+  const latest = (b) => Math.max(...allOf(b.id).map((e) => Date.parse(e.at)));
+  const hits = (n ? pool.filter((b) => norm(b.title + " " + b.author).includes(n)) : pool.slice().sort((a, c) => latest(c) - latest(a)));
+  const cap = n ? 5 : 4, shown = !n && kind === "hide" ? [] : hits.slice(0, cap);
+  const act = kind === "hide" ? (b) => `<button type="button" class="lnk" data-act="bf-hide:${b.id}">Hide</button>` : (b) => `<button type="button" class="lnk" data-act="export-of:${b.id}">${svg("down")}Markdown</button>`;
+  return `<div class="finder"><label class="fsearch">${svg("search")}<input type="search" id="bf-${kind}" class="inp" placeholder="Find a book by title or author" value="${esc(q)}" data-bf="${kind}" autocomplete="off" aria-label="Find a book"></label>
+    ${shown.length ? `<p class="fcap">${n ? plural(hits.length, "match").replace("matchs", "matches") : "Most recent notes"}</p><ul class="flist">${shown.map((b) => { const t = allOf(b.id).length, p = allOf(b.id).filter((e) => e.public).length;
+      return `<li>${cover(b, 28, "sm")}<span><b>${esc(b.title)}</b><small>${esc(b.author)} · ${plural(t, "note")}${p ? `, ${p} public` : ""}</small></span>${act(b)}</li>`; }).join("")}</ul>${hits.length > shown.length ? `<p class="fcap">${hits.length - shown.length} more. Keep typing to narrow it.</p>` : ""}`
+    : `<p class="fcap">${n ? `No book with notes matches “${esc(q)}”.` : kind === "hide" ? "Type a title or author to hide a book." : "No notes to export yet."}</p>`}</div>`;
+}
+function hiddenList() {
+  const hb = BOOKS.filter((b) => b.notesHidden);
+  return `<p class="fcap">${hb.length ? `Hidden from visitors · ${hb.length}` : "No book is hidden."}</p>${hb.length ? `<ul class="flist hidden">${hb.map((b) => `<li>${cover(b, 28, "sm")}<span><b>${esc(b.title)}</b><small>${esc(b.author)}</small></span><button type="button" class="lnk" data-act="bf-show:${b.id}">Show again</button></li>`).join("")}</ul>` : ""}`;
+}
+
+/* ---------- Scene: settings ---------- */
+function settingsScene() {
+  const sec = S.settingsSection, st = S.settings;
+  const nav = `<nav class="snav" aria-label="Settings sections"><h2>Settings</h2>${[["shelf", "Shelf"], ["site", "Header and footer"], ["visitors", "Visitors"], ["library", "Your library"], ["about", "About"]].map(([k, l]) => `<button type="button" class="${sec === k ? "cur" : ""}" ${["visitors", "library"].includes(k) ? `data-act="section:${k}"` : `data-act="soon:That section"`}>${l}</button>`).join("")}</nav>`;
+  const withNotes = BOOKS.filter((b) => allOf(b.id).length);
+  const reach = ENTRIES.filter((e) => e.public && st.notes && !bookOf(e.book).notesHidden);
+  let pane;
+  if (sec === "visitors") {
+    pane = `<div class="sbody">
+      <section class="sgroup"><h3>Notes</h3><p class="sdesc">What visitors can read of the notes you keep. Each book and each note can still be set on its own.</p>
+        <div class="srow"><div class="sname">Show notes<small>The notes you mark public.</small></div><div class="sctl"><input type="checkbox" class="switch" id="s-notes" ${st.notes ? "checked" : ""} data-act-change="set:notes" aria-label="Show notes"></div></div>
+        <div class="srow"><div class="sname">All notes page<small>Every public note in one list, with its own icon beside Statistics.</small></div><div class="sctl"><input type="checkbox" class="switch" id="s-timeline" ${st.timeline && st.notes ? "checked" : ""} ${st.notes ? "" : "disabled"} data-act-change="set:timeline" aria-label="All notes page"></div></div>
+        <div class="srow"><div class="sname">New notes start as</div><div class="sctl"><div class="seg" role="group" aria-label="New notes start as"><button type="button" aria-pressed="${!st.startsPublic}" data-act="set-starts:0">Only me</button><button type="button" aria-pressed="${st.startsPublic}" data-act="set-starts:1">Public</button></div></div></div>
+        <p class="fine" id="reach">${st.notes ? `Visitors can read <b>${plural(reach.length, "note")}</b> on ${plural(new Set(reach.map((e) => e.book)).size, "book")}${st.timeline ? ", and the same notes together on the All notes page" : ""}.` : "Visitors can read no notes."}</p></section>
+      <section class="sgroup"><h3>Hidden books</h3><p class="sdesc">A book’s public notes are visible unless you hide the book. Only the exceptions are listed, so this stays short however many books you keep notes on. Notes you marked public stay marked, and return when the book does.</p>
+        ${hiddenList()}${finder("hide")}</section></div>`;
+  } else {
+    pane = `<div class="sbody">
+      <section class="sgroup"><h3>Export notes</h3><p class="sdesc">Markdown, to keep or to move to another notebook.</p>
+        <div class="srow"><div class="sname">All books</div><div class="sctl"><button type="button" class="btn sm" data-act="export:all">${svg("down")}Markdown</button></div></div>
+        <div class="sfind"><div class="sname">One book<small>Find it, then take it as Markdown.</small></div>${finder("export")}</div></section>
+      <section class="sgroup"><h3>Import notes</h3><p class="sdesc">Highlights and notes from a Kindle, matched to the books on your shelf by title. Apple Books and Goodreads can follow.</p>
+        <div id="imp-wrap">${importCard()}</div></section></div>`;
+  }
+  const dn = sec === "visitors"
+    ? [`<b>Three levels, one idea.</b> A note is private or public. A book’s notes can be hidden whole. Notes can be switched off for visitors entirely. Everything a visitor can reach follows from those; there is no separate “sharing” setting.`, `<b>Built for 500 books, not 10.</b> A switch for every book would be a 500-row list. Instead the list holds only the books you have hidden, and a finder (type a title or author) adds one. The line above says what visitors can read right now. The same finder picks a book for export, showing the most recently noted books until you type.`, `Turn <b>Show notes</b> off, then switch to Visitor in the top bar: the icon, the page and every link go.`]
+    : [`<b>Import shows its work before it writes.</b> It says what it read, what it matched, what it will skip, and lets you choose whether the notes arrive private (the default) or public.`, `<b>Kindle’s quirks are handled:</b> a note beside a highlight becomes one entry, a highlight extended later keeps its longer form, bookmarks are ignored. Try the sample file; it also holds books you do not own.`, `<b>Export</b> opens a preview first. Per book it adds front matter (title, author, year) that Obsidian reads as properties.`];
+  return `<div class="page"><div class="card set-card">${nav}<div class="spane"><div class="spane-head"><h2>${sec === "visitors" ? "Visitors" : "Your library"}</h2></div>${pane}</div></div>
+    <aside class="dn"><h3>Notes on this screen</h3><ul>${dn.map((x) => `<li>${x}</li>`).join("")}</ul></aside></div>`;
+}
+
+/* ---------- Layers ---------- */
+function menuCard() {
+  const tl = timelineOpen();
+  return `<div class="layer"><div class="scrim" data-act="close"></div><div class="card" role="dialog" aria-label="Menu"><button type="button" class="btn icon x" aria-label="Close" data-act="close">${svg("x")}</button><h2>Menu</h2>
+    <div class="pm-list"><button type="button" data-act="soon:Statistics page">${svg("stats")}Statistics</button>${tl ? `<button type="button" data-act="scene:timeline">${svg("pen")}All notes</button>` : ""}${owner() ? `<button type="button" data-act="scene:settings">${svg("gear")}Settings</button>` : `<button type="button" data-act="soon:Sign in">${svg("user")}Sign in</button>`}</div></div></div>`;
+}
+
+/* ---------- Render ---------- */
+function render() {
+  const f = document.activeElement, fid = f && f.id, ss = f && f.selectionStart, se = f && f.selectionEnd;
+  const root = document.documentElement;
+  if (S.hostTheme === undefined) S.hostTheme = root.dataset.theme || "";
+  if (S.theme === "auto") { if (S.hostTheme) root.dataset.theme = S.hostTheme; else delete root.dataset.theme; } else root.dataset.theme = S.theme;
+  const scr = $("#screen"); scr.className = "screen " + (S.device === "phone" ? "phone" : "");
+  const scenes = { notes: notesScene, timeline: timelineScene, settings: settingsScene };
+  let html = scenes[S.scene]();
+  const layer = S.modal === "book" ? bookCard() : S.modal === "export" ? exportCard() : S.modal === "menu" ? menuCard() : "";
+  scr.innerHTML = layer + html;
+  if (!S.settings.notes && S.role === "visitor" && S.scene === "timeline") { /* gate is drawn by the scene */ }
+  if (fid) { const el = document.getElementById(fid); if (el) { el.focus({ preventScroll: true }); try { if (ss != null) el.setSelectionRange(ss, se); } catch (e) {} } }
+  if (S.focus === "add") { S.focus = null; const el = document.querySelector(`[data-ed="${S.add.f}"][data-id="${S.add.id}"]`); el && el.focus({ preventScroll: true }); }
+  if (S.focus === "edit") { S.focus = null; const el = document.querySelector(".nb-e.editing [data-ed]"); el && el.focus({ preventScroll: true }); }
+  if (S.focus) { const el = document.getElementById(S.focus); S.focus = null; el && el.focus({ preventScroll: true }); }
+  if (S.role === "visitor" && S.scene === "settings") { S.scene = "notes"; return render(); }
+  $$bars();
+}
+function $$bars() {
+  document.querySelectorAll(".studybar [data-pressed]").forEach((b) => { const [k, v] = b.dataset.pressed.split(":"); b.setAttribute("aria-pressed", String(S[k] === v)); });
+}
+
+/* ---------- Actions ---------- */
+function resetCp() {
+  const cur = readingsOf(S.bookId).slice().reverse()[0];
+  S.cp = { quote: "", text: "", where: "", reading: cur ? cur.id : "", public: S.settings.startsPublic, open: false, showQuote: false, showPage: false, pre: "", hasPre: false, wkind: "page" };
+  S.err = ""; S.add = null;
+}
+function keepEntry() {
+  const c = S.cp, q = c.showQuote ? c.quote.trim() : "", pre = q ? c.pre.trim() : "", t = q ? c.text.trim() : [c.pre.trim(), c.text.trim()].filter(Boolean).join("\n");
+  if (!q && !pre && !t) { S.err = c.showQuote ? "Add the passage, or write something." : "Write something first."; return false; }
+  const e = { pre, quote: q, text: t, where: c.showPage ? whereFrom(c.wkind, c.where) : null, reading: c.reading || null, public: c.public };
+  ENTRIES.push({ id: nextId++, book: S.bookId, at: "2026-10-14T12:00:00", ...e });
+  resetCp();
+  toast(e.public ? "Note saved; visitors can read it" : "Note saved");
+  return true;
+}
+function act(name, el, ev) {
+  const [k, ...r] = name.split(":"), v = r.join(":");
+  switch (k) {
+    case "scene": S.scene = v; S.modal = null; if (v === "timeline") S.seenNotes = true; if (v === "settings") S.settingsSection = "visitors"; scrollTo(0, 0); ev && ev.preventDefault(); break;
+    case "book": S.bookId = v; S.modal = "book"; break;
+    case "notes-of": S.bookId = v; S.scene = "notes"; S.modal = null; S.edit = null; S.rfilter = null; resetCp(); S.order = "new"; scrollTo(0, 0); break;
+    case "close": S.modal = null; break;
+    case "modal": S.modal = v; break;
+    case "soon": toast(`${v} isn’t part of this study`); return;
+    case "order": S.order = v; break;
+    case "tl-mode": S.tlMode = v; break;
+    case "menu": S.menu = S.menu === v ? null : v; break;
+    case "book-toggle": { const b = bookOf(S.bookId); b.notesHidden = !b.notesHidden; S.menu = null; toast(b.notesHidden ? "This book’s notes are hidden from visitors" : "Visitors can read this book’s public notes"); break; }
+    case "cp-quote": { const c = S.cp; c.showQuote = !c.showQuote; c.open = true;
+      if (c.showQuote) { if (c.text.trim()) { c.pre = c.text.replace(/\s+$/, ""); c.text = ""; c.hasPre = true; } S.focus = "cp-quote"; }
+      else { if (c.hasPre) { c.text = [c.pre.trim(), c.text.trim()].filter(Boolean).join("\n"); c.pre = ""; c.hasPre = false; } S.focus = "cp-text"; }
+      break; }
+    case "cp-page": S.cp.showPage = true; S.cp.open = true; S.focus = "cp-where"; break;
+    case "cp-kind": S.cp.wkind = NEXT[S.cp.wkind]; S.focus = "cp-where"; break;
+    case "ekind": { const en = ENTRIES.find((x) => x.id === +v), k = NEXT[en.where ? en.where.k : (S.add && S.add.kind) || "page"]; if (en.where) { en.where.k = k; if (k !== "loc") delete en.where.to; } S.add = { id: en.id, f: "where", kind: k }; S.focus = "add"; break; }
+    case "epass": { const en = ENTRIES.find((x) => x.id === +v), open = en.quote || (S.add && S.add.id === en.id && S.add.f === "quote");
+      if (!open) { const st = S.stash && S.stash.id === en.id ? S.stash : null; S.stash = null;
+        if (st) { en.quote = st.snap.quote; if (st.snap.pre && en.text === st.merged) { en.pre = st.snap.pre; en.text = st.snap.text; } }
+        else if (en.text.trim() && !en.pre) { en.pre = en.text.trim(); en.text = ""; }
+        S.add = { id: en.id, f: "quote" }; S.focus = "add"; break; }
+      const snap = { quote: en.quote, pre: en.pre, text: en.text }, text = [en.pre, en.text].filter((x) => x && x.trim()).join("\n");
+      if (!text.trim()) { toast("A note needs a passage or some thoughts"); break; }
+      en.quote = ""; en.pre = ""; en.text = text; S.add = null;
+      if (snap.quote) S.stash = { id: en.id, snap, merged: text };
+      if (snap.quote) toast("Passage removed", { label: "Undo", run() { Object.assign(en, snap); render(); } });
+      break; }
+    case "addpart": { const [id, f] = v.split(":"); S.add = { id: +id, f }; if (f === "quote") { const en = ENTRIES.find((x) => x.id === +id); if (en.text.trim() && !en.pre) { en.pre = en.text.trim(); en.text = ""; } } S.focus = "add"; break; }
+    case "rfilter": S.rfilter = v || null; S.menu = null; break;
+    case "group-toggle": S.group = !S.group; S.menu = null; break;
+    case "cp-open": S.cp.open = true; S.focus = "cp-text"; break;
+    case "cp-vis": S.cp.public = !S.cp.public; break;
+    case "cp-cancel": { const c = S.cp, snap = { ...c }, typed = c.quote || c.text || c.pre || c.where; resetCp(); document.activeElement && document.activeElement.blur && document.activeElement.blur(); if (typed) toast("Draft discarded", { label: "Undo", run() { S.cp = snap; render(); } }); break; }
+    case "edit": S.edit = +v; S.menu = null; S.focus = "edit"; S.stash = null; S.editSnap = JSON.stringify(ENTRIES.find((x) => x.id === +v)); break;
+    case "done": { const e = ENTRIES.find((x) => x.id === S.edit); if (e && !["pre", "quote", "text"].some((k) => e[k] && e[k].trim())) { toast("A note needs a passage or some thoughts"); return; } S.edit = null; S.add = null; S.stash = null; break; }
+    case "ecancel": { const i = ENTRIES.findIndex((x) => x.id === S.edit), now = JSON.stringify(ENTRIES[i]), was = JSON.parse(S.editSnap);
+      document.activeElement && document.activeElement.blur && document.activeElement.blur();
+      if (JSON.stringify(ENTRIES[i]) !== S.editSnap) { const mine = JSON.parse(now); ENTRIES[i] = was; toast("Changes discarded", { label: "Undo", run() { const j = ENTRIES.findIndex((x) => x.id === was.id); ENTRIES[j] = mine; render(); } }); }
+      S.edit = null; S.add = null; S.stash = null; break; }
+    case "del": { const e = ENTRIES.find((x) => x.id === +v); ENTRIES = ENTRIES.filter((x) => x !== e); toast("Note deleted", { label: "Undo", run: () => { ENTRIES.push(e); render(); } }); break; }
+    case "vis": { const e = ENTRIES.find((x) => x.id === +v); e.public = !e.public; const b = bookOf(e.book); toast(e.public ? (S.settings.notes && !b.notesHidden ? "Public: visitors can read it" : "Public, but this book’s notes are hidden from visitors") : "Only you can see it"); break; }
+    case "copylink": { const url = v === "timeline" ? "bookshelf.example/notes" : v === "book" ? `bookshelf.example/${S.bookId}/notes` : `bookshelf.example/${bookOf(ENTRIES.find((e) => e.id === +v).book).id}/notes#e${v}`; try { navigator.clipboard.writeText("https://" + url).catch(() => {}); } catch (e) {} toast("Link copied"); return render(); }
+    case "export-of": S.exp.scope = "book"; S.exp.book = v; S.modal = "export"; break;
+    case "bf-hide": { const b = bookOf(v); b.notesHidden = true; S.bf.hide = ""; toast(`${b.title} is hidden from visitors`, { label: "Undo", run: () => { b.notesHidden = false; render(); } }); break; }
+    case "bf-show": { bookOf(v).notesHidden = false; toast("Visitors can read its public notes again"); break; }
+    case "export": S.exp.scope = v; if (v === "book") S.exp.book = S.bookId; S.modal = "export"; break;
+    case "exp-copy": { const t = mdFor(S.exp.scope, S.exp.includePrivate); try { navigator.clipboard.writeText(t).catch(() => {}); } catch (e) {} toast("Markdown copied"); return; }
+    case "exp-save": toast(S.exp.scope === "book" ? `Saved ${S.exp.book}-notes.md` : "Saved bookshelf-notes.md"); S.modal = null; break;
+    case "section": S.settingsSection = v; break;
+    case "set-starts": S.settings.startsPublic = v === "1"; if (!S.cp.quote && !S.cp.text) S.cp.public = S.settings.startsPublic; break;
+    case "pick-file": $("#clip-file").click(); return;
+    case "import-sample": S.imp = { stage: "review", parsed: parseClippings(SAMPLE), public: false, name: "the sample file" }; break;
+    case "import-cancel": S.imp = { stage: "idle", parsed: null, public: false, name: "" }; break;
+    case "imp-vis": S.imp.public = v === "1"; break;
+    case "import-run": {
+      const plan = planImport(S.imp.parsed), added = [];
+      for (const g of plan) for (const i of g.fresh) { const e = { id: nextId++, book: g.book.id, reading: null, quote: i.quote, text: i.text, where: i.page != null ? { k: "page", n: i.page } : i.loc != null ? { k: "loc", n: i.loc, ...(i.locTo ? { to: i.locTo } : {}) } : null, public: S.imp.public, at: i.at }; ENTRIES.push(e); added.push(e); }
+      S.imp = { stage: "idle", parsed: null, public: false, name: "" };
+      toast(`Added ${plural(added.length, "note")} to ${plural(new Set(added.map((e) => e.book)).size, "book")}`, { label: "Undo", run: () => { ENTRIES = ENTRIES.filter((e) => !added.includes(e)); render(); } }); break;
+    }
+    case "toast-act": { const a = S.toast && S.toast.action; S.toast = null; paintToast(); a && a.run(); break; }
+    default: return;
+  }
+  render();
+}
+function change(name, el) {
+  const [k, v] = name.split(/:(.*)/);
+  switch (k) {
+    case "book-vis": bookOf(S.bookId).notesHidden = !el.checked; toast(el.checked ? "Visitors can read this book’s public notes" : "This book’s notes are hidden from visitors"); break;
+    case "set": S.settings[v] = el.checked; if (v === "notes" && !el.checked) toast("Visitors can no longer read any notes"); break;
+    case "exp-priv": S.exp.includePrivate = el.checked; break;
+    case "page": PROGRESS[v] = Math.max(0, Math.min(bookOf(v).pages, +el.value || 0)); toast(`On page ${PROGRESS[v]}`); break;
+    default: return;
+  }
+  render();
+}
+function bind(path, value) { const [o, f] = path.split("."); S.cp[f] = value; }
+
+document.addEventListener("click", (ev) => { if (S.menu && !ev.target.closest(".more")) { S.menu = null; render(); } const el = ev.target.closest("[data-act]"); if (el) act(el.dataset.act, el, ev); const p = ev.target.closest("[data-pressed]"); if (p) { const [k, v] = p.dataset.pressed.split(":"); S[k] = v; if (k === "scene" && v === "settings") S.settingsSection = "visitors"; S.modal = null; render(); } });
+document.addEventListener("change", (ev) => { const el = ev.target.closest("[data-act-change]"); if (el) change(el.dataset.actChange, el); if (ev.target.id === "clip-file") { const f = ev.target.files[0]; if (!f) return; const rd = new FileReader(); rd.onload = () => { const parsed = parseClippings(String(rd.result)); S.imp = parsed.length ? { stage: "review", parsed, public: false, name: f.name } : { stage: "idle", parsed: null, public: false, name: "" }; if (!parsed.length) toast("That doesn’t look like a Kindle clippings file"); render(); }; rd.readAsText(f); } });
+document.addEventListener("input", (ev) => {
+  const t = ev.target;
+  if (t.dataset.bf) { S.bf[t.dataset.bf] = t.value; return render(); }
+  if (t.dataset.bind) {
+    if (t.dataset.bind === "cp.where") t.value = t.value.replace(/\D/g, "");
+    bind(t.dataset.bind, t.value);
+  }
+});
+/* Editing a note in place (after "Edit"): the text is the editor. Leaving a field saves it; Esc puts it back. */
+const entryOf = (t) => ENTRIES.find((x) => x.id === +t.dataset.id);
+document.addEventListener("beforeinput", (ev) => { const t = ev.target; if (t.dataset && t.dataset.ed === "where" && ev.data && /\D/.test(ev.data)) ev.preventDefault(); });
+document.addEventListener("focusin", (ev) => {
+  const t = ev.target;
+  if (!(t.dataset && t.dataset.ed)) return;
+  if (t.dataset.ed === "where") { t.textContent = whereField(entryOf(t).where); const r = document.createRange(); r.selectNodeContents(t); r.collapse(false); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); }
+
+});
+let kindTap = 0; document.addEventListener("pointerdown", (ev) => { if (ev.target.closest && ev.target.closest(".pg-kind")) kindTap = Date.now(); });
+const foldPage = (t) => { const row = t.closest(".cp-foot"); row.querySelector(".pg-on").hidden = true; row.querySelector(".pg-add").hidden = false; };
+document.addEventListener("focusout", (ev) => {
+  const t = ev.target;
+  if (t.id === "cp-where" && !t.value.trim() && Date.now() - kindTap > 500) { S.cp.showPage = false; S.cp.where = ""; foldPage(t); }
+  if (!(t.dataset && t.dataset.ed)) return;
+  const e = entryOf(t), f = t.dataset.ed, raw = t.textContent.replace(/ /g, " ").trim(), li = t.closest(".nb-e");
+  const saved = () => { const el = li.querySelector(".saved"); el.textContent = "Saved"; clearTimeout(saved.t); saved.t = setTimeout(() => { el.textContent = ""; }, 1800); };
+  if (f === "where") {
+    const kind = e.where ? e.where.k : (S.add && S.add.kind) || "page", w = whereFrom(kind, raw), changed = whereField(w) !== whereField(e.where);
+    if (!w && Date.now() - kindTap < 500) return;
+    e.where = w; t.textContent = whereField(w); if (changed) saved(); if (!w) { if (S.add) S.add = null; foldPage(t); } return;
+  }
+  const rest = ["pre", "quote", "text"].some((k) => k !== f && e[k] && e[k].trim());
+  if (f === "quote" && !raw) S.add = { id: e.id, f: "quote" };
+  const changed = raw !== e[f]; e[f] = raw; t.textContent = raw; if (changed) saved();
+});
+document.addEventListener("submit", (ev) => {
+  ev.preventDefault();
+  const f = ev.target.dataset.form;
+  if (f === "cp") { if (keepEntry()) { document.activeElement && document.activeElement.blur(); } render(); }
+});
+document.addEventListener("keydown", (ev) => {
+  if (ev.key === "Escape" && S.menu) { S.menu = null; render(); }
+  if (ev.key === "Escape" && S.modal) { S.modal = null; render(); }
+  const ed = ev.target.dataset && ev.target.dataset.ed;
+  if (ed && (ev.key === "Escape" || (ed === "where" && ev.key === "Enter") || ((ev.ctrlKey || ev.metaKey) && ev.key === "Enter"))) { ev.preventDefault(); if (ev.key === "Escape") { const e = entryOf(ev.target); ev.target.textContent = ed === "where" ? whereField(e.where) : e[ed]; } ev.target.blur(); return; }
+  if ((ev.ctrlKey || ev.metaKey) && ev.key === "Enter") { const f = ev.target.closest && ev.target.closest("form[data-form]"); if (f) f.requestSubmit(); }
+  if ((ev.key === "Enter" || ev.key === " ") && ev.target.id === "drop") { ev.preventDefault(); $("#clip-file").click(); }
+});
+document.addEventListener("dragover", (ev) => { if (ev.target.closest && ev.target.closest("#drop")) { ev.preventDefault(); ev.target.closest("#drop").classList.add("over"); } });
+document.addEventListener("dragleave", (ev) => { const d = ev.target.closest && ev.target.closest("#drop"); d && d.classList.remove("over"); });
+document.addEventListener("drop", (ev) => { if (ev.target.closest && ev.target.closest("#drop")) { ev.preventDefault(); const f = ev.dataTransfer.files[0]; if (f) { const input = $("#clip-file"); const dt = new DataTransfer(); dt.items.add(f); input.files = dt.files; input.dispatchEvent(new Event("change", { bubbles: true })); } } });
+
+resetCp(); S.exp.scope = "all";
+// A bare #token (or several joined by "-") opens a screen or a layer directly, e.g. #notes-phone-visitor.
+for (const t of location.hash.slice(1).split("-")) {
+  if (["notes", "timeline", "settings"].includes(t)) S.scene = t;
+  else if (["owner", "visitor"].includes(t)) S.role = t;
+  else if (["desktop", "phone"].includes(t)) S.device = t;
+  else if (["light", "dark"].includes(t)) S.theme = t;
+  else if (t === "book") S.modal = "book";
+  else if (t === "export") { S.modal = "export"; S.exp.scope = "all"; }
+  else if (t === "library") { S.scene = "settings"; S.settingsSection = "library"; }
+  else if (t === "import") { S.scene = "settings"; S.settingsSection = "library"; S.imp = { stage: "review", parsed: parseClippings(SAMPLE), public: false, name: "the sample file" }; }
+  else if (t === "menu") S.modal = "menu";
+  else if (t === "compose") S.cp = { ...S.cp, quote: "Every limit is a beginning as well as an ending.", text: "", where: "380" };
+  else if (t === "edit") S.edit = 2;
+  else if (t === "editc") S.edit = 3;
+  else if (t === "full") S.cp = { ...S.cp, open: true, showQuote: true, showPage: true, quote: "Every limit is a beginning.", where: "63", wkind: "chapter", pre: "Thoughts first.", hasPre: true };
+  else if (t === "share") { S.menu = "book"; }
+  else if (t === "bookpage") { S.modal = "book"; }
+  else if (t === "menuall") { S.menu = "all"; }
+  else if (t === "settings2") { S.scene = "settings"; S.settingsSection = "visitors"; }
+}
+render();
+
+</script>

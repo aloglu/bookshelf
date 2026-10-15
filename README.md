@@ -23,7 +23,7 @@ docker compose up -d
 ```
 
 Open **http://localhost:8080**, click **Sign in** and sign in as `admin` with
-your password. Then **Add book**.
+your password. Then add a book with the **+** button.
 
 Step-by-step guides for every kind of setup, including running it without
 Docker, are in **[docs](docs/README.md)**.
@@ -44,13 +44,14 @@ Docker, are in **[docs](docs/README.md)**.
 - **Reading:** several books at once, each with its own ribbon on the shelf;
   your page and pace; finishing, setting aside, re-reading, marking older
   reads.
-- **Notes and highlights:** as many as you like for each book, on its own notes
-  page: your thoughts, and the passages you liked with their pages, each
-  private or public.
+- **Notes:** as many as you like for each book, on its own notes page: the
+  passages you liked and your thoughts on them, with the page, chapter or
+  Kindle location, each private or public. All your notes in one list, a
+  Markdown export, and an import from a Kindle's clippings.
 - **Statistics:** what you're reading, then the library in numbers.
-- **Privacy:** hide any book from visitors, make the whole library private, or
-  keep the statistics to yourself. The server enforces it; hidden books never
-  leave it.
+- **Privacy:** hide any book from visitors, make the whole library private,
+  keep the statistics or the notes (all of them, or one book's) to yourself.
+  The server enforces it; hidden books never leave it.
 - **Your data:** automatic daily backups, restore in one step, export as CSV,
   JSON or a full archive with covers, and import from those or a Goodreads
   export.

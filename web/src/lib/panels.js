@@ -1,4 +1,4 @@
-// Cards (Settings among them): how they come and go, which one Esc closes, and how typing works on a touch
+// Cards: how they come and go, which one Esc closes, and how typing works on a touch
 // screen. One set of rules for every card. A card is pinned over the page, which is locked beneath it.
 import { DIM, EASE, curve, dimIn, dimOut, isPhone, motionOK, settled, touch } from "../engine/model.js";
 

@@ -66,13 +66,27 @@ export function plainCover(b) {
   g.fillStyle = b.spine.color; g.fillRect(0, 0, 330, 500);
   g.strokeStyle = "rgba(240, 222, 180, .55)"; g.lineWidth = 2; g.strokeRect(22, 22, 286, 456);
   g.fillStyle = "#efdcae"; g.textAlign = "center";
-  g.font = "600 34px 'Fraunces Variable', Georgia, serif";
+  g.font = "600 34px 'Source Serif 4 Variable', Georgia, serif";
   const lines = [""];
   for (const w of b.title.split(/\s+/)) { const t = (lines[lines.length - 1] + " " + w).trim(); if (g.measureText(t).width > 250 && lines[lines.length - 1]) lines.push(w); else lines[lines.length - 1] = t; }
   lines.forEach((l, i) => g.fillText(l, 165, 190 + i * 42));
   if (b.author) { g.font = "500 16px 'Instrument Sans Variable', sans-serif"; g.fillText(b.author.toUpperCase(), 165, 210 + lines.length * 42); }
   const url = c.toDataURL("image/jpeg", .9);
   plain.set(key, url);
+  return url;
+}
+
+// The same cloth with nothing stamped on it: the face a book wears beside its notes, where its title is
+// already written next to it.
+const bare = new Map();
+export function bareCover(b) {
+  const key = b.spine.color;
+  if (bare.has(key)) return bare.get(key);
+  const c = document.createElement("canvas"); c.width = 330; c.height = 500;
+  const g = c.getContext("2d");
+  g.fillStyle = b.spine.color; g.fillRect(0, 0, 330, 500);
+  const url = c.toDataURL("image/jpeg", .9);
+  bare.set(key, url);
   return url;
 }
 
@@ -117,6 +131,7 @@ export function shelfBooks(view, readings, settings) {
     b.h = spineHeight(b, settings.bindings, settings.maxHeight / 100);
     b.cover = src.cover ? src.cover.url : plainCover(b);
     b.thumb = src.cover ? src.cover.thumb : b.cover;
+    b.face = src.cover ? src.cover.thumb : bareCover(b);   // beside notes: no title stamped on a plain cover
     const r = now.get(src.id);
     b.reading = !!r;
     b.readingId = r?.id || null;

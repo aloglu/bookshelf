@@ -1,0 +1,245 @@
+/* ---------- Notes ---------- */
+/* A book's notes page, All notes, the editor they share, and the notes parts of Settings. One control height
+   (--ctl) for everything tapped here: 36px with a pointer, 44px on a phone. */
+:root { --ctl: 36px; }
+@media (max-width: 720px) { :root { --ctl: 44px; } }
+:root[data-view="notes"] .case, :root[data-view="notes"] .nowreading, :root[data-view="notes"] .elsewhere, :root[data-view="notes"] .sort-seg,
+:root[data-view="allnotes"] .case, :root[data-view="allnotes"] .nowreading, :root[data-view="allnotes"] .elsewhere, :root[data-view="allnotes"] .sort-seg { display: none !important; }
+.lnk { display: inline-flex; align-items: center; gap: 5px; position: relative; padding: 3px 0; background: none; color: var(--muted); font-size: .82rem; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: color-mix(in oklab, currentColor 30%, transparent); }
+.lnk::after { content: ""; position: absolute; inset: -10px -8px; }
+.lnk:disabled { opacity: .45; }
+@media (hover: hover) { .lnk:hover:not(:disabled) { color: var(--ink); } }
+.btn .lb { white-space: nowrap; }
+/* A button switched on in the editor (Passage, Public) and the reading chip: the app's pressed icon button's tint. */
+:is(.cp, .nb-e, .nb-bar) .btn[aria-pressed="true"]:not(.icon) { background: color-mix(in oklab, var(--accent) 16%, var(--surface)); border-color: color-mix(in oklab, var(--accent) 40%, transparent); }
+:is(.cp, .nb-e, .nb-bar) .btn[aria-pressed="true"] .i { color: var(--ink); }
+.btn[hidden] { display: none !important; }
+.del { color: var(--danger); }
+/* Number fields (a page) are typed into; their spinners would only crowd them. */
+input[type=number] { appearance: textfield; -moz-appearance: textfield; }
+input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+
+/* ----- A book's notes page ----- */
+.nb, .tl { padding-block: 26px 120px; }
+.nb2 { display: grid; gap: 18px; }
+.nb-side { min-width: 0; }
+.nb-head { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 20px; align-items: center; }
+.nb-head h2 { margin: 0; font-family: var(--display); font-weight: 600; font-size: clamp(1.9rem, 4.6vw, 2.6rem); line-height: 1.05; letter-spacing: -.012em; }
+.nb-head h2 button { all: unset; cursor: pointer; }
+.nb-by { margin: 8px 0 0; font-family: var(--display); font-size: 1.12rem; font-style: italic; }
+.nb-main { min-width: 0; }
+.cv-btn { position: relative; display: block; width: 112px; padding: 0; border: 0; border-radius: 4px; background: none; cursor: pointer; }
+.cv-btn img { display: block; width: 100%; height: auto; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 2px 4px 4px 2px; box-shadow: 0 14px 26px -14px rgba(0,0,0,.65); }
+.cv-hint { position: absolute; left: 0; right: 0; bottom: 0; display: none; padding: 22px 10px 12px; border-radius: 0 0 4px 2px; background: linear-gradient(transparent, rgba(0,0,0,.72)); color: #f4ead8; font-size: .82rem; font-weight: 500; text-align: center; opacity: 0; transition: opacity .18s; pointer-events: none; }
+@media (hover: hover) { .cv-btn:hover .cv-hint { opacity: 1; } }
+.cv-btn:focus-visible .cv-hint { opacity: 1; }
+.tap-hint { display: none; align-items: center; gap: 2px; margin-top: 8px; padding: 0; background: none; color: var(--muted); font-size: .86rem; }
+.tap-hint .i { width: 14px; height: 14px; }
+@media (min-width: 900px) {
+  .nb2 { grid-template-columns: 220px minmax(0, 1fr); gap: 48px; }
+  .nb-head h2 { font-size: 1.9rem; overflow-wrap: anywhere; }
+  .nb-side { position: sticky; top: 16px; align-self: start; }
+  .nb-head { grid-template-columns: 1fr; justify-items: start; gap: 22px; }
+  .nb-head .cv-btn { width: 200px; }
+  .cv-hint { display: block; }
+}
+@media (max-width: 720px) {
+  .nb { padding-block: 14px 100px; }
+  .nb2 { gap: 14px; }
+  .nb-head { grid-template-columns: 56px minmax(0, 1fr); gap: 14px; }
+  .nb-head .cv-btn { width: 56px; }
+  .nb-head h2 { font-size: 1.5rem; }
+  .nb-by { margin-top: 3px; font-size: 1rem; }
+  .tap-hint { display: inline-flex; }
+}
+
+/* The readings, folded under the book (owner only): one line that opens the dates, pages and corrections. */
+.nb-sum { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: var(--ctl); margin-top: 8px; color: var(--muted); font-size: .86rem; text-align: left; }
+.nb-sum b { color: var(--ink); font-weight: 600; }
+.nb-sum .i { width: 16px; height: 16px; transition: transform .25s var(--ease); }
+.nb-side.open .nb-sum .i { transform: rotate(180deg); }
+.nb-side:not(.open) .nb-fold { display: none; }
+.nb-fold { padding-bottom: 12px; }
+.nb-rd { margin: 8px 0 0; padding: 0; list-style: none; }
+.nb-r { position: relative; display: grid; gap: 3px; padding: 0 0 22px 24px; }
+.nb-r::before { content: ""; position: absolute; left: 0; top: 5px; width: 7px; height: 7px; border-radius: 50%; border: 2px solid var(--muted); background: var(--wall); }
+.nb-r::after { content: ""; position: absolute; left: 5px; top: 18px; bottom: 2px; width: 1px; background: var(--line); }
+.nb-r:last-child::after { display: none; }
+.nb-r.now::before { border-color: var(--ribbon); background: var(--ribbon); }
+.nb-r.aside::before { border-style: dashed; }
+.nb-r b { font-size: .92rem; font-weight: 600; }
+.nb-r .m { color: var(--muted); font-size: .82rem; line-height: 1.5; }
+.nb-r .meter { margin: 8px 0 2px; }
+.nb-r .meter .bar { height: 6px; }
+.nb-r .meter .bar i { background: var(--ribbon); }
+.nb-r .pg { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: .82rem; }
+.nb-r .pg input { width: 4.6em; height: 30px; padding: 0 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--field); color: var(--ink); font: inherit; font-variant-numeric: tabular-nums; }
+.nb-r .r-tools { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 4px; }
+.nb-r .r-ask { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 6px; }
+.nb-r .r-ask span { margin-right: auto; font-size: .84rem; }
+.nb-side .acts { display: flex; flex-wrap: wrap; gap: 8px; }
+.nb-side .none { margin: 8px 0 14px; color: var(--muted); font-size: .86rem; line-height: 1.5; }
+@media (max-width: 720px) { .nb-r .pg input { font-size: 16px; } }
+
+/* The list's header: a count, the order, and one menu. */
+.nb-bar { display: flex; align-items: center; gap: 10px; min-height: var(--ctl); margin: 24px 0 4px; }
+.nb-bar:first-child { margin-top: 0; }
+.nb-bar h3 { margin: 0 auto 0 0; color: var(--muted); font-size: .72rem; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; }
+.nb-bar .seg { height: var(--ctl); padding: 2px; }
+.nb-bar .seg button { padding: 0 12px; font-size: .8rem; white-space: nowrap; }
+.nb-bar h3 { white-space: nowrap; }
+.more { position: relative; display: inline-flex; }
+.more-btn.btn.icon { width: var(--ctl); height: var(--ctl); }
+.menu { position: absolute; z-index: 20; top: calc(100% + 6px); right: 0; width: max-content; max-width: min(300px, calc(100vw - 32px)); display: grid; padding: 6px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); box-shadow: 0 18px 40px -14px rgba(0,0,0,.6); }
+.menu .info { margin: 0; padding: 10px 12px 8px; color: var(--muted); font-size: .82rem; line-height: 1.4; }
+.menu button { display: flex; align-items: center; gap: 12px; min-height: var(--ctl); padding: 0 12px; border-radius: 8px; background: none; color: var(--ink); font-size: .92rem; text-align: left; }
+.menu button .i { width: 16px; height: 16px; color: var(--muted); }
+.menu button:disabled { opacity: .45; }
+.menu .info.sep { margin-top: 4px; padding-top: 12px; border-top: 1px solid var(--line); font-size: .72rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; }
+.menu .ph { width: 16px; height: 16px; flex: none; }
+@media (hover: hover) { .menu button:hover:not(:disabled) { background: color-mix(in oklab, var(--ink) 7%, transparent); } }
+
+/* The list: rows, a hairline between them. */
+.nb-list { margin: 0; padding: 0; list-style: none; }
+.rd + .rd { margin-top: 8px; }
+.rd-cap { margin: 26px 0 0; padding-bottom: 8px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: .72rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; }
+.nb-e { display: grid; gap: 8px; padding: 18px 0; border-bottom: 1px solid var(--line); }
+.rd .nb-e:last-child { border-bottom: 0; }
+.nb-e blockquote { margin: 0; padding-left: 12px; border-left: 2px solid var(--ribbon); font-family: var(--display); font-size: 1.16rem; line-height: 1.5; white-space: pre-wrap; text-wrap: pretty; }
+.nb-e .txt { margin: 0; font-family: var(--display); font-size: 1.04rem; line-height: 1.55; white-space: pre-wrap; text-wrap: pretty; }
+/* Under a note, each fact with its icon: where it is in the book, when it was written (a link to the note's own
+   page), which reading, who can read it; then what can be done with it. */
+.nb-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; min-height: 28px; color: var(--muted); font-size: .8rem; }
+.nb-meta .mi { display: inline-flex; align-items: center; gap: 5px; }
+.nb-meta .i { width: 13px; height: 13px; flex: none; }
+.nb-meta .where { color: var(--ink); font-weight: 500; font-variant-numeric: tabular-nums; }
+.nb-meta .where .i { color: var(--muted); }
+.nb-meta .dt { position: relative; color: inherit; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: color-mix(in oklab, currentColor 30%, transparent); }
+.nb-meta .dt::after { content: ""; position: absolute; inset: -10px -8px; }
+@media (hover: hover) { .nb-meta .dt:hover { color: var(--ink); } }
+/* A note on its own page, and the way to all of the book's. */
+.nb-list.one { margin-top: 4px; }
+.nb-all { margin-top: 18px; }
+.nb-all .i { width: 14px; height: 14px; }
+.nb-tools { display: flex; align-items: center; gap: 4px 18px; margin-left: auto; }
+.nb-empty { margin: 0; padding: 26px 0; color: var(--muted); font-size: .94rem; line-height: 1.55; text-align: center; font-family: var(--display); font-style: italic; }
+@media (max-width: 720px) {
+  .nb-bar { margin-top: 18px; }
+  /* All notes: the count and the menu on one line, Everything | As visitors see it beneath them, across. */
+  #allnotes .nb-bar { flex-wrap: wrap; row-gap: 12px; }
+  #allnotes .nb-bar .seg { order: 3; flex: 1 0 100%; }
+  #allnotes .nb-bar .seg button { flex: 1; }
+  .nb-meta { font-size: .86rem; }
+  .lnk { font-size: .88rem; }
+  .nb-e { padding: 16px 0; }
+}
+
+/* ----- The editor: a window for your thoughts, a passage from the book (optional), and one row ----- */
+.cp { position: relative; display: grid; padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.cp:focus-within, .nb-e.editing:focus-within { border-color: color-mix(in oklab, var(--accent) 45%, var(--line)); }
+.cp-body { display: grid; gap: 12px; }
+.cp-bar { display: none; align-items: center; gap: 10px; min-height: var(--ctl); color: var(--muted); font-size: .95rem; text-align: left; background: none; }
+.cp-bar .i { width: 16px; height: 16px; }
+.cp-fields { display: flex; flex-direction: column; gap: 8px; min-height: 7.4em; }
+.cp textarea, .nb-e.editing textarea { display: block; width: 100%; padding: 0; border: 0; background: none; color: var(--ink); resize: none; field-sizing: content; font-family: var(--display); line-height: 1.55; }
+.cp textarea:focus, .nb-e.editing textarea:focus { outline: none; }
+.cp textarea::placeholder, .nb-e.editing textarea::placeholder { color: var(--muted); opacity: .8; }
+:is(.cp, .nb-e.editing) .cq { flex: none; min-height: 1.6em; padding-left: 12px; border-left: 2px solid color-mix(in oklab, var(--ribbon) 45%, transparent); font-size: 1.12rem; }
+:is(.cp, .nb-e.editing) .cq:focus { border-left-color: var(--ribbon); }
+:is(.cp, .nb-e.editing) .ct { flex: 1 1 auto; min-height: 1.6em; font-size: 1.05rem; }
+.cp-x { position: absolute; top: 8px; right: 8px; z-index: 2; width: var(--ctl); height: var(--ctl); }
+.cp-x .i { width: 18px; height: 18px; }
+.cp-body:has(.cp-x) .cp-fields > :first-child, .nb-e.editing:has(.cp-x) .cp-fields > :first-child { padding-right: calc(var(--ctl) + 8px); }
+.cp-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding-top: 12px; border-top: 1px solid var(--line); }
+.cp-opts, .cp-act { display: flex; align-items: center; gap: 8px; }
+.cp .err { margin: 0; color: var(--danger); font-size: .82rem; }
+.cp .err:empty, .nb-e.editing .err:empty { display: none; }
+/* Editing a note uses the composer's own surface. */
+.nb-e.editing { position: relative; gap: 12px; margin-top: 20px; padding: 14px 16px; border: 1px solid color-mix(in oklab, var(--accent) 45%, var(--line)); border-radius: 12px; background: var(--surface); }
+.cp .btn, .nb-e .btn, .nb-bar .btn:not(.icon) { height: var(--ctl); padding: 0 14px; font-size: .84rem; }
+.cp .btn .i, .nb-e .btn .i, .nb-bar .btn .i { width: 15px; height: 15px; }
+.cp .btn.icon, .nb-e .btn.icon { width: var(--ctl); padding: 0; }
+.cp .btn.icon .i, .nb-e .btn.icon .i { width: 18px; height: 18px; }
+.cp .btn.primary, .nb-e .btn.primary { padding: 0 20px; font-weight: 600; }
+/* Page: "+ Page", then a small kind button inside it, with the number beside it. */
+.pg-add { justify-content: flex-start; }
+.pg-on { width: 140px; justify-content: flex-start; gap: 6px; padding: 0 3px; cursor: text; }
+.pg-on:focus-within { border-color: color-mix(in oklab, var(--accent) 60%, transparent); }
+.pg-on:has(input:not(:placeholder-shown)) { background: color-mix(in oklab, var(--accent) 16%, var(--surface)); border-color: color-mix(in oklab, var(--accent) 40%, transparent); }
+.pg-on:has(input:not(:placeholder-shown)):focus-within { border-color: color-mix(in oklab, var(--accent) 60%, transparent); }
+.pg-kind { display: inline-flex; align-items: center; flex: none; gap: 3px; height: calc(var(--ctl) - 8px); padding: 0 6px 0 10px; border-radius: 5px; border: 0; background: none; color: var(--ink); font: inherit; font-weight: 500; white-space: nowrap; }
+.pg-kind .i { width: 12px; height: 12px; color: var(--muted); }
+@media (hover: hover) { .pg-kind:hover { background: color-mix(in oklab, var(--ink) 8%, transparent); } }
+.pg-kind:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.pg-on input { flex: 1 1 auto; width: 100%; min-width: 0; height: auto; padding: 0 4px; border: 0; background: none; color: var(--ink); font: inherit; font-weight: 500; line-height: 1.3; outline: none; box-shadow: none; overflow: hidden; text-overflow: ellipsis; }
+.pg-on input::placeholder { color: var(--muted); opacity: .8; }
+@media (max-width: 720px) {
+  .nb-e.editing { margin-top: 14px; padding: 12px 14px; }
+  .nb-e.editing .cp-x { width: 36px; height: 36px; }
+  .nb-e.editing:has(.cp-x) .cp-fields > :first-child { padding-right: 44px; }
+  .cp:not(.open) .cp-body { display: none; }
+  .cp:not(.open) .cp-bar { display: flex; }
+  .cp { padding: 12px 14px; }
+  .cp textarea, .nb-e.editing textarea { font-size: 16px; }
+  .cp-foot { flex-wrap: nowrap; gap: 6px; }
+  .cp-opts, .cp-act { display: contents; }
+  .cp-foot .btn { flex: 1 1 0; width: auto; min-width: 0; padding: 0; justify-content: center; gap: 5px; }
+  .cp-foot .btn .lb { display: none; }
+  .cp-foot .btn.primary .lb, .cp-foot .btn.primary { display: inline-flex; }
+  .cp-foot .btn.primary { flex: 1.3 1 0; }
+  .cp-foot .pg-add, .cp-foot .pg-on { flex: 2.2 1 0; padding: 0; width: auto; }
+  .cp-foot .pg-add { justify-content: center; }
+  .cp-foot .pg-add .lb { display: inline; }
+  .cp-foot .cp-date { flex: 2.2 1 0; }
+  .cp-foot .cp-date .lb { display: inline; }
+  /* Editing has more buttons than one row holds: what the note is (passage, place, date) above, what to do
+     with it (delete, who reads it, done) beneath, each named. */
+  .nb-e.editing .cp-foot { flex-wrap: wrap; row-gap: 8px; }
+  .nb-e.editing .cp-opts, .nb-e.editing .cp-act { display: flex; flex: 1 0 100%; gap: 6px; }
+  .nb-e.editing .cp-act .btn .lb { display: inline; }
+  .nb-e.editing .cp-act .btn, .nb-e.editing .cp-act .btn.primary { flex: 1 1 0; min-width: 0; padding: 0 6px; }
+  .cp-foot .pg-on .pg-kind { margin-left: 4px; padding: 0 8px; }
+  .pg-on input { font-size: 16px; padding-right: 0; }
+}
+@media (max-width: 359px) {
+  .nb-e.editing .cp-act .btn .i { display: none; }   /* the smallest phones: the names alone */
+}
+
+/* ----- All notes ----- */
+.tl-head h2 { margin: 0; font-family: var(--display); font-weight: 600; font-size: clamp(1.9rem, 4.6vw, 2.8rem); line-height: 1.05; }
+.tl-head p { margin: 10px 0 0; color: var(--muted); font-size: .94rem; }
+.tl-month { margin: 34px 0 4px; color: var(--muted); font-size: .72rem; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; }
+.tl-e { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 18px; padding: 20px 0; border-bottom: 1px solid var(--line); }
+.tl-e .cv-btn { width: 52px; align-self: start; }
+.tl-e .bk { display: block; margin: 0 0 10px; color: var(--muted); font-size: .78rem; letter-spacing: .06em; text-transform: uppercase; text-align: left; }
+.tl-e .bk b { color: var(--ink); font-weight: 600; }
+@media (hover: hover) { .tl-e .bk:hover b { text-decoration: underline; text-underline-offset: 3px; } }
+.tl-e .nb-e:not(.editing) { padding: 0; border: 0; }
+.tl-e .nb-e.editing { margin-top: 0; }
+.tl-more { display: flex; justify-content: center; padding: 24px 0 0; }
+@media (max-width: 720px) { .tl-e { grid-template-columns: 40px minmax(0, 1fr); gap: 14px; } .tl-e .cv-btn { width: 40px; } }
+
+/* ----- Settings: finder, import, and the export card ----- */
+.finder { display: grid; gap: 6px; margin-top: 10px; }
+.fsearch { position: relative; display: block; }
+.fsearch .i { position: absolute; left: 11px; top: 50%; translate: 0 -50%; width: 16px; height: 16px; color: var(--muted); }
+.fsearch input { width: 100%; padding-left: 34px; }
+.fcap { margin: 6px 0 0; color: var(--muted); font-size: .78rem; letter-spacing: .02em; }
+.flist { display: grid; margin: 0; padding: 0; list-style: none; }
+.flist li { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line); }
+.flist li:last-child { border-bottom: 0; }
+.flist img { display: block; width: 28px; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 1px 3px 3px 1px; box-shadow: 0 3px 8px -3px rgba(0,0,0,.5); }
+.flist b { display: block; font-family: var(--display); font-weight: 600; font-size: 1rem; line-height: 1.25; }
+.flist small { color: var(--muted); font-size: .78rem; }
+.flist.hidden { border-bottom: 1px solid var(--line); margin-bottom: 14px; }
+.sfind { padding: 14px 0 4px; }
+.sfind .sname small { display: block; }
+.imp-list { display: grid; gap: 0; margin: 14px 0 4px; padding: 0; list-style: none; border-top: 1px solid var(--line); }
+.imp-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: .9rem; }
+.imp-list b { font-family: var(--display); font-weight: 600; }
+.imp-list small { color: var(--muted); font-size: .78rem; }
+.imp-list .st2 { grid-row: 1 / span 2; grid-column: 2; align-self: center; text-align: right; color: var(--muted); font-size: .8rem; }
+.imp-list .st2.ok { color: var(--ink); }
+.imp-list .skip { opacity: .6; }
+.mdprev { margin: 0; padding: 16px 18px; max-height: 340px; overflow: auto; border-radius: 10px; background: var(--field); border: 1px solid var(--line); font: .8rem/1.55 ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--ink); }
+.act .ct { font-variant-numeric: tabular-nums; opacity: .75; white-space: pre; }

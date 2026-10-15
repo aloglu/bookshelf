@@ -1,7 +1,7 @@
 // The app's state, and every change the owner makes. The server is the source of truth: after a change
 // the library is fetched again (it is built once per change on the server) and the shelf and the open
 // book are brought up to date in place.
-import { api, when } from "./api.js";
+import { api, apiText, when } from "./api.js";
 import { toast } from "./toast.js";
 import { plain } from "./markdown.js";
 import { shelfBooks, plural } from "../engine/model.js";
@@ -22,7 +22,7 @@ export const data = {
 export const ui = $state({
   ready: false, gated: false, owner: false, user: "",
   name: "Bookshelf", nameMd: "Bookshelf", // the library's name as words, and as written (it may hold Markdown)
-  view: "shelf", notesFor: null, // "notes": the book (its key) whose notes page is showing
+  view: "shelf", notesFor: null, noteId: "", section: "", // notesFor: the book (its key) whose notes page is showing, noteId the one note shown on its own page; section: the Settings section shown ("" for their list, on a phone)
   query: "", sort: "author", desc: false, selecting: false, chosen: 0,
   update: null, // for the owner: the version running, and a newer one if it's out
 });
@@ -165,16 +165,36 @@ export async function deleteReading(r) {
   toast("Reading deleted");
 }
 
-/* ---------- Notes and highlights ---------- */
-// A book's entries are fetched with its notes page (they aren't in the library, which only counts them):
-// all of them for the owner, the public ones for visitors. Each change returns the book's list anew.
+/* ---------- Notes ---------- */
+// A book's notes are fetched with its notes page (they aren't in the library, which only counts them): all of
+// them for the owner, the public ones for visitors. Each change returns the book's list anew.
 export const entriesOf = (b) => api("GET", `/api/books/${b.id}/entries`);
+// Fetched just before the open book closes onto its notes page, so the page is drawn beneath it before anything
+// moves rather than mid-flight; the page takes them from here instead of asking again.
+let early = null;
+export async function fetchEntriesEarly(b) { early = { id: b.id, list: entriesOf(b) }; await early.list.catch(() => {}); }
+export function entriesFor(b) { const e = early?.id === b.id ? early.list : null; early = null; return e || entriesOf(b); }
 async function changed(b) { const list = await entriesOf(b); await reload(); return list; }
 export const addEntry = (b, input) => guard(async () => { await api("POST", `/api/books/${b.id}/entries`, input); return changed(b); });
 export const updateEntry = (b, e, input) => guard(async () => { await api("PATCH", `/api/entries/${e.id}`, input); return changed(b); });
 export const deleteEntry = (b, e) => guard(async () => { await api("DELETE", `/api/entries/${e.id}`); return changed(b); });
-// Putting a deleted entry back keeps when it was first written.
-export const restoreEntry = (b, e) => addEntry(b, { kind: e.kind, text: e.text, quote: e.quote, page: e.page, readingId: e.readingId, public: e.public, createdAt: e.createdAt });
+// Putting a deleted note back keeps when it was first written.
+export const restoreEntry = (b, e) => addEntry(b, { pre: e.pre, quote: e.quote, text: e.text, where: e.where, readingId: e.readingId, public: e.public, createdAt: e.createdAt });
+// Keeping a book's notes from visitors, or letting them read the public ones again.
+export const setNotesHidden = (b, hidden) => guard(async () => { await api("PATCH", `/api/books/${b.id}/notes`, { hidden }); await reload(); });
+// All notes: every book's, newest first, a page at a time (or as many as were shown, coming back to it). The
+// owner can look at it as visitors would.
+export const allNotes = ({ asVisitors = false, before = "", beforeId = "", count = 0 } = {}) =>
+  api("GET", `/api/notes?${new URLSearchParams({ ...(asVisitors && { view: "visitors" }), ...(before && { before, beforeId }), ...(count && { count }) })}`);
+// Markdown: a book's notes or everyone's, with or without the owner's private ones.
+// The reader's time zone: the dates in an export are theirs, and a Kindle's clock is too.
+export const zone = () => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch { return ""; } };
+const exportQuery = (bookId, withPrivate) => new URLSearchParams({ ...(bookId && { book: bookId }), ...(withPrivate && { private: "1" }), tz: zone() });
+export const notesMarkdown = (bookId, withPrivate) => apiText(`/api/notes/export?${exportQuery(bookId, withPrivate)}`);
+export const markdownURL = (bookId, withPrivate) => `/api/notes/export?${exportQuery(bookId, withPrivate)}&download=1`;
+// A Kindle My Clippings.txt: what it would do, then doing it.
+export const previewClippings = (file) => guard(() => api("POST", `/api/notes/import?${new URLSearchParams({ preview: "1", tz: zone() })}`, file));
+export const importClippings = (file, isPublic) => guard(async () => { const r = await api("POST", `/api/notes/import?${new URLSearchParams({ public: isPublic ? "1" : "0", tz: zone() })}`, file); await reload(); return r; });
 // A reading's dates in the form the server takes them.
 export const whenOf = (w) => w.precision === "day" ? when("day", w.time.slice(0, 10)) : w.precision === "year" ? when("year", w.time.slice(0, 4)) : when("unknown");
 

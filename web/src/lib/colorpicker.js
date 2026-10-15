@@ -36,10 +36,11 @@ export function pickColor(anchor, value, { input, done } = {}) {
     if (/^#[0-9a-f]{3}$/.test(t)) t = "#" + [...t.slice(1)].map((x) => x + x).join("");
     if (/^#[0-9a-f]{6}$/.test(t)) { [h, s, v] = toHSV(t); pick(); }
   });
-  // Under the swatch, kept on screen; above it when there's no room below.
+  // Under the swatch, kept on screen; above it when there's no room below. It is placed on the page, so it
+  // stays with its swatch as the page scrolls (Settings is a page).
   const r = anchor.getBoundingClientRect(), W = el.offsetWidth, H = el.offsetHeight;
-  el.style.left = Math.max(12, Math.min(innerWidth - W - 12, r.left + r.width / 2 - W / 2)) + "px";
-  el.style.top = (r.bottom + 8 + H > innerHeight - 12 ? Math.max(12, r.top - 8 - H) : r.bottom + 8) + "px";
+  el.style.left = scrollX + Math.max(12, Math.min(innerWidth - W - 12, r.left + r.width / 2 - W / 2)) + "px";
+  el.style.top = scrollY + (r.bottom + 8 + H > innerHeight - 12 ? Math.max(12, r.top - 8 - H) : r.bottom + 8) + "px";
   show();
   const away = (e) => { if (!el.contains(e.target) && !anchor.contains(e.target)) close(); };
   const esc = (e) => { if (e.key === "Escape") { e.preventDefault(); e.stopImmediatePropagation(); close(); anchor.focus(); } };
@@ -52,6 +53,8 @@ export function pickColor(anchor, value, { input, done } = {}) {
   addEventListener("pointerdown", away, true); addEventListener("keydown", esc, true); addEventListener("resize", close);
   open = { el, anchor, close };
 }
+// Closes the panel, if one is open (its page is being left).
+export function closePicker() { open?.close(); }
 const clamp = (x) => Math.min(1, Math.max(0, x));
 function toHSV(hex) {
   const n = parseInt(hex.slice(1), 16), r = (n >> 16) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;

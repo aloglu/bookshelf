@@ -19,5 +19,13 @@ export async function api(method, path, body) {
   return data;
 }
 
+// A plain-text answer (a Markdown export).
+export async function apiText(path) {
+  let res;
+  try { res = await fetch(path, { credentials: "same-origin" }); } catch { throw new APIError("Bookshelf can’t be reached. Check the connection and try again.", 0, null); }
+  if (!res.ok) throw new APIError(`Something went wrong (${res.status}).`, res.status, null);
+  return res.text();
+}
+
 // A date as the server takes it: { date: "2015-06-01" | "2015" | "", precision }.
 export const when = (precision, date = "") => ({ precision, date });
