@@ -12,7 +12,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/aloglu/bookshelf/internal/auth"
 	"github.com/aloglu/bookshelf/internal/backup"
@@ -238,6 +237,3 @@ func (s *Server) app(w http.ResponseWriter, r *http.Request) {
 	// Every other address (a book's own address, /stats, /signin) is the app.
 	s.page(w, r)
 }
-
-// timeNow is replaceable in tests.
-var timeNow = time.Now

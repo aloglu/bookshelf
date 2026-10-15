@@ -3,8 +3,8 @@ import { root } from "./model.js";
 
 export const WOODS = { oak: "Oak", walnut: "Walnut", maple: "Maple", ash: "Ash", pine: "Pine", cherry: "Cherry", teak: "Teak", mahogany: "Mahogany", ebony: "Ebony" };
 // The named wall pairs have hand-tuned palettes; linen is the default and needs no attribute.
-export const PRESETS = { linen: ["#e9e0d0", "#17110d"], tobacco: ["#cdb08a", "#2a1c12"], chestnut: ["#94633f", "#3a2416"], umber: ["#5b4130", "#1e1510"], forest: ["#3d4c3e", "#152018"] };
-export const presetOf = (day, night) => Object.keys(PRESETS).find((k) => PRESETS[k][0] === day && PRESETS[k][1] === night) || null;
+const PRESETS = { linen: ["#e9e0d0", "#17110d"], tobacco: ["#cdb08a", "#2a1c12"], chestnut: ["#94633f", "#3a2416"], umber: ["#5b4130", "#1e1510"], forest: ["#3d4c3e", "#152018"] };
+const presetOf = (day, night) => Object.keys(PRESETS).find((k) => PRESETS[k][0] === day && PRESETS[k][1] === night) || null;
 
 // The library's day or evening setting is applied when it first loads and whenever it changes, never on
 // every load: a visitor (or the owner) who switched with the header's button keeps their choice.
@@ -21,7 +21,7 @@ export function applyLook(st) {
   root.toggleAttribute("data-plain", !st.bindings);
 }
 
-export function applyTheme(theme) { if (theme === "system") delete root.dataset.theme; else root.dataset.theme = theme; }
+function applyTheme(theme) { if (theme === "system") delete root.dataset.theme; else root.dataset.theme = theme; }
 
 /* The day wall and the evening wall can each be any color. For a color of your own, the lettering and
    panels on it flip between dark and light with how light the wall is, so the header stays readable on

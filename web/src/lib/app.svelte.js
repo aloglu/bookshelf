@@ -1,10 +1,10 @@
 // The app's state, and every change the owner makes. The server is the source of truth: after a change
 // the library is fetched again (it is built once per change on the server) and the shelf and the open
 // book are brought up to date in place.
-import { api, apiText, when } from "./api.js";
+import { api, apiText } from "./api.js";
 import { toast } from "./toast.js";
 import { plain } from "./markdown.js";
-import { shelfBooks, plural } from "../engine/model.js";
+import { shelfBooks } from "../engine/model.js";
 import { applyLook } from "../engine/look.js";
 import { picked, relayout, refreshSlot, view, lift, markChosen } from "../engine/shelf.js";
 import { current, isOpen, refill } from "../engine/reader.js";
@@ -195,8 +195,6 @@ export const markdownURL = (bookId, withPrivate) => `/api/notes/export?${exportQ
 // A Kindle My Clippings.txt: what it would do, then doing it.
 export const previewClippings = (file) => guard(() => api("POST", `/api/notes/import?${new URLSearchParams({ preview: "1", tz: zone() })}`, file));
 export const importClippings = (file, isPublic) => guard(async () => { const r = await api("POST", `/api/notes/import?${new URLSearchParams({ public: isPublic ? "1" : "0", tz: zone() })}`, file); await reload(); return r; });
-// A reading's dates in the form the server takes them.
-export const whenOf = (w) => w.precision === "day" ? when("day", w.time.slice(0, 10)) : w.precision === "year" ? when("year", w.time.slice(0, 4)) : when("unknown");
 
 /* ---------- Choosing several books ---------- */
 export function setSelecting(on) {
@@ -221,7 +219,6 @@ export async function patchSettings(patch) {
   applyLook(st);
   return st;
 }
-export const countText = (n) => plural(n, "book");
 
 /* ---------- The icon ---------- */
 // The library's icon: the owner's own (in sizes 32 to 512), or Bookshelf's.

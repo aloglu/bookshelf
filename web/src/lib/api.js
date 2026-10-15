@@ -1,5 +1,5 @@
 // The server's API. Every answer is JSON; a problem comes back as { error } with a sentence for the owner.
-export class APIError extends Error {
+class APIError extends Error {
   constructor(message, status, data) { super(message); this.status = status; this.data = data; }
 }
 

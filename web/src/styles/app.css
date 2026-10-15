@@ -161,8 +161,7 @@ header .elsewhere { grid-area: links; justify-self: end; align-self: center; }
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; white-space: nowrap; height: 40px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); font-size: .88rem; font-weight: 500; }
 a.btn { color: var(--ink); text-decoration: none; }
 /* A new version is out: a small dot on Settings (and on the phone's menu), in the accent so red stays the ribbon's. */
-.btn.dot, .pm-list .dot, .dtabs .dot { position: relative; }
-.dtabs .dot::after { content: ""; position: absolute; top: 6px; right: 8px; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+.btn.dot, .pm-list .dot { position: relative; }
 .btn.dot::after, .pm-list .dot::after { content: ""; position: absolute; top: 7px; right: 7px; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 2px var(--surface); }
 .pm-list .dot::after { top: 50%; right: 14px; translate: 0 -50%; }   /* downloads look like the buttons beside them */
 .btn.icon { width: 40px; padding: 0; }
@@ -244,7 +243,6 @@ a.btn { color: var(--ink); text-decoration: none; }
 :root[data-view="stats"] .case, :root[data-view="stats"] .nowreading, :root[data-view="stats"] .elsewhere, :root[data-view="stats"] .sort-seg { display: none !important; }
 :root:is([data-view="signin"], [data-view="settings"]) :is(.case, .nowreading, .elsewhere, .sort-seg) { display: none !important; }
 .stats { padding-block: 22px 120px; }
-.stats-top { display: grid; gap: 6px; margin-bottom: 22px; }
 .stats-h { margin: 0 0 18px; }
 .reading-block { margin-bottom: 34px; }
 .stats h2 { margin: 0 0 18px; font-family: var(--display); font-weight: 600; font-size: clamp(1.6rem, 3.6vw, 2.2rem); letter-spacing: -.01em; }

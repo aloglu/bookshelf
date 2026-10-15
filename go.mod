@@ -5,7 +5,7 @@ go 1.26.4
 require (
 	github.com/gosimple/slug v1.15.0
 	github.com/linzeyan/webp-go v0.1.2
-	golang.org/x/image v0.44.0
+	golang.org/x/image v0.45.0
 	golang.org/x/term v0.47.0
 	modernc.org/sqlite v1.60.1
 )

@@ -2,7 +2,7 @@
 // A day or a year is shown as it was entered, whatever the time zone.
 const local = new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", year: "numeric" });
 const utc = new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
-export const DAY = 864e5;
+const DAY = 864e5;
 
 export function whenText(w) {
   if (!w || w.precision === "unknown" || !w.precision) return "";
@@ -19,7 +19,6 @@ export function isoDay(w) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 export const today = () => isoDay({ precision: "instant", time: new Date().toISOString() });
-export const longDate = (t) => local.format(t);
 // A short date ("Jul 27, 2025"): for an instant, the day it fell on here.
 const shortLocal = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" });
 const shortUTC = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });

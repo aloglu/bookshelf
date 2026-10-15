@@ -134,7 +134,6 @@ const lerp = (a, b, t) => a + (b - a) * t;
 // One transform shape for every pose so the browser can interpolate between them.
 const pose = (x, y, z, s, back, rx, ry) => `translate3d(${x}px, ${y}px, ${z}px) scale3d(${s}, ${s}, ${s}) translateZ(${back}px) rotateX(${rx}deg) rotateY(${ry}deg)`;
 export const isOpen = () => reader && !reader.hidden;
-export const isBusy = () => busy;
 
 // Desktop shows the whole spread; a phone centers the first page and lets the open board run off the left edge.
 function measure() {

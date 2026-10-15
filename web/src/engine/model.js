@@ -8,7 +8,6 @@ export const curve = "cubic-bezier(.32, .72, 0, 1)";
 export const motionOK = () => !matchMedia("(prefers-reduced-motion: reduce)").matches;
 export const isPhone = () => matchMedia("(max-width: 720px)").matches;
 export const touch = () => matchMedia("(pointer: coarse)").matches;
-export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // An animation's end, or a backstop in case it never reports finishing.
 export const settled = (anim, ms) => new Promise((resolve) => {
   let done = false; const go = () => { if (!done) { done = true; resolve(); } };
@@ -40,7 +39,7 @@ export function spineHeight(b, bindings = true, limit = 1) {
   return Math.round((fit + (b.seed % 7) - 3) * (bindings ? BINDING_HEIGHT[bindingOf(b)] : 1) * limit);
 }
 // Spine thickness follows the page count: roughly 0.085 px per page plus the boards.
-export const thickness = (pages) => Math.max(18, Math.min(80, Math.round((pages || 250) * 0.085 + 7)));
+const thickness = (pages) => Math.max(18, Math.min(80, Math.round((pages || 250) * 0.085 + 7)));
 
 const sorters = {
   author: (a, b) => lastName(a.author).localeCompare(lastName(b.author)) || a.title.localeCompare(b.title),
@@ -58,7 +57,7 @@ export const SORT_WAYS = { author: ["A to Z", "Z to A"], title: ["A to Z", "Z to
 /* Without a cover, a book gets a plain cloth binding with its title stamped on, in the cloth color the
    server gave its spine. Drawn once per title and color. */
 const plain = new Map();
-export function plainCover(b) {
+function plainCover(b) {
   const key = `${b.spine.color}|${b.title}|${b.author}`;
   if (plain.has(key)) return plain.get(key);
   const c = document.createElement("canvas"); c.width = 330; c.height = 500;
@@ -79,7 +78,7 @@ export function plainCover(b) {
 // The same cloth with nothing stamped on it: the face a book wears beside its notes, where its title is
 // already written next to it.
 const bare = new Map();
-export function bareCover(b) {
+function bareCover(b) {
   const key = b.spine.color;
   if (bare.has(key)) return bare.get(key);
   const c = document.createElement("canvas"); c.width = 330; c.height = 500;
