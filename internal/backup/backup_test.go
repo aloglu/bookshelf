@@ -53,7 +53,7 @@ func pngCover() []byte {
 }
 
 // A library with a covered book, a reading with a page log, a finished
-// reading with a note on it, a highlight, and changed settings.
+// reading with a note on it, a passage with a page, and changed settings.
 func fill(t *testing.T, b *Backups, st *store.Store) (store.Book, store.Book) {
 	t.Helper()
 	a, _ := st.AddBook(ctx, store.BookInput{Title: "Austerlitz", Author: "W. G. Sebald", ISBN: "9780375756566", Pages: intp(304)})
@@ -66,8 +66,8 @@ func fill(t *testing.T, b *Backups, st *store.Store) (store.Book, store.Book) {
 	r, _ := st.StartReading(ctx, a.ID)
 	st.SetPage(ctx, r.ID, 112)
 	old, _ := st.MarkRead(ctx, p.ID, store.When{Time: time.Date(2015, 1, 1, 0, 0, 0, 0, time.UTC), Precision: store.Year})
-	st.AddEntry(ctx, p.ID, store.EntryInput{Kind: store.KindNote, Text: "A puzzle box.", ReadingID: old.ID, Public: true})
-	st.AddEntry(ctx, p.ID, store.EntryInput{Kind: store.KindHighlight, Quote: "I was the shadow of the waxwing slain", Page: intp(33)})
+	st.AddEntry(ctx, p.ID, store.EntryInput{Text: "A puzzle box.", ReadingID: old.ID, Public: true})
+	st.AddEntry(ctx, p.ID, store.EntryInput{Quote: "I was the shadow of the waxwing slain", Where: &store.Where{Kind: store.WherePage, N: 33}})
 	st.UpdateSettings(ctx, func(s *store.Settings) { s.Name = "Our books"; s.WoodDay = "cherry"; s.BackupKeep = 3 })
 	a, _ = st.Snapshot().Book(a.ID)
 	return a, p
@@ -114,7 +114,7 @@ func TestBackupAndRestoreKeepEverything(t *testing.T) {
 	}
 	es := snap.Entries[p.ID]
 	if len(es) != 2 || es[0].Text != "A puzzle box." || !es[0].Public || es[0].ReadingID != rs[0].ID ||
-		es[1].Kind != store.KindHighlight || es[1].Page == nil || *es[1].Page != 33 || es[1].ReadingID != "" {
+		es[1].Quote == "" || es[1].Where == nil || es[1].Where.N != 33 || es[1].ReadingID != "" {
 		t.Fatalf("notes and highlights: %+v", es)
 	}
 	if snap.Settings.Name != "Our books" || snap.Settings.WoodDay != "cherry" {

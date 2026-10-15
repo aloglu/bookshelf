@@ -11,19 +11,28 @@ import (
 // Settings is everything in Settings.
 type Settings struct {
 	// Site
-	Name       string   `json:"name"` // may hold inline Markdown (a link, emphasis)
-	Private    bool     `json:"private"`
-	Sort       string   `json:"sort"`       // author, title, year
-	SortDesc   bool     `json:"sortDesc"`   // Z to A, newest first
-	Theme      string   `json:"theme"`      // system, light, dark
-	Footer     bool     `json:"footer"`     // the line under the shelves is shown
-	FooterText string   `json:"footerText"` // what it says, in inline Markdown
-	Stats      bool     `json:"stats"`      // visitors may see the stats page
-	Permalink  string   `json:"permalink"`  // isbn, hyphens, title
-	Sources    []string `json:"sources"`    // openlibrary, google, goodreads
-	Icon       string   `json:"icon"`       // the owner's own icon (its name in the data folder), or "" for Bookshelf's
-	IconShown  bool     `json:"iconShown"`  // the icon stands beside the library's name in the header
-	Social     Social   `json:"social"`
+	Name       string `json:"name"` // may hold inline Markdown (a link, emphasis)
+	Private    bool   `json:"private"`
+	Sort       string `json:"sort"`       // author, title, year
+	SortDesc   bool   `json:"sortDesc"`   // Z to A, newest first
+	Theme      string `json:"theme"`      // system, light, dark
+	Footer     bool   `json:"footer"`     // the line under the shelves is shown
+	FooterText string `json:"footerText"` // what it says, in inline Markdown
+	Stats      bool   `json:"stats"`      // visitors may see the stats page
+	// What visitors are told about the reading under way: which books (the Now reading line, the ribbons, the
+	// stats page's cards), and how far along each is (page, share read, when it was started).
+	ShowReading  bool     `json:"showReading"`
+	ShowProgress bool     `json:"showProgress"`
+	Permalink    string   `json:"permalink"` // isbn, hyphens, title
+	Sources      []string `json:"sources"`   // openlibrary, google, goodreads
+	Icon         string   `json:"icon"`      // the owner's own icon (its name in the data folder), or "" for Bookshelf's
+	IconShown    bool     `json:"iconShown"` // the icon stands beside the library's name in the header
+	Social       Social   `json:"social"`
+
+	// Notes
+	Notes        bool `json:"notes"`        // visitors may read the public notes (off: no notes pages for them at all)
+	Timeline     bool `json:"timeline"`     // visitors may read All notes, the public notes of every book, newest first
+	StartsPublic bool `json:"startsPublic"` // a new note starts out public
 
 	// Look
 	WallDay     string    `json:"wallDay"`
@@ -69,7 +78,7 @@ type CaseParts struct {
 // DefaultSettings are a new library's settings.
 func DefaultSettings() Settings {
 	return Settings{
-		Name: "Bookshelf", Sort: "author", Theme: "system", Stats: true, Permalink: "isbn", Sources: []string{"openlibrary"}, IconShown: true,
+		Name: "Bookshelf", Sort: "author", Theme: "system", Stats: true, Permalink: "isbn", Sources: []string{"openlibrary"}, IconShown: true, Notes: true, ShowReading: true, ShowProgress: true,
 		WallDay: "#e9e0d0", WallNight: "#17110d", WoodDay: "oak", WoodNight: "walnut",
 		CaseParts: CaseParts{Shelves: true}, RibbonDay: "#8e2532", RibbonNight: "#8e2532", Bindings: true, BookSize: 100, MaxHeight: 100,
 		BackupEvery: "day", BackupKeep: 14, CheckUpdates: true,

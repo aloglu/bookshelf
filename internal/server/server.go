@@ -73,6 +73,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("DELETE /api/readings/{id}", s.owner(s.removeReading))
 
 	mux.HandleFunc("GET /api/books/{id}/entries", s.listEntries)
+	mux.HandleFunc("PATCH /api/books/{id}/notes", s.owner(s.setNotesHidden))
+	mux.HandleFunc("GET /api/notes", s.listNotes)
+	mux.HandleFunc("GET /api/notes/export", s.owner(s.exportNotes))
+	mux.HandleFunc("POST /api/notes/import", s.owner(s.importNotes))
 	mux.HandleFunc("POST /api/books/{id}/entries", s.owner(s.addEntry))
 	mux.HandleFunc("PATCH /api/entries/{id}", s.owner(s.editEntry))
 	mux.HandleFunc("DELETE /api/entries/{id}", s.owner(s.removeEntry))

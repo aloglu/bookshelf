@@ -415,28 +415,6 @@ func (s *Server) removeReading(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// listEntries is a book's notes and highlights, oldest first: all of them for
-// the owner; for visitors only the public ones, and never which reading they
-// came from (readings are the owner's alone).
-func (s *Server) listEntries(w http.ResponseWriter, r *http.Request) {
-	snap, owner := s.Store.Snapshot(), s.isOwner(r)
-	b, ok := snap.Book(r.PathValue("id"))
-	if !ok || (!owner && (b.Hidden || snap.Settings.Private)) {
-		fail(w, http.StatusNotFound, "No such book.")
-		return
-	}
-	out := []store.Entry{}
-	for _, e := range snap.Entries[b.ID] {
-		if owner {
-			out = append(out, e)
-		} else if e.Public {
-			e.ReadingID = ""
-			out = append(out, e)
-		}
-	}
-	writeJSON(w, http.StatusOK, out)
-}
-
 func (s *Server) addEntry(w http.ResponseWriter, r *http.Request) {
 	var in store.EntryInput
 	if err := readJSON(r, &in); err != nil {

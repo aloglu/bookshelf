@@ -39,8 +39,11 @@ type bookView struct {
 	Entries int `json:"entries,omitempty"`
 
 	// Owner only.
-	Hidden    bool `json:"hidden,omitempty"`
-	ReadCount int  `json:"readCount,omitempty"`
+	Hidden      bool      `json:"hidden,omitempty"`
+	NotesHidden bool      `json:"notesHidden,omitempty"` // the book's notes are kept from visitors
+	NotesPublic int       `json:"notesPublic,omitempty"` // how many of its notes are marked public
+	NotesLast   time.Time `json:"notesLast,omitzero"`    // when its newest note was written
+	ReadCount   int       `json:"readCount,omitempty"`
 }
 
 type coverView struct {
@@ -73,34 +76,38 @@ type libraryView struct {
 
 // publicSettings are the settings a visitor's page needs.
 type publicSettings struct {
-	Name        string          `json:"name"`
-	Sort        string          `json:"sort"`
-	SortDesc    bool            `json:"sortDesc"`
-	Theme       string          `json:"theme"`
-	Footer      bool            `json:"footer"`
-	FooterText  string          `json:"footerText"`
-	Stats       bool            `json:"stats"`
-	Permalink   string          `json:"permalink"`
-	Sources     []string        `json:"sources"`
-	Social      store.Social    `json:"social"`
-	WallDay     string          `json:"wallDay"`
-	WallNight   string          `json:"wallNight"`
-	WoodDay     string          `json:"woodDay"`
-	WoodNight   string          `json:"woodNight"`
-	CaseParts   store.CaseParts `json:"caseParts"`
-	RibbonDay   string          `json:"ribbonDay"`
-	RibbonNight string          `json:"ribbonNight"`
-	Bindings    bool            `json:"bindings"`
-	BookSize    int             `json:"bookSize"`
-	MaxHeight   int             `json:"maxHeight"`
-	Icon        string          `json:"icon"`
-	IconShown   bool            `json:"iconShown"`
+	Name         string          `json:"name"`
+	Sort         string          `json:"sort"`
+	SortDesc     bool            `json:"sortDesc"`
+	Theme        string          `json:"theme"`
+	Footer       bool            `json:"footer"`
+	FooterText   string          `json:"footerText"`
+	Stats        bool            `json:"stats"`
+	Permalink    string          `json:"permalink"`
+	Sources      []string        `json:"sources"`
+	Social       store.Social    `json:"social"`
+	WallDay      string          `json:"wallDay"`
+	WallNight    string          `json:"wallNight"`
+	WoodDay      string          `json:"woodDay"`
+	WoodNight    string          `json:"woodNight"`
+	CaseParts    store.CaseParts `json:"caseParts"`
+	RibbonDay    string          `json:"ribbonDay"`
+	RibbonNight  string          `json:"ribbonNight"`
+	Bindings     bool            `json:"bindings"`
+	BookSize     int             `json:"bookSize"`
+	MaxHeight    int             `json:"maxHeight"`
+	Icon         string          `json:"icon"`
+	IconShown    bool            `json:"iconShown"`
+	ShowReading  bool            `json:"showReading"`
+	ShowProgress bool            `json:"showProgress"`
+	Notes        bool            `json:"notes"`    // visitors may read public notes
+	Timeline     bool            `json:"timeline"` // and all of them together, newest first
 }
 
 func public(st store.Settings) publicSettings {
 	return publicSettings{st.Name, st.Sort, st.SortDesc, st.Theme, st.Footer, st.FooterText, st.Stats, st.Permalink, st.Sources, st.Social,
 		st.WallDay, st.WallNight, st.WoodDay, st.WoodNight, st.CaseParts, st.RibbonDay, st.RibbonNight, st.Bindings, st.BookSize, st.MaxHeight,
-		st.Icon, st.IconShown}
+		st.Icon, st.IconShown, st.ShowReading, st.ShowProgress, st.Notes, st.Timeline}
 }
 
 type viewKey struct {
@@ -173,12 +180,21 @@ func build(snap *store.Snapshot, owner bool) *libraryView {
 			bv.Spine = spineView{Color: c, Text: covers.TextFor(c)}
 		}
 		for _, e := range snap.Entries[b.ID] {
-			if owner || e.Public {
+			if owner || (e.Public && notesOpen(st, b)) {
 				bv.Entries++
 			}
 		}
 		if owner {
 			bv.Hidden = b.Hidden
+			bv.NotesHidden = b.NotesHidden
+			for _, e := range snap.Entries[b.ID] {
+				if e.Public {
+					bv.NotesPublic++
+				}
+				if e.CreatedAt.After(bv.NotesLast) {
+					bv.NotesLast = e.CreatedAt
+				}
+			}
 			for _, r := range snap.Readings[b.ID] {
 				if r.Outcome == store.OutcomeFinished {
 					bv.ReadCount++
@@ -187,11 +203,18 @@ func build(snap *store.Snapshot, owner bool) *libraryView {
 		}
 		v.Books = append(v.Books, bv)
 	}
+	// Visitors are told what is being read only if the owner allows it, and how far along only if that too.
 	v.Reading = []readingView{}
 	for _, cur := range snap.NowReading() {
-		if b, ok := snap.Book(cur.BookID); ok && (owner || !b.Hidden) {
-			v.Reading = append(v.Reading, readingView{ID: cur.ID, BookID: cur.BookID, Started: cur.Started, Page: cur.Page()})
+		b, ok := snap.Book(cur.BookID)
+		if !ok || (!owner && (b.Hidden || !st.ShowReading)) {
+			continue
 		}
+		rv := readingView{ID: cur.ID, BookID: cur.BookID, Started: cur.Started, Page: cur.Page()}
+		if !owner && !st.ShowProgress {
+			rv.Started, rv.Page = store.When{Precision: store.Unknown}, 0
+		}
+		v.Reading = append(v.Reading, rv)
 	}
 	return v
 }

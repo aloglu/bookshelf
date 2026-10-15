@@ -29,7 +29,8 @@ type Book struct {
 	Issue              string    `json:"issue"` // the periodical's issue, as printed ("70–71"), or ""
 	Slug               string    `json:"slug"`
 	Hidden             bool      `json:"hidden"`
-	Cover              string    `json:"cover"` // file name in the covers folder, or "" for a plain cloth cover
+	NotesHidden        bool      `json:"notesHidden"` // visitors can't read this book's notes, public or not
+	Cover              string    `json:"cover"`       // file name in the covers folder, or "" for a plain cloth cover
 	SpineColor         string    `json:"spineColor"`
 	SpineTextColor     string    `json:"spineTextColor"`
 	SpineColorOverride string    `json:"spineColorOverride"`
@@ -119,23 +120,33 @@ type Progress struct {
 	At   time.Time `json:"at"`
 }
 
-// Kinds of entry.
+// Where in a book an entry comes from: a page, a chapter or a location (what
+// Kindle gives), always with a number. A location may be a range.
 const (
-	KindNote      = "note"      // the owner's own words
-	KindHighlight = "highlight" // a passage as printed, with a thought on it if they like
+	WherePage    = "page"
+	WhereChapter = "chapter"
+	WhereLoc     = "loc"
 )
 
-// Entry is something the owner kept about a book: a note or a highlight. A
-// book has any number; each is public or the owner's alone, and can name the
-// reading it came from.
+// Where is an entry's place in its book.
+type Where struct {
+	Kind string `json:"kind"`
+	N    int    `json:"n"`
+	To   int    `json:"to,omitempty"` // the end of a location range
+}
+
+// Entry is something the owner kept about a book: a passage as printed, their
+// own words, or both, with words possibly on either side of the passage
+// (Pre before, Text after). A book has any number; each is public or the
+// owner's alone, and can name the reading it came from.
 type Entry struct {
 	ID        string    `json:"id"`
 	BookID    string    `json:"bookId"`
 	ReadingID string    `json:"readingId"` // "" for none in particular
-	Kind      string    `json:"kind"`
-	Text      string    `json:"text"`  // a note's words, or the thought on a highlight
-	Quote     string    `json:"quote"` // a highlight's passage
-	Page      *int      `json:"page"`
+	Pre       string    `json:"pre"`       // the owner's words before the passage
+	Quote     string    `json:"quote"`     // a passage as printed
+	Text      string    `json:"text"`      // the owner's words (after the passage, if there is one)
+	Where     *Where    `json:"where"`
 	Public    bool      `json:"public"`
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`

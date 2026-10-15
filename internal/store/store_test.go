@@ -240,55 +240,77 @@ func TestRereads(t *testing.T) {
 	}
 }
 
-func TestNotesAndHighlights(t *testing.T) {
+func TestNotes(t *testing.T) {
 	s, _ := open(t)
 	b := add(t, s, "The Great Gatsby", "9780743273565", 180)
 	other := add(t, s, "Stoner", "9781590171998", 278)
 	r, _ := s.MarkRead(ctx, b.ID, When{Time: time.Date(2025, 8, 3, 0, 0, 0, 0, time.UTC), Precision: Day})
 	theirs, _ := s.MarkRead(ctx, other.ID, When{Precision: Unknown})
 
-	note, err := s.AddEntry(ctx, b.ID, EntryInput{Kind: KindNote, Text: "  Sadder than I remembered.  ", Quote: "dropped", Page: intp(3), ReadingID: r.ID, Public: true})
+	note, err := s.AddEntry(ctx, b.ID, EntryInput{Text: "  Sadder than I remembered.  ", ReadingID: r.ID, Public: true})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if note.Text != "Sadder than I remembered." || note.Quote != "" || note.Page != nil || note.ReadingID != r.ID || !note.Public {
+	if note.Text != "Sadder than I remembered." || note.Quote != "" || note.Where != nil || note.ReadingID != r.ID || !note.Public {
 		t.Fatalf("note: %+v", note)
 	}
-	hl, err := s.AddEntry(ctx, b.ID, EntryInput{Kind: KindHighlight, Quote: "So we beat on, boats against the current.", Page: intp(180)})
-	if err != nil {
-		t.Fatal(err)
+	// Words with no passage are just words; with a passage they stay before it.
+	if e, err := s.AddEntry(ctx, b.ID, EntryInput{Pre: "Just words.", Text: "More."}); err != nil || e.Pre != "" || e.Text != "Just words.\nMore." {
+		t.Fatalf("words before nothing: %+v %v", e, err)
+	}
+	hl, err := s.AddEntry(ctx, b.ID, EntryInput{Pre: "Closing line:", Quote: "So we beat on, boats against the current.", Text: "Oh.", Where: &Where{Kind: WherePage, N: 180}})
+	if err != nil || hl.Pre != "Closing line:" || hl.Text != "Oh." || hl.Where.N != 180 {
+		t.Fatalf("passage with words either side: %+v %v", hl, err)
 	}
 	for name, in := range map[string]EntryInput{
-		"an empty note":            {Kind: KindNote, Text: "  "},
-		"a highlight with no text": {Kind: KindHighlight, Text: "A thought, but no passage"},
-		"an unknown kind":          {Kind: "quote", Text: "x"},
-		"a page past the end":      {Kind: KindHighlight, Quote: "x", Page: intp(181)},
-		"page zero":                {Kind: KindHighlight, Quote: "x", Page: intp(0)},
-		"another book's reading":   {Kind: KindNote, Text: "x", ReadingID: theirs.ID},
-		"a date in the future":     {Kind: KindNote, Text: "x", CreatedAt: ptr(time.Now().Add(48 * time.Hour))},
+		"nothing":                 {Text: "  "},
+		"words around no passage": {Pre: " "},
+		"a page past the end":     {Quote: "x", Where: &Where{Kind: WherePage, N: 181}},
+		"place zero":              {Quote: "x", Where: &Where{Kind: WhereChapter, N: 0}},
+		"an unknown place":        {Quote: "x", Where: &Where{Kind: "line", N: 3}},
+		"another book's reading":  {Text: "x", ReadingID: theirs.ID},
+		"a date in the future":    {Text: "x", CreatedAt: ptr(time.Now().Add(48 * time.Hour))},
 	} {
 		if _, err := s.AddEntry(ctx, b.ID, in); err == nil {
 			t.Errorf("%s was accepted", name)
 		}
 	}
-	if _, err := s.AddEntry(ctx, "nope", EntryInput{Kind: KindNote, Text: "x"}); !errors.Is(err, ErrNotFound) {
+	if _, err := s.AddEntry(ctx, "nope", EntryInput{Text: "x"}); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("a missing book: %v", err)
+	}
+	// Chapters and locations have no upper limit; only a location may be a range.
+	if e, err := s.AddEntry(ctx, b.ID, EntryInput{Quote: "x", Where: &Where{Kind: WhereLoc, N: 4000, To: 4003}}); err != nil || e.Where.To != 4003 {
+		t.Fatalf("a location range: %+v %v", e, err)
+	}
+	if e, err := s.AddEntry(ctx, b.ID, EntryInput{Quote: "y", Where: &Where{Kind: WhereChapter, N: 400, To: 402}}); err != nil || e.Where.To != 0 {
+		t.Fatalf("a chapter is one number: %+v %v", e, err)
 	}
 
 	// Editing keeps when it was first written; putting one back (undo) keeps its date.
-	edited, err := s.UpdateEntry(ctx, hl.ID, EntryInput{Kind: KindHighlight, Quote: hl.Quote, Text: "The last line.", Page: intp(180), Public: true, CreatedAt: ptr(time.Unix(0, 0))})
-	if err != nil || !edited.CreatedAt.Equal(hl.CreatedAt) || edited.Text != "The last line." || !edited.Public {
+	edited, err := s.UpdateEntry(ctx, hl.ID, EntryInput{Quote: hl.Quote, Text: "The last line.", Where: hl.Where, Public: true, CreatedAt: ptr(time.Unix(0, 0))})
+	if err != nil || !edited.CreatedAt.Equal(hl.CreatedAt) || edited.Text != "The last line." || edited.Pre != "" || !edited.Public {
 		t.Fatalf("edited: %+v %v", edited, err)
 	}
 	if err := s.DeleteEntry(ctx, note.ID); err != nil {
 		t.Fatal(err)
 	}
-	back, err := s.AddEntry(ctx, b.ID, EntryInput{Kind: note.Kind, Text: note.Text, ReadingID: note.ReadingID, Public: note.Public, CreatedAt: &note.CreatedAt})
+	back, err := s.AddEntry(ctx, b.ID, EntryInput{Text: note.Text, ReadingID: note.ReadingID, Public: note.Public, CreatedAt: &note.CreatedAt})
 	if err != nil || !back.CreatedAt.Equal(note.CreatedAt) {
 		t.Fatalf("put back: %+v %v", back, err)
 	}
-	if list := s.Snapshot().Entries[b.ID]; len(list) != 2 || list[0].ID != back.ID {
+	if list := s.Snapshot().Entries[b.ID]; list[0].ID != back.ID {
 		t.Fatalf("entries are kept oldest first: %+v", list)
+	}
+
+	// A book's notes can be kept from visitors.
+	if err := s.SetNotesHidden(ctx, b.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	if bk, _ := s.Snapshot().Book(b.ID); !bk.NotesHidden {
+		t.Fatal("notes were not hidden")
+	}
+	if err := s.SetNotesHidden(ctx, "nope", true); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("a missing book: %v", err)
 	}
 
 	// Deleting a reading keeps what was written during it; deleting the book doesn't.
@@ -309,7 +331,8 @@ func TestNotesAndHighlights(t *testing.T) {
 }
 
 // A 2.0 library's notes (one on each finished reading) become notes tied to
-// their readings when 2.1 opens it.
+// their readings when 2.1 opens it, and (through schema 2) become entries with
+// a place and no kind.
 func TestOpeningA20Library(t *testing.T) {
 	dir := t.TempDir()
 	db, err := sql.Open("sqlite", "file:"+filepath.Join(dir, DatabaseName))
@@ -337,7 +360,7 @@ func TestOpeningA20Library(t *testing.T) {
 		t.Fatalf("entries: %+v", list)
 	}
 	e := list[0]
-	if e.Kind != KindNote || e.Text != "Better the second time." || !e.Public || e.ReadingID != "r1" || len(e.ID) != 16 ||
+	if e.Text != "Better the second time." || !e.Public || e.ReadingID != "r1" || len(e.ID) != 16 ||
 		!e.CreatedAt.Equal(time.Date(2024, 3, 12, 10, 0, 0, 0, time.UTC)) || !e.UpdatedAt.Equal(time.Date(2024, 3, 13, 10, 0, 0, 0, time.UTC)) {
 		t.Fatalf("moved note: %+v", e)
 	}
@@ -345,6 +368,71 @@ func TestOpeningA20Library(t *testing.T) {
 	s.db.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE name = 'notes'`).Scan(&notes)
 	if notes != 0 {
 		t.Fatal("the old notes table is still there")
+	}
+}
+
+// A library from an early 2.1 (schema 2) had notes and highlights with a page;
+// they become entries with a passage and a place of kind page.
+func TestOpeningASchema2Library(t *testing.T) {
+	dir := t.TempDir()
+	db, err := sql.Open("sqlite", "file:"+filepath.Join(dir, DatabaseName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, q := range []string{schemaV1, schemaV2, "PRAGMA user_version = 2",
+		`INSERT INTO books (id, title, slug, added_at, updated_at) VALUES ('b1', 'Stoner', 'stoner', '2024-01-01T00:00:00.000000000Z', '2024-01-01T00:00:00.000000000Z')`,
+		`INSERT INTO entries (id, book_id, kind, text, quote, page, public, created_at, updated_at) VALUES
+			('n1', 'b1', 'note', 'Sad.', '', NULL, 0, '2024-03-12T10:00:00.000000000Z', '2024-03-12T10:00:00.000000000Z'),
+			('h1', 'b1', 'highlight', 'Why.', 'A passage.', 33, 1, '2024-03-13T10:00:00.000000000Z', '2024-03-13T10:00:00.000000000Z')`,
+	} {
+		if _, err := db.Exec(q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	db.Close()
+	s, err := Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	list := s.Snapshot().Entries["b1"]
+	if len(list) != 2 || list[0].Text != "Sad." || list[0].Where != nil || list[1].Quote != "A passage." || list[1].Text != "Why." ||
+		list[1].Where == nil || list[1].Where.Kind != WherePage || list[1].Where.N != 33 || !list[1].Public {
+		t.Fatalf("moved entries: %+v", list)
+	}
+	if b, _ := s.Snapshot().Book("b1"); b.NotesHidden {
+		t.Fatal("a book's notes start out open to visitors")
+	}
+}
+
+// Settings saved before notes had settings keep visitors reading the public notes.
+func TestNotesSettingsDefaultOn(t *testing.T) {
+	s, _ := open(t)
+	if _, err := s.db.Exec(`INSERT OR REPLACE INTO settings (key, value) VALUES ('settings', '{"name":"Old","sort":"title","theme":"system","permalink":"isbn","sources":["openlibrary"],"wallDay":"#e9e0d0","wallNight":"#17110d","woodDay":"oak","woodNight":"walnut","ribbonDay":"#8e2532","ribbonNight":"#8e2532","bookSize":100,"maxHeight":100,"backupEvery":"day","backupKeep":14}')`); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.reload(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if st := s.Snapshot().Settings; st.Name != "Old" || !st.Notes || st.Timeline || st.StartsPublic {
+		t.Fatalf("notes settings of an older library: %+v", st)
+	}
+}
+
+// Restoring a backup in which a note's page no longer fits its book (its page count was lowered since) keeps
+// the note and lets the page go.
+func TestRestoreLetsAPlaceGo(t *testing.T) {
+	s, _ := open(t)
+	b := add(t, s, "Stoner", "9781590171998", 278)
+	s.AddEntry(ctx, b.ID, EntryInput{Quote: "A passage.", Where: &Where{Kind: WherePage, N: 270}})
+	lib := s.Snapshot().Library()
+	small := 200
+	lib.Books[0].Pages = &small
+	if err := s.Replace(ctx, lib); err != nil {
+		t.Fatalf("restore: %v", err)
+	}
+	if es := s.Snapshot().Entries[b.ID]; len(es) != 1 || es[0].Where != nil || es[0].Quote != "A passage." {
+		t.Fatalf("restored: %+v", es)
 	}
 }
 

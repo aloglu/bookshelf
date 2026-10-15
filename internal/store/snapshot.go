@@ -95,7 +95,7 @@ func load(ctx context.Context, q querier) (*Snapshot, error) {
 	snap := &Snapshot{byID: map[string]int{}, Readings: map[string][]Reading{}, Entries: map[string][]Entry{}, Sessions: map[string]Session{}}
 
 	rows, err := q.QueryContext(ctx, `SELECT id, title, author, translator, publisher, published, pages, binding,
-		COALESCE(isbn, ''), issn, issue, slug, hidden, cover, spine_color, spine_text_color, spine_color_override, added_at, updated_at
+		COALESCE(isbn, ''), issn, issue, slug, hidden, notes_hidden, cover, spine_color, spine_text_color, spine_color_override, added_at, updated_at
 		FROM books ORDER BY added_at, id`)
 	if err != nil {
 		return nil, err
@@ -105,7 +105,7 @@ func load(ctx context.Context, q querier) (*Snapshot, error) {
 		var published, pages sql.NullInt64
 		var added, updated string
 		if err := rows.Scan(&b.ID, &b.Title, &b.Author, &b.Translator, &b.Publisher, &published, &pages, &b.Binding,
-			&b.ISBN, &b.ISSN, &b.Issue, &b.Slug, &b.Hidden, &b.Cover, &b.SpineColor, &b.SpineTextColor, &b.SpineColorOverride, &added, &updated); err != nil {
+			&b.ISBN, &b.ISSN, &b.Issue, &b.Slug, &b.Hidden, &b.NotesHidden, &b.Cover, &b.SpineColor, &b.SpineTextColor, &b.SpineColorOverride, &added, &updated); err != nil {
 			rows.Close()
 			return nil, err
 		}
@@ -145,22 +145,22 @@ func load(ctx context.Context, q querier) (*Snapshot, error) {
 		return nil, err
 	}
 
-	rows, err = q.QueryContext(ctx, `SELECT id, book_id, COALESCE(reading_id, ''), kind, text, quote, page, public, created_at, updated_at
+	rows, err = q.QueryContext(ctx, `SELECT id, book_id, COALESCE(reading_id, ''), pre, quote, text, where_kind, where_n, where_to, public, created_at, updated_at
 		FROM entries ORDER BY created_at, id`)
 	if err != nil {
 		return nil, err
 	}
 	for rows.Next() {
 		var e Entry
-		var page sql.NullInt64
+		var kind string
+		var n, to sql.NullInt64
 		var created, updated string
-		if err := rows.Scan(&e.ID, &e.BookID, &e.ReadingID, &e.Kind, &e.Text, &e.Quote, &page, &e.Public, &created, &updated); err != nil {
+		if err := rows.Scan(&e.ID, &e.BookID, &e.ReadingID, &e.Pre, &e.Quote, &e.Text, &kind, &n, &to, &e.Public, &created, &updated); err != nil {
 			rows.Close()
 			return nil, err
 		}
-		if page.Valid {
-			v := int(page.Int64)
-			e.Page = &v
+		if kind != "" && n.Valid {
+			e.Where = &Where{Kind: kind, N: int(n.Int64), To: int(to.Int64)}
 		}
 		e.CreatedAt, _ = time.Parse(time.RFC3339Nano, created)
 		e.UpdatedAt, _ = time.Parse(time.RFC3339Nano, updated)

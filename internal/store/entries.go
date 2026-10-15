@@ -7,43 +7,70 @@ import (
 	"time"
 )
 
-// EntryInput is a note or highlight as the owner writes it.
+// EntryInput is a note as the owner writes it: a passage, words, or both, with
+// words on either side of the passage, and where in the book it comes from.
 type EntryInput struct {
-	Kind      string     `json:"kind"`
-	Text      string     `json:"text"`
+	Pre       string     `json:"pre"`
 	Quote     string     `json:"quote"`
-	Page      *int       `json:"page"`
+	Text      string     `json:"text"`
+	Where     *Where     `json:"where"`
 	ReadingID string     `json:"readingId"`
 	Public    bool       `json:"public"`
-	CreatedAt *time.Time `json:"createdAt"` // only to put back an entry just deleted (undo)
+	CreatedAt *time.Time `json:"createdAt"` // to put back an entry just deleted (undo), or an imported one's own date
 }
 
 const maxEntryText = 200_000
 
+const insertEntry = `INSERT INTO entries (id, book_id, reading_id, pre, quote, text, where_kind, where_n, where_to, public, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+
+func (w *Where) kind() string {
+	if w == nil {
+		return ""
+	}
+	return w.Kind
+}
+
+func (w *Where) n() any {
+	if w == nil {
+		return nil
+	}
+	return w.N
+}
+
+func (w *Where) to() any {
+	if w == nil || w.To == 0 {
+		return nil
+	}
+	return w.To
+}
+
 // check cleans the input and checks it against the book it belongs to.
 func (in *EntryInput) check(snap *Snapshot, b Book, now time.Time) error {
-	in.Text, in.Quote = strings.TrimSpace(in.Text), strings.TrimSpace(in.Quote)
-	switch in.Kind {
-	case KindNote:
-		in.Quote, in.Page = "", nil
-		if in.Text == "" {
-			return invalid("Write something first.")
-		}
-	case KindHighlight:
-		if in.Quote == "" {
-			return invalid("Copy in the passage first.")
-		}
-	default:
-		return invalid("An entry is a note or a highlight.")
+	in.Pre, in.Quote, in.Text = strings.TrimSpace(in.Pre), strings.TrimSpace(in.Quote), strings.TrimSpace(in.Text)
+	if in.Quote == "" && in.Pre != "" { // words with no passage are just words
+		in.Text, in.Pre = strings.TrimSpace(in.Pre+"\n"+in.Text), ""
 	}
-	if len(in.Text) > maxEntryText || len(in.Quote) > maxEntryText {
+	if in.Quote == "" && in.Text == "" {
+		return invalid("Write something, or copy in a passage.")
+	}
+	if len(in.Pre) > maxEntryText || len(in.Quote) > maxEntryText || len(in.Text) > maxEntryText {
 		return invalid("That’s too long.")
 	}
-	if in.Page != nil && (*in.Page < 1 || (b.Pages != nil && *in.Page > *b.Pages)) {
-		if b.Pages != nil {
+	if w := in.Where; w != nil {
+		switch w.Kind {
+		case WherePage, WhereChapter, WhereLoc:
+		default:
+			return invalid("A place is a page, a chapter or a location.")
+		}
+		if w.N < 1 {
+			return invalid("Give the place as a number, 1 or more.")
+		}
+		if w.Kind == WherePage && b.Pages != nil && w.N > *b.Pages {
 			return invalid("Pages run from 1 to %d.", *b.Pages)
 		}
-		return invalid("That page isn’t in the book.")
+		if w.To != 0 && (w.Kind != WhereLoc || w.To <= w.N) {
+			w.To = 0
+		}
 	}
 	if in.ReadingID != "" {
 		r, ok := snap.Reading(in.ReadingID)
@@ -57,7 +84,7 @@ func (in *EntryInput) check(snap *Snapshot, b Book, now time.Time) error {
 	return nil
 }
 
-// AddEntry writes a new note or highlight about a book.
+// AddEntry writes a new note about a book.
 func (s *Store) AddEntry(ctx context.Context, bookID string, in EntryInput) (Entry, error) {
 	id := newID()
 	err := s.change(ctx, func(tx *sql.Tx, snap *Snapshot) error {
@@ -73,8 +100,8 @@ func (s *Store) AddEntry(ctx context.Context, bookID string, in EntryInput) (Ent
 		if in.CreatedAt != nil {
 			created = *in.CreatedAt
 		}
-		_, err := tx.ExecContext(ctx, `INSERT INTO entries (id, book_id, reading_id, kind, text, quote, page, public, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			id, bookID, nullString(in.ReadingID), in.Kind, in.Text, in.Quote, nullable(in.Page), in.Public, stamp(created), stamp(now))
+		_, err := tx.ExecContext(ctx, insertEntry,
+			id, bookID, nullString(in.ReadingID), in.Pre, in.Quote, in.Text, in.Where.kind(), in.Where.n(), in.Where.to(), in.Public, stamp(created), stamp(now))
 		return err
 	})
 	if err != nil {
@@ -84,7 +111,44 @@ func (s *Store) AddEntry(ctx context.Context, bookID string, in EntryInput) (Ent
 	return e, nil
 }
 
-// UpdateEntry rewrites a note or highlight. It keeps when it was first written.
+// AddEntries writes many notes at once (an import), each to its own book,
+// in one change. Notes that are not valid are left out; it returns how many
+// were written.
+func (s *Store) AddEntries(ctx context.Context, items []BookEntry) (added int, err error) {
+	err = s.change(ctx, func(tx *sql.Tx, snap *Snapshot) error {
+		now := s.now()
+		added = 0
+		for _, it := range items {
+			b, ok := snap.Book(it.BookID)
+			if !ok {
+				continue
+			}
+			in := it.Entry
+			if in.check(snap, b, now) != nil {
+				continue
+			}
+			created := now
+			if in.CreatedAt != nil {
+				created = *in.CreatedAt
+			}
+			if _, err := tx.ExecContext(ctx, insertEntry,
+				newID(), it.BookID, nullString(in.ReadingID), in.Pre, in.Quote, in.Text, in.Where.kind(), in.Where.n(), in.Where.to(), in.Public, stamp(created), stamp(now)); err != nil {
+				return err
+			}
+			added++
+		}
+		return nil
+	})
+	return added, err
+}
+
+// BookEntry is a note for one book.
+type BookEntry struct {
+	BookID string
+	Entry  EntryInput
+}
+
+// UpdateEntry rewrites a note. It keeps when it was first written.
 func (s *Store) UpdateEntry(ctx context.Context, id string, in EntryInput) (Entry, error) {
 	in.CreatedAt = nil
 	err := s.change(ctx, func(tx *sql.Tx, snap *Snapshot) error {
@@ -96,8 +160,8 @@ func (s *Store) UpdateEntry(ctx context.Context, id string, in EntryInput) (Entr
 		if err := in.check(snap, b, s.now()); err != nil {
 			return err
 		}
-		_, err := tx.ExecContext(ctx, `UPDATE entries SET reading_id=?, kind=?, text=?, quote=?, page=?, public=?, updated_at=? WHERE id=?`,
-			nullString(in.ReadingID), in.Kind, in.Text, in.Quote, nullable(in.Page), in.Public, stamp(s.now()), id)
+		_, err := tx.ExecContext(ctx, `UPDATE entries SET reading_id=?, pre=?, quote=?, text=?, where_kind=?, where_n=?, where_to=?, public=?, updated_at=? WHERE id=?`,
+			nullString(in.ReadingID), in.Pre, in.Quote, in.Text, in.Where.kind(), in.Where.n(), in.Where.to(), in.Public, stamp(s.now()), id)
 		return err
 	})
 	if err != nil {
@@ -107,13 +171,24 @@ func (s *Store) UpdateEntry(ctx context.Context, id string, in EntryInput) (Entr
 	return e, nil
 }
 
-// DeleteEntry removes a note or highlight.
+// DeleteEntry removes a note.
 func (s *Store) DeleteEntry(ctx context.Context, id string) error {
 	return s.change(ctx, func(tx *sql.Tx, snap *Snapshot) error {
 		if _, ok := snap.Entry(id); !ok {
 			return ErrNotFound
 		}
 		_, err := tx.ExecContext(ctx, `DELETE FROM entries WHERE id=?`, id)
+		return err
+	})
+}
+
+// SetNotesHidden keeps a book's notes from visitors, or lets them read the public ones again.
+func (s *Store) SetNotesHidden(ctx context.Context, id string, hidden bool) error {
+	return s.change(ctx, func(tx *sql.Tx, snap *Snapshot) error {
+		if _, ok := snap.Book(id); !ok {
+			return ErrNotFound
+		}
+		_, err := tx.ExecContext(ctx, `UPDATE books SET notes_hidden=? WHERE id=?`, hidden, id)
 		return err
 	})
 }

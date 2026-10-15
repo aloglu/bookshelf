@@ -127,9 +127,9 @@ func insertLibrary(ctx context.Context, tx *sql.Tx, snap *Snapshot, lib Library,
 		cand.ID, cand.Slug = id, uniqueSlug(work, in.Title, "")
 		cand.Translator, cand.Publisher, cand.Binding = in.Translator, in.Publisher, in.Binding
 		if _, err := tx.ExecContext(ctx, `INSERT INTO books (id, title, author, translator, publisher, published, pages, binding, isbn, issn, issue, slug, hidden,
-			cover, spine_color, spine_text_color, spine_color_override, added_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			notes_hidden, cover, spine_color, spine_text_color, spine_color_override, added_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			id, cand.Title, cand.Author, cand.Translator, cand.Publisher, nullable(in.Published), nullable(in.Pages), cand.Binding, nullISBN(cand.ISBN), cand.ISSN, cand.Issue,
-			cand.Slug, in.Hidden, b.Cover, b.SpineColor, b.SpineTextColor, b.SpineColorOverride, stamp(addedAt), stamp(updatedAt)); err != nil {
+			cand.Slug, in.Hidden, b.NotesHidden, b.Cover, b.SpineColor, b.SpineTextColor, b.SpineColorOverride, stamp(addedAt), stamp(updatedAt)); err != nil {
 			return 0, 0, err
 		}
 		work.byID[id] = len(work.Books)
@@ -169,22 +169,22 @@ func insertLibrary(ctx context.Context, tx *sql.Tx, snap *Snapshot, lib Library,
 		if !ok {
 			continue // its book was skipped
 		}
-		text, quote := strings.TrimSpace(e.Text), strings.TrimSpace(e.Quote)
-		if (e.Kind != KindNote || text == "") && (e.Kind != KindHighlight || quote == "") {
+		in := EntryInput{Pre: e.Pre, Quote: e.Quote, Text: e.Text, Where: e.Where, Public: e.Public}
+		b := work.Books[work.byID[book]]
+		err := in.check(work, b, now.Add(24*time.Hour))
+		if err != nil && in.Where != nil { // a place that no longer fits the book (its page count was lowered) is let go
+			in.Where = nil
+			err = in.check(work, b, now.Add(24*time.Hour))
+		}
+		if err != nil {
 			if skipExisting {
 				continue
 			}
-			return 0, 0, invalid("A note or highlight in the backup is empty or of an unknown kind.")
-		}
-		if e.Kind == KindNote {
-			quote, e.Page = "", nil
-		}
-		if b := work.Books[work.byID[book]]; e.Page != nil && (*e.Page < 1 || (b.Pages != nil && *e.Page > *b.Pages)) {
-			e.Page = nil
+			return 0, 0, invalid("A note in the backup isn’t valid: %s", err.Error())
 		}
 		created := orNow(e.CreatedAt, now)
-		if _, err := tx.ExecContext(ctx, `INSERT INTO entries (id, book_id, reading_id, kind, text, quote, page, public, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			newID(), book, nullString(readingIDs[e.ReadingID]), e.Kind, text, quote, nullable(e.Page), e.Public, stamp(created), stamp(orNow(e.UpdatedAt, created))); err != nil {
+		if _, err := tx.ExecContext(ctx, insertEntry,
+			newID(), book, nullString(readingIDs[e.ReadingID]), in.Pre, in.Quote, in.Text, in.Where.kind(), in.Where.n(), in.Where.to(), in.Public, stamp(created), stamp(orNow(e.UpdatedAt, created))); err != nil {
 			return 0, 0, err
 		}
 	}

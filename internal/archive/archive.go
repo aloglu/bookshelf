@@ -26,10 +26,12 @@ func bad(format string, args ...any) error {
 	return &store.InvalidError{Msg: strings.ToUpper(msg[:1]) + msg[1:] + "."}
 }
 
-// Format is this archive layout's version: 2 since Bookshelf 2.1, which keeps
-// notes and highlights as entries of their own. Format 1 (2.0) kept one note
-// on each finished reading; those are read as notes tied to their readings.
-const Format = 2
+// Format is this archive layout's version: 3 since Bookshelf 2.1's notes, which
+// are one kind of entry (words before a passage, the passage, words after it,
+// and a place). Format 2 (an early 2.1) had notes and highlights, with a page;
+// format 1 (2.0) kept one note on each finished reading. Both are read as
+// entries.
+const Format = 3
 
 // Extension is an archive's file extension.
 const Extension = ".bookshelf"
@@ -160,7 +162,36 @@ func Open(r io.ReaderAt, size int64) (*Archive, error) {
 	if err := readJSON(library, &a.Library); err != nil {
 		return nil, bad("the archive’s library can’t be read (%v)", err)
 	}
-	if a.Manifest.Format < 2 {
+	switch {
+	case a.Manifest.Format == 2:
+		var old struct {
+			Entries []struct {
+				BookID    string    `json:"bookId"`
+				ReadingID string    `json:"readingId"`
+				Kind      string    `json:"kind"`
+				Text      string    `json:"text"`
+				Quote     string    `json:"quote"`
+				Page      *int      `json:"page"`
+				Public    bool      `json:"public"`
+				CreatedAt time.Time `json:"createdAt"`
+				UpdatedAt time.Time `json:"updatedAt"`
+			} `json:"entries"`
+		}
+		if err := readJSON(library, &old); err != nil {
+			return nil, bad("the archive’s library can’t be read (%v)", err)
+		}
+		a.Library.Entries = nil
+		for _, e := range old.Entries {
+			n := store.Entry{BookID: e.BookID, ReadingID: e.ReadingID, Text: e.Text, Public: e.Public, CreatedAt: e.CreatedAt, UpdatedAt: e.UpdatedAt}
+			if e.Kind == "highlight" {
+				n.Quote = e.Quote
+			}
+			if e.Page != nil && e.Kind == "highlight" {
+				n.Where = &store.Where{Kind: store.WherePage, N: *e.Page}
+			}
+			a.Library.Entries = append(a.Library.Entries, n)
+		}
+	case a.Manifest.Format < 2:
 		var old struct {
 			Readings []struct {
 				ID     string `json:"id"`
@@ -178,7 +209,7 @@ func Open(r io.ReaderAt, size int64) (*Archive, error) {
 		}
 		for _, r := range old.Readings {
 			if n := r.Note; n != nil && strings.TrimSpace(n.Text) != "" {
-				a.Library.Entries = append(a.Library.Entries, store.Entry{BookID: r.BookID, ReadingID: r.ID, Kind: store.KindNote,
+				a.Library.Entries = append(a.Library.Entries, store.Entry{BookID: r.BookID, ReadingID: r.ID,
 					Text: n.Text, Public: n.Public, CreatedAt: n.CreatedAt, UpdatedAt: n.UpdatedAt})
 			}
 		}

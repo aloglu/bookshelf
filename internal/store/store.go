@@ -122,13 +122,18 @@ func (s *Store) migrate() error {
 			return fmt.Errorf("add notes and highlights: %w", err)
 		}
 	}
+	if version < 3 {
+		if _, err := tx.ExecContext(ctx, schemaV3); err != nil {
+			return fmt.Errorf("change entries to passages and places: %w", err)
+		}
+	}
 	if _, err := tx.ExecContext(ctx, fmt.Sprintf("PRAGMA user_version = %d", schemaVersion)); err != nil {
 		return err
 	}
 	return tx.Commit()
 }
 
-const schemaVersion = 2
+const schemaVersion = 3
 
 const schemaV1 = `
 CREATE TABLE books (
@@ -219,4 +224,33 @@ INSERT INTO entries (id, book_id, reading_id, kind, text, public, created_at, up
 	SELECT lower(hex(randomblob(8))), r.book_id, n.reading_id, 'note', n.text, n.public, n.created_at, n.updated_at
 	FROM notes n JOIN readings r ON r.id = n.reading_id;
 DROP TABLE notes;
+`
+
+// schemaV3 (2.1) makes an entry one kind of thing: words before a passage,
+// the passage, words after it, and a place (a page, a chapter or a location).
+// A note keeps its words; a highlight keeps its passage and its thought; a
+// page becomes a place of kind page. A book can also keep its notes from
+// visitors.
+const schemaV3 = `
+CREATE TABLE entries_new (
+	id         TEXT PRIMARY KEY,
+	book_id    TEXT NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+	reading_id TEXT REFERENCES readings(id) ON DELETE SET NULL,
+	pre        TEXT NOT NULL DEFAULT '',
+	quote      TEXT NOT NULL DEFAULT '',
+	text       TEXT NOT NULL DEFAULT '',
+	where_kind TEXT NOT NULL DEFAULT '' CHECK (where_kind IN ('','page','chapter','loc')),
+	where_n    INTEGER,
+	where_to   INTEGER,
+	public     INTEGER NOT NULL DEFAULT 0,
+	created_at TEXT NOT NULL,
+	updated_at TEXT NOT NULL
+);
+INSERT INTO entries_new (id, book_id, reading_id, pre, quote, text, where_kind, where_n, public, created_at, updated_at)
+	SELECT id, book_id, reading_id, '', quote, text, CASE WHEN page IS NULL THEN '' ELSE 'page' END, page, public, created_at, updated_at FROM entries;
+DROP TABLE entries;
+ALTER TABLE entries_new RENAME TO entries;
+CREATE INDEX entries_book ON entries(book_id, created_at);
+CREATE INDEX entries_reading ON entries(reading_id);
+ALTER TABLE books ADD COLUMN notes_hidden INTEGER NOT NULL DEFAULT 0;
 `
