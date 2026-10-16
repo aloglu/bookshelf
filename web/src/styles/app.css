@@ -150,13 +150,11 @@ header .elsewhere { grid-area: links; justify-self: end; align-self: center; }
 .seg .pill.ready { transition: transform .28s var(--ease); }
 .seg .pill.none { display: none; }
 /* The sort's direction: an arrow on the active button, up for A to Z and oldest first, down the other way.
-   Only the active button makes room for it, opening as the highlight slides there (and lib/pill.js sends the
-   highlight to where the button will be once it has); the one before closes up at the same pace. */
-.seg { --dir-room: 16px; }   /* an arrow's room: its width and the gap before it */
-.seg .dir { width: 0; height: 12px; margin-left: 0; flex: none; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; opacity: 0;
-  transition: width .28s var(--ease), margin-left .28s var(--ease), opacity .2s, rotate .2s; }
+   Only the active button has room for it; on a new choice the buttons take their widths at once and their
+   words glide there (lib/pill.js), and the arrow fades in. */
+.seg .dir { width: 0; height: 12px; margin-left: 0; flex: none; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; opacity: 0; transition: opacity .2s, rotate .2s; }
 .seg button:has(.dir) { display: inline-flex; align-items: center; justify-content: center; }
-.seg .dir.shown { width: calc(var(--dir-room) - 4px); margin-left: 4px; opacity: 1; }
+.seg .dir.shown { width: 12px; margin-left: 4px; opacity: 1; }
 .seg .dir.down { rotate: 180deg; }
 @media (prefers-reduced-motion: reduce) { .seg .dir, .seg .pill.ready, .seg button { transition: none; } }
 .seg button[aria-pressed="true"], .seg button[aria-selected="true"] { background: color-mix(in oklab, var(--accent) 16%, transparent); color: var(--ink); }
