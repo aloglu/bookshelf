@@ -138,7 +138,12 @@ func NormalizeBinding(value string) string {
 	}
 }
 
-// uniqueSlug makes a slug from title that no other book (but self) has.
+// reservedSlugs are the site's own addresses, which no book's may be ("/notes" is All notes, "/healthz" the
+// server's own answer).
+var reservedSlugs = map[string]bool{"healthz": true, "notes": true, "settings": true, "signin": true, "stats": true}
+
+// uniqueSlug makes a slug from title that no other book (but self) has, and that isn't one of the site's own
+// addresses: a book titled "Notes" is at /notes-2.
 func uniqueSlug(snap *Snapshot, title, self string) string {
 	base := goslug.Make(title)
 	if base == "" {
@@ -151,7 +156,7 @@ func uniqueSlug(snap *Snapshot, title, self string) string {
 		}
 	}
 	slug := base
-	for n := 2; taken[slug]; n++ {
+	for n := 2; taken[slug] || reservedSlugs[slug]; n++ {
 		slug = fmt.Sprintf("%s-%d", base, n)
 	}
 	return slug

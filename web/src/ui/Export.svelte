@@ -15,10 +15,16 @@
     showPanel(wrap);
     preview();
   }
+  // Only the latest preview is shown: switching private notes on and off quickly can bring the answers back out
+  // of order, and an earlier one must not stand under the switch's new state.
+  let asked = 0;
   async function preview() {
+    const n = ++asked;
     loading = true;
-    try { text = await notesMarkdown(book?.id, withPrivate); } catch (err) { text = ""; toast(err.message); }
-    loading = false;
+    let got = "";
+    try { got = await notesMarkdown(book?.id, withPrivate); } catch (err) { if (n === asked) toast(err.message); }
+    if (n !== asked) return;
+    text = got; loading = false;
   }
   async function copy() {
     try { await navigator.clipboard.writeText(text); toast("Markdown copied"); } catch { toast("Copying isn’t allowed here. Save it as a file instead."); }
@@ -36,7 +42,7 @@
       <label class="toggle"><span><b>Include notes only you can see</b><small>Off exports just what visitors can read.</small></span><input type="checkbox" bind:checked={withPrivate} onchange={preview}></label>
       <pre class="mdprev" aria-label="Preview" aria-busy={loading}>{text}</pre>
       <div class="row-btns end">
-        <button type="button" class="btn" disabled={!text} onclick={copy}><svg class="i" viewBox="0 0 24 24" aria-hidden="true">{@html ICON.copy}</svg>Copy</button>
+        <button type="button" class="btn" disabled={!text || loading} onclick={copy}><svg class="i" viewBox="0 0 24 24" aria-hidden="true">{@html ICON.copy}</svg>Copy</button>
         <a class="btn primary" href={markdownURL(book?.id, withPrivate)} download><svg class="i" viewBox="0 0 24 24" aria-hidden="true">{@html ICON.down}</svg>Save as file</a>
       </div>
     </div>

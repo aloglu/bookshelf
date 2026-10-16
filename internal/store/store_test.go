@@ -115,6 +115,12 @@ func TestSlugsAndISBNsAreUnique(t *testing.T) {
 	if got, _ := s.Snapshot().Book(a.ID); got.Slug != "moby-dick-or-the-whale" {
 		t.Fatalf("renamed slug %q", got.Slug)
 	}
+	// The site's own addresses are never a book's: a book titled "Notes" is at /notes-2.
+	for _, title := range []string{"Notes", "Settings", "Signin", "Stats", "Healthz"} {
+		if got := add(t, s, title, "", 100); reservedSlugs[got.Slug] || !strings.HasSuffix(got.Slug, "-2") {
+			t.Errorf("%q got the address %q", title, got.Slug)
+		}
+	}
 }
 
 func TestIssuesAreUnique(t *testing.T) {
@@ -419,9 +425,9 @@ func TestNotesSettingsDefaultOn(t *testing.T) {
 	}
 }
 
-// Restoring a backup in which a note's page no longer fits its book (its page count was lowered since) keeps
-// the note and lets the page go.
-func TestRestoreLetsAPlaceGo(t *testing.T) {
+// A note keeps the place it has though its book's page count was lowered past it: restoring a backup, editing
+// the note, and putting it back after deleting it. Only a page given anew must be one of the book's.
+func TestANoteKeepsItsPlace(t *testing.T) {
 	s, _ := open(t)
 	b := add(t, s, "Stoner", "9781590171998", 278)
 	s.AddEntry(ctx, b.ID, EntryInput{Quote: "A passage.", Where: &Where{Kind: WherePage, N: 270}})
@@ -431,8 +437,28 @@ func TestRestoreLetsAPlaceGo(t *testing.T) {
 	if err := s.Replace(ctx, lib); err != nil {
 		t.Fatalf("restore: %v", err)
 	}
-	if es := s.Snapshot().Entries[b.ID]; len(es) != 1 || es[0].Where != nil || es[0].Quote != "A passage." {
+	es := s.Snapshot().Entries[b.ID]
+	if len(es) != 1 || es[0].Where == nil || es[0].Where.N != 270 || es[0].Quote != "A passage." {
 		t.Fatalf("restored: %+v", es)
+	}
+	e := es[0]
+	edited, err := s.UpdateEntry(ctx, e.ID, EntryInput{Quote: "A passage, edited.", Where: e.Where})
+	if err != nil || edited.Where.N != 270 {
+		t.Fatalf("editing the words: %+v %v", edited, err)
+	}
+	if _, err := s.UpdateEntry(ctx, e.ID, EntryInput{Quote: "A passage.", Where: &Where{Kind: WherePage, N: 250}}); err == nil {
+		t.Fatal("a new page past the book's 200 was taken")
+	}
+	if err := s.DeleteEntry(ctx, e.ID); err != nil {
+		t.Fatal(err)
+	}
+	created := edited.CreatedAt
+	back, err := s.AddEntry(ctx, b.ID, EntryInput{Quote: edited.Quote, Where: edited.Where, CreatedAt: &created})
+	if err != nil || back.Where.N != 270 {
+		t.Fatalf("putting it back: %+v %v", back, err)
+	}
+	if _, err := s.AddEntry(ctx, b.ID, EntryInput{Quote: "New.", Where: &Where{Kind: WherePage, N: 270}}); err == nil {
+		t.Fatal("a new note on page 270 of 200 was taken")
 	}
 }
 

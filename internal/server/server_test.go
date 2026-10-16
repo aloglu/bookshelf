@@ -527,11 +527,15 @@ func TestAllNotes(t *testing.T) {
 			t.Fatalf("%v", r)
 		}
 	}
+	get := func(c *http.Client, q string) (int, map[string]any) { return e.do(c, "GET", "/api/notes"+q, nil) }
+	// Before any note is written, the list is empty, not null.
+	if code, none := get(e.owner, ""); code != 200 || none["entries"] == nil || len(none["entries"].([]any)) != 0 || none["total"] != 0.0 {
+		t.Fatalf("no notes yet: %d %v", code, none)
+	}
 	write(a, "first, public", true)
 	write(b, "second, mine", false)
 	write(b, "third, public", true)
 	write(hidden, "in a hidden book", true)
-	get := func(c *http.Client, q string) (int, map[string]any) { return e.do(c, "GET", "/api/notes"+q, nil) }
 
 	// Off for visitors until the owner turns it on; the owner always has it.
 	if code, _ := get(e.visitor, ""); code != 404 {

@@ -44,8 +44,10 @@ func (w *Where) to() any {
 	return w.To
 }
 
-// check cleans the input and checks it against the book it belongs to.
-func (in *EntryInput) check(snap *Snapshot, b Book, now time.Time) error {
+// check cleans the input and checks it against the book it belongs to. kept is a place the note already has
+// (editing it, or putting it back just after deleting it): it stays, even past the book's pages since the
+// book's page count was lowered; a page given anew must be one of the book's.
+func (in *EntryInput) check(snap *Snapshot, b Book, now time.Time, kept *Where) error {
 	in.Pre, in.Quote, in.Text = strings.TrimSpace(in.Pre), strings.TrimSpace(in.Quote), strings.TrimSpace(in.Text)
 	if in.Quote == "" && in.Pre != "" { // words with no passage are just words
 		in.Text, in.Pre = strings.TrimSpace(in.Pre+"\n"+in.Text), ""
@@ -65,7 +67,7 @@ func (in *EntryInput) check(snap *Snapshot, b Book, now time.Time) error {
 		if w.N < 1 {
 			return invalid("Give the place as a number, 1 or more.")
 		}
-		if w.Kind == WherePage && b.Pages != nil && w.N > *b.Pages {
+		if w.Kind == WherePage && b.Pages != nil && w.N > *b.Pages && !(kept != nil && kept.Kind == w.Kind && kept.N == w.N) {
 			return invalid("Pages run from 1 to %d.", *b.Pages)
 		}
 		if w.To != 0 && (w.Kind != WhereLoc || w.To <= w.N) {
@@ -93,7 +95,11 @@ func (s *Store) AddEntry(ctx context.Context, bookID string, in EntryInput) (Ent
 			return ErrNotFound
 		}
 		now := s.now()
-		if err := in.check(snap, b, now); err != nil {
+		var kept *Where
+		if in.CreatedAt != nil { // putting back a note just deleted: its place is its own
+			kept = in.Where
+		}
+		if err := in.check(snap, b, now, kept); err != nil {
 			return err
 		}
 		created := now
@@ -124,7 +130,7 @@ func (s *Store) AddEntries(ctx context.Context, items []BookEntry) (added int, e
 				continue
 			}
 			in := it.Entry
-			if in.check(snap, b, now) != nil {
+			if in.check(snap, b, now, nil) != nil {
 				continue
 			}
 			created := now
@@ -157,7 +163,7 @@ func (s *Store) UpdateEntry(ctx context.Context, id string, in EntryInput) (Entr
 			return ErrNotFound
 		}
 		b, _ := snap.Book(e.BookID)
-		if err := in.check(snap, b, s.now()); err != nil {
+		if err := in.check(snap, b, s.now(), e.Where); err != nil {
 			return err
 		}
 		_, err := tx.ExecContext(ctx, `UPDATE entries SET reading_id=?, pre=?, quote=?, text=?, where_kind=?, where_n=?, where_to=?, public=?, updated_at=? WHERE id=?`,

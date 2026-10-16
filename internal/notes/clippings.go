@@ -147,7 +147,7 @@ func ParseClippings(text string, zone *time.Location) []Clipping {
 		}
 		var dup *clip
 		for _, it := range same {
-			if strings.HasPrefix(it.Quote, c.Quote) || strings.HasPrefix(c.Quote, it.Quote) {
+			if near(it, c) && (strings.HasPrefix(it.Quote, c.Quote) || strings.HasPrefix(c.Quote, it.Quote)) {
 				dup = it
 				break
 			}
@@ -165,6 +165,22 @@ func ParseClippings(text string, zone *time.Location) []Clipping {
 		out[i] = it.Clipping
 	}
 	return out
+}
+
+// near says whether two highlights are at the same place: their locations overlap or touch (a highlight
+// lengthened on the Kindle is written again, from the same spot). Without locations, only the very same
+// passage counts. The same words highlighted elsewhere in the book are another highlight.
+func near(a, b *clip) bool {
+	if a.locN == 0 || b.locN == 0 {
+		return a.Quote == b.Quote
+	}
+	end := func(c *clip) int {
+		if c.locTo > c.locN {
+			return c.locTo
+		}
+		return c.locN
+	}
+	return a.locN <= end(b)+1 && b.locN <= end(a)+1
 }
 
 // plain maps the accented letters of the Latin alphabets to their bare forms.
@@ -230,6 +246,9 @@ func Plan(snap *store.Snapshot, clips []Clipping) []Group {
 		g.Fresh = append(g.Fresh, c)
 	}
 	out := make([]Group, 0, len(groups))
+	// What each book already has, and what this import has taken for it so far: two Kindle titles can be one
+	// book on the shelf (a sample and the bought edition), and a note can be in the file twice.
+	have := map[string]map[string]bool{}
 	for _, g := range groups {
 		b, ok := match(snap, g.Title, g.Author)
 		if !ok {
@@ -238,16 +257,21 @@ func Plan(snap *store.Snapshot, clips []Clipping) []Group {
 			continue
 		}
 		g.BookID, g.BookTitle = b.ID, b.Title
-		have := map[string]bool{}
-		for _, e := range snap.Entries[b.ID] {
-			have[key(e.Quote, e.Text)] = true
+		kept := have[b.ID]
+		if kept == nil {
+			kept = map[string]bool{}
+			for _, e := range snap.Entries[b.ID] {
+				kept[key(e.Quote, e.Text)] = true
+			}
+			have[b.ID] = kept
 		}
 		var fresh []Clipping
 		for _, c := range g.Fresh {
-			if have[key(c.Quote, c.Text)] {
+			if kept[key(c.Quote, c.Text)] {
 				g.Same++
 				continue
 			}
+			kept[key(c.Quote, c.Text)] = true
 			// Kindle's page numbers are the print edition's; one that runs past this copy's pages is left for the location.
 			if w := c.Where; w != nil && w.Kind == store.WherePage && b.Pages != nil && w.N > *b.Pages {
 				c.Where = c.Loc
@@ -276,13 +300,22 @@ func head(title string) string {
 	return title
 }
 
+// match finds the shelf's book for a Kindle title: the very same title first, and only failing that one
+// that shares the part before a subtitle (so "X: Book Two" is never taken for "X: Book One").
 func match(snap *store.Snapshot, title, author string) (store.Book, bool) {
 	t, h := Fold(title), Fold(head(title))
-	var found []store.Book
+	var exact, shared []store.Book
 	for _, b := range snap.Books {
-		if bt := Fold(b.Title); bt == t || bt == h || Fold(head(b.Title)) == h {
-			found = append(found, b)
+		switch bt := Fold(b.Title); {
+		case bt == t:
+			exact = append(exact, b)
+		case bt == h || Fold(head(b.Title)) == h:
+			shared = append(shared, b)
 		}
+	}
+	found := exact
+	if len(found) == 0 {
+		found = shared
 	}
 	if len(found) > 1 && author != "" {
 		sur := Fold(author)

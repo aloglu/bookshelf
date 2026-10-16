@@ -19,6 +19,7 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	_ "time/tzdata" // the time zones, carried in the program: a Windows computer has none for it to read
 
 	"github.com/aloglu/bookshelf/internal/auth"
 	"github.com/aloglu/bookshelf/internal/backup"

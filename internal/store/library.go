@@ -171,10 +171,10 @@ func insertLibrary(ctx context.Context, tx *sql.Tx, snap *Snapshot, lib Library,
 		}
 		in := EntryInput{Pre: e.Pre, Quote: e.Quote, Text: e.Text, Where: e.Where, Public: e.Public}
 		b := work.Books[work.byID[book]]
-		err := in.check(work, b, now.Add(24*time.Hour))
-		if err != nil && in.Where != nil { // a place that no longer fits the book (its page count was lowered) is let go
+		err := in.check(work, b, now.Add(24*time.Hour), e.Where) // its place is its own, even past a lowered page count
+		if err != nil && in.Where != nil {                       // a place that isn't one at all is let go, and the note kept
 			in.Where = nil
-			err = in.check(work, b, now.Add(24*time.Hour))
+			err = in.check(work, b, now.Add(24*time.Hour), nil)
 		}
 		if err != nil {
 			if skipExisting {

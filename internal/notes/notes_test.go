@@ -161,6 +161,100 @@ func TestMarkdown(t *testing.T) {
 	}
 }
 
+// The same words highlighted at another place in the book are another highlight; at the same place (the
+// Kindle writes a highlight again when it is lengthened) they are one.
+func TestClippingsSameWordsElsewhere(t *testing.T) {
+	file := "Poems (Edgar Allan Poe)\n- Your Highlight on Location 100-100 | Added on Saturday, 14 June 2025 06:40:05\n\nNevermore.\n==========\n" +
+		"Poems (Edgar Allan Poe)\n- Your Note on Location 100 | Added on Saturday, 14 June 2025 06:40:30\n\nThe first time.\n==========\n" +
+		"Poems (Edgar Allan Poe)\n- Your Highlight on Location 180-181 | Added on Saturday, 14 June 2025 06:50:05\n\nNevermore.\n==========\n" +
+		"Poems (Edgar Allan Poe)\n- Your Highlight on Location 180-182 | Added on Saturday, 14 June 2025 06:50:40\n\nNevermore. Quoth the Raven.\n==========\n"
+	got := ParseClippings(file, time.UTC)
+	if len(got) != 2 || got[0].Quote != "Nevermore." || got[0].Text != "The first time." || got[1].Quote != "Nevermore. Quoth the Raven." {
+		t.Fatalf("two places, two highlights (the second lengthened in place): %+v", got)
+	}
+}
+
+// A Kindle title takes the shelf's book with the very same title before one that only shares its first part,
+// and one import never adds the same note twice: two Kindle titles can be one book, and a note can repeat.
+func TestPlanMatchesAndDedupes(t *testing.T) {
+	s, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { s.Close() })
+	ctx := context.Background()
+	one, _ := s.AddBook(ctx, store.BookInput{Title: "The Lord of the Rings: The Fellowship of the Ring", Author: "J. R. R. Tolkien"})
+	two, _ := s.AddBook(ctx, store.BookInput{Title: "The Lord of the Rings: The Two Towers", Author: "J. R. R. Tolkien"})
+	mm, _ := s.AddBook(ctx, store.BookInput{Title: "Middlemarch", Author: "George Eliot"})
+	clips := []Clipping{
+		{Title: "The Lord of the Rings: The Two Towers", Author: "J.R.R. Tolkien", Quote: "Not all those who wander are lost."},
+		{Title: "Middlemarch", Author: "George Eliot", Quote: "Every limit is a beginning."},
+		{Title: "Middlemarch (Penguin Classics)", Author: "George Eliot", Quote: "Every limit is a beginning."},
+		{Title: "Middlemarch", Author: "George Eliot", Text: "A thought."},
+		{Title: "Middlemarch", Author: "George Eliot", Text: "A thought."},
+	}
+	plan := Plan(s.Snapshot(), clips)
+	adds := map[string]int{}
+	for _, g := range plan {
+		adds[g.BookID] += len(g.Fresh)
+	}
+	if adds[two.ID] != 1 || adds[one.ID] != 0 {
+		t.Errorf("the Two Towers' highlight belongs to The Two Towers: %+v", plan)
+	}
+	if adds[mm.ID] != 2 {
+		t.Errorf("Middlemarch gets the passage and the thought once each, not %d", adds[mm.ID])
+	}
+}
+
+// Without private notes, an export holds exactly what visitors can read: nothing where the site keeps a book's
+// notes from them, and no readings, which visitors are never told about. A day a reading ended is printed as it
+// was given, whatever the reader's time zone.
+func TestMarkdownAsVisitorsRead(t *testing.T) {
+	s, books := shelf(t)
+	ctx := context.Background()
+	mm := books["Middlemarch"]
+	first, err := s.MarkRead(ctx, mm.ID, store.When{Time: time.Date(2024, 3, 12, 0, 0, 0, 0, time.UTC), Precision: store.Day})
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, _ := s.StartReading(ctx, mm.ID)
+	s.AddEntry(ctx, mm.ID, store.EntryInput{Text: "From the first.", ReadingID: first.ID, Public: true})
+	s.AddEntry(ctx, mm.ID, store.EntryInput{Text: "From the second.", ReadingID: second.ID, Public: true})
+	ny, err := time.LoadLocation("America/New_York")
+	if err != nil {
+		t.Fatal(err)
+	}
+	own := BookMarkdown(s.Snapshot(), mm, true, ny)
+	if !strings.Contains(own, "First reading — finished Mar 12, 2024") {
+		t.Errorf("the owner's export names its readings, on the day given:\n%s", own)
+	}
+	pub := BookMarkdown(s.Snapshot(), mm, false, ny)
+	if strings.Contains(pub, "reading —") || !strings.Contains(pub, "From the first.") || !strings.Contains(pub, "From the second.") {
+		t.Errorf("visitors' export keeps the notes, without readings:\n%s", pub)
+	}
+	for _, c := range []struct {
+		name string
+		edit func()
+	}{
+		{"notes switched off", func() { s.UpdateSettings(ctx, func(st *store.Settings) { st.Notes = false }) }},
+		{"a private library", func() { s.UpdateSettings(ctx, func(st *store.Settings) { st.Notes, st.Private = true, true }) }},
+		{"the book's notes hidden", func() {
+			s.UpdateSettings(ctx, func(st *store.Settings) { st.Private = false })
+			s.SetNotesHidden(ctx, mm.ID, true)
+		}},
+		{"the book hidden", func() {
+			s.SetNotesHidden(ctx, mm.ID, false)
+			s.SetHidden(ctx, []string{mm.ID}, true)
+		}},
+	} {
+		c.edit()
+		b, _ := s.Snapshot().Book(mm.ID)
+		if got := BookMarkdown(s.Snapshot(), b, false, time.UTC) + AllMarkdown(s.Snapshot(), false, time.Now(), time.UTC); got != "" {
+			t.Errorf("%s: visitors can read none of it, yet the export holds:\n%s", c.name, got)
+		}
+	}
+}
+
 func TestHeadDropsSubtitleAndEdition(t *testing.T) {
 	for in, want := range map[string]string{
 		"Frankenstein; Or, The Modern Prometheus": "Frankenstein",

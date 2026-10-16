@@ -12,10 +12,6 @@ import (
 	"github.com/aloglu/bookshelf/internal/store"
 )
 
-// notesOpen says whether visitors may read a book's public notes: the owner has not switched notes off
-// for visitors, and has not kept this book's notes from them.
-func notesOpen(st store.Settings, b store.Book) bool { return st.Notes && !b.NotesHidden }
-
 // readableBy is a book's notes as one audience may read them: all of them for the owner; for visitors only
 // the public ones, never which reading one came from, and nothing for a hidden book, a book whose notes
 // are kept from them, notes switched off, or a private library.
@@ -25,7 +21,7 @@ func readableBy(snap *store.Snapshot, b store.Book, owner bool) []store.Entry {
 		switch {
 		case owner:
 			out = append(out, e)
-		case e.Public && !b.Hidden && !snap.Settings.Private && notesOpen(snap.Settings, b):
+		case e.Public && snap.VisitorsReadNotes(b):
 			e.ReadingID = ""
 			out = append(out, e)
 		}
@@ -37,7 +33,7 @@ func readableBy(snap *store.Snapshot, b store.Book, owner bool) []store.Entry {
 func (s *Server) listEntries(w http.ResponseWriter, r *http.Request) {
 	snap, owner := s.Store.Snapshot(), s.isOwner(r)
 	b, ok := snap.Book(r.PathValue("id"))
-	if !ok || (!owner && (b.Hidden || snap.Settings.Private || !notesOpen(snap.Settings, b))) {
+	if !ok || (!owner && !snap.VisitorsReadNotes(b)) {
 		fail(w, http.StatusNotFound, "No such book.")
 		return
 	}
@@ -73,13 +69,13 @@ func (s *Server) listNotes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	asOwner := owner && r.URL.Query().Get("view") != "visitors"
-	var all []store.Entry
+	all := []store.Entry{} // an empty list, never null, when there is nothing to read
 	for _, b := range snap.Books {
 		if asOwner {
 			all = append(all, snap.Entries[b.ID]...)
 			continue
 		}
-		if b.Hidden || !notesOpen(st, b) {
+		if !snap.VisitorsReadNotes(b) {
 			continue
 		}
 		for _, e := range snap.Entries[b.ID] {

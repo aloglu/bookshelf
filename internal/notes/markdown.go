@@ -65,11 +65,12 @@ func oldestFirst(list []store.Entry) []store.Entry {
 	return out
 }
 
-// visible are a book's notes as the audience may read them: every one, or only the public ones.
-func visible(snap *store.Snapshot, bookID string, private bool) []store.Entry {
+// visible are a book's notes as the audience may read them: every one, or exactly what visitors can read
+// (public notes, and none at all where the site keeps them from visitors).
+func visible(snap *store.Snapshot, b store.Book, private bool) []store.Entry {
 	var out []store.Entry
-	for _, e := range snap.Entries[bookID] {
-		if private || e.Public {
+	for _, e := range snap.Entries[b.ID] {
+		if private || (e.Public && snap.VisitorsReadNotes(b)) {
 			out = append(out, e)
 		}
 	}
@@ -77,7 +78,7 @@ func visible(snap *store.Snapshot, bookID string, private bool) []store.Entry {
 }
 
 func bookMarkdown(snap *store.Snapshot, b store.Book, private bool, level int, zone *time.Location) string {
-	es := visible(snap, b.ID, private)
+	es := visible(snap, b, private)
 	if len(es) == 0 {
 		return ""
 	}
@@ -99,7 +100,7 @@ func bookMarkdown(snap *store.Snapshot, b store.Book, private bool, level int, z
 			loose = append(loose, e)
 		}
 	}
-	if len(readings) < 2 {
+	if len(readings) < 2 || !private { // visitors are never told about readings
 		for _, e := range oldestFirst(es) {
 			out.WriteString(entryMarkdown(e, private, zone))
 			out.WriteString("\n")
@@ -113,7 +114,11 @@ func bookMarkdown(snap *store.Snapshot, b store.Book, private bool, level int, z
 		}
 		state := "under way"
 		if r.Outcome != store.OutcomeReading && r.Ended.Known() {
-			state = "finished " + r.Ended.Time.In(zone).Format("Jan 2, 2006")
+			ended := r.Ended.Time // a day is kept as it was given; only a moment is the reader's
+			if r.Ended.Precision == store.Instant {
+				ended = ended.In(zone)
+			}
+			state = "finished " + ended.Format("Jan 2, 2006")
 			if r.Ended.Precision == store.Year {
 				state = "finished " + strconv.Itoa(r.Ended.Time.Year())
 			}
@@ -135,7 +140,7 @@ func bookMarkdown(snap *store.Snapshot, b store.Book, private bool, level int, z
 }
 
 // BookMarkdown is one book's notes as a Markdown file, with its details in front matter. It is empty when
-// there is nothing to say. Only public notes unless private is set. Dates are given in zone, the reader's.
+// there is nothing to say. Only what visitors can read unless private is set. Dates are given in zone, the reader's.
 func BookMarkdown(snap *store.Snapshot, b store.Book, private bool, zone *time.Location) string {
 	body := bookMarkdown(snap, b, private, 1, zone)
 	if body == "" {
@@ -145,18 +150,15 @@ func BookMarkdown(snap *store.Snapshot, b store.Book, private bool, zone *time.L
 	if b.Published != nil {
 		front += "year: " + strconv.Itoa(*b.Published) + "\n"
 	}
-	front += "notes: " + strconv.Itoa(len(visible(snap, b.ID, private))) + "\n---\n\n"
+	front += "notes: " + strconv.Itoa(len(visible(snap, b, private))) + "\n---\n\n"
 	return front + body
 }
 
 // AllMarkdown is every book's notes in one file, a heading for each book (in the order of the shelf).
-// With visitors set, books whose notes are hidden from visitors are left out.
+// Without private, it holds what visitors can read and nothing more.
 func AllMarkdown(snap *store.Snapshot, private bool, now time.Time, zone *time.Location) string {
 	var blocks []string
 	for _, b := range snap.Books {
-		if !private && (b.Hidden || b.NotesHidden) {
-			continue
-		}
 		if m := bookMarkdown(snap, b, private, 2, zone); m != "" {
 			blocks = append(blocks, m)
 		}

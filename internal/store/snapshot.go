@@ -20,6 +20,13 @@ type Snapshot struct {
 	Sessions map[string]Session // by token hash
 }
 
+// VisitorsReadNotes says whether visitors may read a book's public notes: the library is open to them, notes
+// are switched on, and neither the book nor its notes are hidden from them. The site and the Markdown export
+// both go by it.
+func (s *Snapshot) VisitorsReadNotes(b Book) bool {
+	return !s.Settings.Private && s.Settings.Notes && !b.Hidden && !b.NotesHidden
+}
+
 // Book returns the book with id.
 func (s *Snapshot) Book(id string) (Book, bool) {
 	i, ok := s.byID[id]

@@ -17,13 +17,18 @@
   $effect(() => { if (!open) asVisitors = false; });
 
   let asVisitors = $state(false), list = $state.raw([]), total = $state(0), more = $state(false), busy = $state(false), menu = $state(false), shownFor = null;
+  // Only the latest answer is shown: switching between Everything and As visitors see it while a page is still
+  // coming can bring the answers back out of order.
+  let asked = 0;
   async function load(before, count = 0) {
+    const n = ++asked;
     busy = true;
     try {
       const r = await allNotes({ asVisitors: ui.owner && asVisitors, before: before?.createdAt, beforeId: before?.id, count });
+      if (n !== asked) return;
       list = before ? [...list, ...r.entries] : r.entries; total = r.total; more = r.more;
-    } catch (err) { toast(err.message); }
-    busy = false;
+    } catch (err) { if (n === asked) toast(err.message); }
+    if (n === asked) busy = false;
   }
   // Opening the page always fetches it anew (notes may have been written since). Coming back to it keeps what
   // it showed meanwhile, and as many notes as it had (older ones included), so it stands as it was left.

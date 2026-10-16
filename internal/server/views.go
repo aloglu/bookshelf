@@ -180,7 +180,7 @@ func build(snap *store.Snapshot, owner bool) *libraryView {
 			bv.Spine = spineView{Color: c, Text: covers.TextFor(c)}
 		}
 		for _, e := range snap.Entries[b.ID] {
-			if owner || (e.Public && notesOpen(st, b)) {
+			if owner || (e.Public && snap.VisitorsReadNotes(b)) {
 				bv.Entries++
 			}
 		}
