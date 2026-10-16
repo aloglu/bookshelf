@@ -10,6 +10,11 @@ Bookshelf runs on a computer of your own: a home server or NAS (Unraid,
 Synology), a Raspberry Pi, a rented server (a VPS), any machine with Docker, or
 as a single program on your own computer. Nothing is stored anywhere else.
 
+<table><tr>
+<td width="75.5%" valign="top"><video src="https://github.com/user-attachments/assets/71573d64-0e36-45af-9820-bde3368facc8"></video></td>
+<td width="24.5%" valign="top"><video src="https://github.com/user-attachments/assets/0e9134f2-4f5b-4790-99d8-002a014c1a9b"></video></td>
+</tr></table>
+
 ## Quick start
 
 With Docker:
