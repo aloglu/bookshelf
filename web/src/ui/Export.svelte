@@ -5,6 +5,7 @@
   import { notesMarkdown, markdownURL } from "../lib/app.svelte.js";
   import { showPanel } from "../lib/panels.js";
   import { toast } from "../lib/toast.js";
+  import { copyText } from "../lib/copy.js";
   import { ICON } from "../lib/notes.js";
 
   let wrap, shown = $state(false), book = $state(null), withPrivate = $state(false), text = $state(""), loading = $state(false);
@@ -27,7 +28,7 @@
     text = got; loading = false;
   }
   async function copy() {
-    try { await navigator.clipboard.writeText(text); toast("Markdown copied"); } catch { toast("Copying isn’t allowed here. Save it as a file instead."); }
+    toast(await copyText(text) ? "Markdown copied" : "Copying isn’t allowed here. Save it as a file instead.");
   }
 </script>
 

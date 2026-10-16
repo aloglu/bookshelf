@@ -12,6 +12,7 @@
   import { fmt, plural } from "../engine/model.js";
   import { known, shortWhen, spanDays, whenText } from "../lib/dates.js";
   import { toast } from "../lib/toast.js";
+  import { copyText } from "../lib/copy.js";
   import { ICON, whereText, newest, byPlace, noteDate } from "../lib/notes.js";
   import NoteEditor from "./NoteEditor.svelte";
 
@@ -151,7 +152,7 @@
     } });
   }
   async function copy(url) {
-    try { await navigator.clipboard.writeText(url); toast("Link copied"); } catch { toast(url); }
+    toast(await copyText(url) ? "Link copied" : url);
   }
   const pageURL = () => `${location.origin}/${book.address}/notes`;
   // A note's date leads to its own page, and its own page to all of them: links, so they open in a new tab

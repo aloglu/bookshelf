@@ -4,6 +4,7 @@
 import { $, EASE, BINDING_NAMES, DIM, dimIn, dimOut, bestCover, bindingOf, cover, coverImg, fmt, isPhone, lastName, motionOK, root, settled, tone, touch } from "./model.js";
 import { onResize, scale, setPeek, slots, view, visibleBooks } from "./shelf.js";
 import { pickColor } from "../lib/colorpicker.js";
+import { copyText } from "../lib/copy.js";
 import { ms, shortDate, shortWhen, whenText } from "../lib/dates.js";
 
 const I = (d) => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
@@ -669,7 +670,7 @@ export function mountReader(el) {
   document.addEventListener("pointerdown", (e) => { if (openMenu && !openMenu.contains(e.target)) closeMenu(); });
   $("copy").addEventListener("click", () => {
     const link = `${location.origin}/${current.address}`;
-    navigator.clipboard?.writeText(link).then(() => hooks.toast("Link copied"), () => hooks.toast(link));
+    copyText(link).then((done) => hooks.toast(done ? "Link copied" : link));
   });
 
   $("edit").addEventListener("click", startEdit);

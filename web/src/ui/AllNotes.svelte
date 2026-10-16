@@ -8,6 +8,7 @@
   import { ui, data, settings, allNotes, updateEntry, deleteEntry, restoreEntry } from "../lib/app.svelte.js";
   import { plural } from "../engine/model.js";
   import { toast } from "../lib/toast.js";
+  import { copyText } from "../lib/copy.js";
   import { ICON, whereText, noteDate, monthOf } from "../lib/notes.js";
   import NoteEditor from "./NoteEditor.svelte";
 
@@ -48,7 +49,7 @@
     return list.filter((e) => bookOf(e.bookId)).map((e) => { const m = monthOf(e.createdAt), head = m !== cur ? m : ""; cur = m; return { e, b: bookOf(e.bookId), head }; });
   });
   async function copy(url) {
-    try { await navigator.clipboard.writeText(url); toast("Link copied"); } catch { toast(url); }
+    toast(await copyText(url) ? "Link copied" : url);
   }
   $effect(() => {
     if (!menu) return;
