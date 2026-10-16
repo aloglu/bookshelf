@@ -1,7 +1,10 @@
 # Updating Bookshelf
 
-Updating never touches your library: it replaces only the program. Still, it's
-a good habit to **Back up now** first (Settings → Your library → Backups).
+Updating replaces the program. Some versions also bring your library up to
+date the first time they start (2.1 does, to keep notes); after that, the
+older version can't open it. So **Back up now** first (Settings → Your
+library → Backups): to go back, start the older version on an empty data
+folder and restore that backup.
 
 ## Knowing when a new version is out
 
