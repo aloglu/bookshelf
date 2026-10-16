@@ -1,6 +1,7 @@
 <script>
-  // Author, Title, Year. The active one shows which way it runs; choosing it again turns it round. Every
-  // button keeps room for the arrow, so changing the sort never moves the tools beside it.
+  // Author, Title, Year. The active one shows which way it runs; choosing it again turns it round. Only the
+  // active button has room for the arrow; moving it from one to another keeps the whole control as wide, so
+  // the tools beside it never move.
   import { ui, setSort } from "../lib/app.svelte.js";
   import { SORT_WAYS } from "../engine/model.js";
 

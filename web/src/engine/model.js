@@ -22,7 +22,11 @@ export const fmt = (n) => (n ?? 0).toLocaleString("en-US");
 export const plural = (n, unit) => `${fmt(n)} ${unit}${n === 1 ? "" : "s"}`;
 
 export const hash = (s) => { let h = 2166136261; for (const c of s) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return h >>> 0; };
-export const fold = (s) => String(s ?? "").toLowerCase().normalize("NFD").replace(/\p{M}/gu, "");
+// Text as a search compares it: lower case and without accents, so "populer" finds "Popüler". A few letters
+// have no accent to take off and are read as their plain letter: the Turkish dotless ı as i, ø as o, ß as ss
+// (as the Kindle import compares titles).
+const BARE = { ı: "i", ø: "o", ł: "l", đ: "d", ß: "ss", æ: "ae", œ: "oe" };
+export const fold = (s) => String(s ?? "").toLowerCase().normalize("NFD").replace(/\p{M}/gu, "").replace(/[ıøłđßæœ]/g, (c) => BARE[c]);
 export const lastName = (a) => (a || "").trim().split(/\s+/).pop();
 const article = /^(the|a|an) /i;
 

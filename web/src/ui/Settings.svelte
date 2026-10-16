@@ -4,7 +4,7 @@
   // rest. The shelf section has a preview of the shelf, by day or by evening, drawn by the shelf's own rules.
   import { untrack } from "svelte";
   import { ui, data, patchSettings, reload, signOut, showSort, checkUpdates, setIcon, iconURL } from "../lib/app.svelte.js";
-  import { SORT_WAYS, isPhone, lastName, reheight, sortBooks, spineHeight } from "../engine/model.js";
+  import { SORT_WAYS, fold, isPhone, lastName, reheight, sortBooks, spineHeight } from "../engine/model.js";
   import { api } from "../lib/api.js";
   import { toast, savedToast } from "../lib/toast.js";
   import { pill } from "../lib/pill.js";
@@ -156,14 +156,14 @@
   /* ---------- Notes ---------- */
   // Visitors' notes are exceptions, not a list: only the books whose notes are hidden are listed, and a finder
   // (type a title or author) picks one to hide, or one to export. Built for hundreds of books.
-  const fold = (t) => (t || "").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/ı/g, "i").replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+  const words = (t) => fold(t).replace(/[^\p{L}\p{N}]+/gu, " ").trim();
   let hideQuery = $state(""), exportQuery = $state("");
   const noted = $derived(data.books.filter((b) => b.entries > 0));
   const hiddenNotes = $derived(data.books.filter((b) => b.notesHidden));
   const reach = $derived(st?.notes ? data.books.filter((b) => !b.hidden && !b.notesHidden && b.notesPublic) : []);
   function found(q, pool) {
-    const n = fold(q);
-    const hits = n ? pool.filter((b) => fold(`${b.title} ${b.author}`).includes(n)) : [...pool].sort((a, b) => Date.parse(b.notesLast || 0) - Date.parse(a.notesLast || 0));
+    const n = words(q);
+    const hits = n ? pool.filter((b) => words(`${b.title} ${b.author}`).includes(n)) : [...pool].sort((a, b) => Date.parse(b.notesLast || 0) - Date.parse(a.notesLast || 0));
     return { n, hits, shown: hits.slice(0, n ? 5 : 4) };
   }
   async function hideNotes(b, hidden) {

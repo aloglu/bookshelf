@@ -11,7 +11,8 @@ visitors see too.
   the right. **Previous** and **Next** (or the arrow keys, or a swipe on a
   phone) step along the shelf; **Put back** (or Esc) returns it to its place.
 - **Search** (the magnifying glass) finds books by title, author, translator,
-  publisher, year or ISBN as you type. On a wide screen it opens across the
+  publisher, year or ISBN as you type; accents don't matter ("populer kultur"
+  finds *Popüler Kültür*, "kitalar" finds *Kıtalar*). On a wide screen it opens across the
   other buttons, which come back when you clear or close it. Esc clears it.
 - **Author, Title, Year** sort the shelf. Choose the same one again to turn it
   round (Z to A, newest first); the small arrow shows which way it runs. Books
