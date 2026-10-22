@@ -41,10 +41,16 @@ jobs:
           go build -o bookshelf ./cmd/bookshelf
 
       - name: Browser regressions
-        working-directory: web
         run: |
-          npx playwright install --with-deps chromium firefox
-          npm run test:browser
+          # Keep the image version aligned with Playwright in web/package-lock.json.
+          # Its browsers and system libraries avoid apt mirror downloads during checks.
+          docker run --rm --init --shm-size=1g \
+            --user "$(id -u):$(id -g)" \
+            -v "$GITHUB_WORKSPACE:/work" -w /work/web \
+            -e BOOKSHELF_TEST_BINARY=/work/bookshelf \
+            -e npm_config_cache=/tmp/bookshelf-npm -e CI=true \
+            mcr.microsoft.com/playwright:v1.64.1-noble@sha256:7852dc5a7d72f5fe458a597d690f6c42fbc8e9e26ddfa95f8e6ef552558d9bbf \
+            npm run test:browser
 
       - name: Keep failed browser traces
         if: failure()
