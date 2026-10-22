@@ -4,16 +4,14 @@
   // entered by hand.
   import { tick } from "svelte";
   import { api } from "../lib/api.js";
-  import { data, reload, ui } from "../lib/app.svelte.js";
+  import { data, ui } from "../lib/app.svelte.js";
   import { showPanel, hidePanel } from "../lib/panels.js";
   import { toast } from "../lib/toast.js";
   import { cameraProblem, scan } from "../lib/scan.js";
-  import { flyIn, openBook } from "../engine/reader.js";
-  import { relayout, slots } from "../engine/shelf.js";
   import { setQuery } from "../lib/app.svelte.js";
   import { touch } from "../engine/model.js";
 
-  let { openShelved } = $props();
+  let { openShelved, showAdded } = $props();
   let wrap, card, findInput, video, addForm = $state();
   let step = $state("find"), id = $state(""), status = $state(null), asking = 0, scanning = null;
   let draft = $state(null), err = $state(""), busy = $state(false);
@@ -69,19 +67,23 @@
   async function startScan() {
     const problem = cameraProblem();
     if (problem) { status = { text: problem }; return; }
+    scanning?.abort();
+    const session = new AbortController();
+    scanning = session;
     step = "scan";
     await tick();
-    scanning = new AbortController();
+    if (scanning !== session || session.signal.aborted) return;
     try {
-      const code = await scan(video, scanning.signal);
-      if (step !== "scan") return;
+      const code = await scan(video, session.signal);
+      if (scanning !== session || step !== "scan") return;
       step = "find"; id = code;
       lookUp("read from the barcode");
     } catch (e) {
-      if (e.name === "AbortError") return;
+      if (e.name === "AbortError" || scanning !== session) return;
       step = "find";
-      status = { text: e.name === "NotAllowedError" ? "Bookshelf wasn’t allowed to use the camera. Type the ISBN instead." : "The camera couldn’t be started. Type the ISBN instead." };
-    } finally { scanning = null; }
+      status = { text: e.name === "BarcodeError" ? "The barcode reader couldn’t read the camera. Try scanning again, or type the ISBN."
+        : e.name === "NotAllowedError" ? "Bookshelf wasn’t allowed to use the camera. Type the ISBN instead." : "The camera couldn’t be started. Type the ISBN instead." };
+    } finally { if (scanning === session) scanning = null; }
   }
   function pickCover(e) {
     const file = e.target.files[0]; e.target.value = "";
@@ -112,15 +114,11 @@
     busy = false;
     await hidePanel(wrap);
     if (ui.query) { setQuery(""); document.getElementById("q").value = ""; }
-    await reload();
-    const shelved = data.books.find((x) => x.id === b.id);
-    if (!shelved) return;
-    await flyIn(shelved, relayout);
-    toast(`“${shelved.title}” is on the shelf`, { label: "Open it", run: () => openBook(shelved, slots.get(shelved.key)) });
+    await showAdded(b.id);
   }
 </script>
 
-<div class="modal" id="adder" hidden bind:this={wrap} onpanelclose={() => { asking++; scanning?.abort(); }}>
+<div class="modal" id="adder" hidden bind:this={wrap} onpanelhide={() => { asking++; scanning?.abort(); }}>
   <div class="modal-scrim" data-close></div>
   <section class="card wide" role="dialog" aria-modal="true" aria-labelledby="add-h" bind:this={card}>
     <button type="button" class="btn icon x" data-close aria-label="Close"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>

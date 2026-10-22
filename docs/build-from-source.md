@@ -64,6 +64,21 @@ go vet ./...
 go test ./...
 ```
 
+The scanner and browser regressions run from `web/`:
+
+```bash
+npm ci
+npm test
+npm run build
+npx playwright install chromium firefox
+npm run test:browser
+```
+
+The browser suite builds a server and uses a new temporary library on port
+18323. It stops the server and removes that test library afterwards. The
+[review checklist](REVIEW-TESTING.md) covers separate Docker deployment and
+the real-device checks that these automated tests cannot establish.
+
 ## Build the Docker image
 
 ```bash

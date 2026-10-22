@@ -1,16 +1,52 @@
 // Reading a book's barcode with the camera: the browser's own barcode reader where it has one,
 // otherwise ZXing, loaded only when scanning starts and served by Bookshelf itself (never a CDN).
-async function detector() {
-  if ("BarcodeDetector" in window) {
-    const formats = await window.BarcodeDetector.getSupportedFormats?.().catch(() => []);
-    if (formats?.includes("ean_13")) return new window.BarcodeDetector({ formats: ["ean_13"] });
+async function fallbackDetector() {
+  try {
+    const [{ BarcodeDetector, prepareZXingModule }, { default: wasm }] = await Promise.all([
+      import("barcode-detector/ponyfill"),
+      import("zxing-wasm/reader/zxing_reader.wasm?url"),
+    ]);
+    prepareZXingModule({ overrides: { locateFile: (path, prefix) => (path.endsWith(".wasm") ? wasm : prefix + path) } });
+    return { reader: new BarcodeDetector({ formats: ["ean_13"] }), native: false };
+  } catch {
+    throw barcodeError();
   }
-  const [{ BarcodeDetector, prepareZXingModule }, { default: wasm }] = await Promise.all([
-    import("barcode-detector/ponyfill"),
-    import("zxing-wasm/reader/zxing_reader.wasm?url"),
-  ]);
-  prepareZXingModule({ overrides: { locateFile: (path, prefix) => (path.endsWith(".wasm") ? wasm : prefix + path) } });
-  return new BarcodeDetector({ formats: ["ean_13"] });
+}
+async function detector() {
+  try {
+    const Native = window.BarcodeDetector;
+    const formats = await Native?.getSupportedFormats?.();
+    if (formats?.includes("ean_13")) return { reader: new Native({ formats: ["ean_13"] }), native: true };
+  } catch { /* A broken native reader still has the bundled reader to fall back to. */ }
+  return fallbackDetector();
+}
+const stopped = () => new DOMException("Stopped", "AbortError");
+function barcodeError() {
+  const error = new Error("The barcode reader could not read the camera.");
+  error.name = "BarcodeError";
+  return error;
+}
+// Camera permission, playback and decoding can all settle after the card closes.
+function active(promise, signal) {
+  return new Promise((resolve, reject) => {
+    const abort = () => { signal.removeEventListener("abort", abort); reject(stopped()); };
+    const finish = (fn, value) => { signal.removeEventListener("abort", abort); fn(value); };
+    signal.addEventListener("abort", abort, { once: true });
+    promise.then((value) => finish(resolve, value), (error) => finish(reject, error));
+    if (signal.aborted) abort();
+  });
+}
+function pause(signal) {
+  return new Promise((resolve, reject) => {
+    const abort = () => { clearTimeout(timer); reject(stopped()); };
+    const timer = setTimeout(() => { signal.removeEventListener("abort", abort); resolve(); }, 180);
+    signal.addEventListener("abort", abort, { once: true });
+    if (signal.aborted) { signal.removeEventListener("abort", abort); abort(); }
+  });
+}
+function bookCode(value) {
+  if (!/^97[789]\d{10}$/.test(value)) return false;
+  return [...value].reduce((sum, n, i) => sum + Number(n) * (i % 2 ? 3 : 1), 0) % 10 === 0;
 }
 
 // Why the camera can't be used here, if it can't.
@@ -20,25 +56,61 @@ export function cameraProblem() {
   return "";
 }
 
-// Shows the camera in `video` and resolves with the first book barcode it reads: an ISBN (978, 979) or
-// a periodical's ISSN barcode (977). Stops when `signal` aborts.
+// Prefer more captured detail for narrow bars. These are ideals: the browser can supply a smaller
+// stream. Full intrinsic video frames still go to the decoder; the guide does not resample them.
 export async function scan(video, signal) {
-  const [found, stream] = await Promise.all([detector(), navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false })]);
-  const stop = () => stream.getTracks().forEach((t) => t.stop());
-  if (signal.aborted) { stop(); throw new DOMException("Stopped", "AbortError"); }
-  signal.addEventListener("abort", stop);
-  video.srcObject = stream;
-  await video.play();
+  if (signal.aborted) throw stopped();
+  let backend = await active(detector(), signal);
+  if (signal.aborted) throw stopped();
+  let stream;
+  const stopTracks = (s) => s.getTracks().forEach((t) => t.stop());
+  const stop = () => { if (stream) stopTracks(stream); };
+  const camera = async (constraints) => {
+    const opening = navigator.mediaDevices.getUserMedia({ video: constraints, audio: false });
+    // A late permission grant must be cleaned up even though scan() has already been cancelled.
+    opening.then((s) => { if (signal.aborted) stopTracks(s); }, () => {});
+    return active(opening, signal);
+  };
   try {
-    while (!signal.aborted) {
-      const codes = await found.detect(video).catch(() => []);
-      const hit = codes.find((c) => /^97[789]\d{10}$/.test(c.rawValue));
-      if (hit) return hit.rawValue;
-      await new Promise((r) => setTimeout(r, 180));
+    try {
+      stream = await camera({ facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } });
+    } catch (error) {
+      if (signal.aborted || error.name !== "OverconstrainedError") throw error;
+      stream = await camera({ facingMode: "environment" });
     }
-    throw new DOMException("Stopped", "AbortError");
+    if (signal.aborted) throw stopped();
+    signal.addEventListener("abort", stop, { once: true });
+    video.srcObject = stream;
+    await active(video.play(), signal);
+    const { width, height, frameRate } = stream.getVideoTracks()[0].getSettings();
+    // No images or identifiers: useful when comparing a test device's actual capture settings.
+    console.debug("Bookshelf scanner", { backend: backend.native ? "native" : "ZXing", width, height, frameRate });
+    let errors = 0, misses = 0;
+    while (!signal.aborted) {
+      let codes;
+      try {
+        codes = await active(backend.reader.detect(video), signal);
+        errors = 0;
+      } catch (error) {
+        if (signal.aborted) throw stopped();
+        if (!backend.native && ++errors >= 3) throw barcodeError();
+      }
+      if (signal.aborted) throw stopped();
+      const hit = codes?.find((c) => bookCode(c.rawValue));
+      if (hit) return hit.rawValue;
+      // Retry a native exception immediately, or sustained misses once, with the bundled reader.
+      // A failing WASM reader surfaces an error; an ordinary miss keeps scanning until cancelled.
+      if (backend.native && (!codes || ++misses >= 12)) {
+        backend = await active(fallbackDetector(), signal);
+        errors = 0;
+        console.debug("Bookshelf scanner", { backend: "ZXing", reason: codes ? "native misses" : "native error" });
+      }
+      await pause(signal);
+    }
+    throw stopped();
   } finally {
+    signal.removeEventListener("abort", stop);
     stop();
-    video.srcObject = null;
+    if (stream && video.srcObject === stream) video.srcObject = null;
   }
 }

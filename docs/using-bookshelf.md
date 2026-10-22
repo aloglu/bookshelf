@@ -55,11 +55,15 @@ Click **+** (Add book) in the header.
    click **Look up**. Bookshelf asks Open Library, then Google Books.
 2. A card shows what was found, with the cover. Every field can be changed;
    **Replace cover** takes a picture of your own. Click **Add to the shelf** and
-   the book flies into its place.
+   the shelf scrolls to its place, the book flies in, and its details open.
+   Adding from Statistics, All notes, or Settings returns to the shelf first;
+   an active search is cleared so the new book is visible.
 
 - **Scan barcode** uses the camera instead of typing. Browsers only allow the
   camera on a secure (https) address, or on the computer Bookshelf runs on; see
-  [Putting your shelf online](remote-access.md).
+  [Putting your shelf online](remote-access.md). Hold the whole barcode steady
+  in the preview. If the reader reports an error, try scanning again or type
+  the number. Closing the card or choosing **Type it instead** stops the camera.
 - **No ISBN, or nothing found?** Click **Enter the details by hand**. Only the
   title is required. A book without a cover gets a plain cloth cover with its
   title stamped on.

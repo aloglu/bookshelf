@@ -4,7 +4,7 @@
   import { onMount, tick } from "svelte";
   import { ui, data, load, reload, fetchEntriesEarly, setSelecting, toggleChosen, saveBook, replaceCover, setSpine, setHidden, removeBooks, startReading, finishReading, setAside } from "./lib/app.svelte.js";
   import { mountShelves, relayout, slots, view } from "./engine/shelf.js";
-  import { mountReader, openBook, closeBook, closeOnto, showInHand, canLeave, hooks, isOpen, dismissInBook, zoomed, putZoomBack } from "./engine/reader.js";
+  import { mountReader, openBook, closeBook, closeOnto, showInHand, canLeave, hooks, isOpen, dismissInBook, zoomed, putZoomBack, flyIn } from "./engine/reader.js";
   import { cloth } from "./engine/look.js";
   import { isPhone, motionOK, root } from "./engine/model.js";
   import { closePicker } from "./lib/colorpicker.js";
@@ -108,11 +108,11 @@
   let leaving = null;
   function putBack() {
     const { run, depth, under } = entry();
-    if (!depth) return replace(under);   // the visit began on this book: nothing to go back to
-    leaving = under;
+    if (!depth) return replace(under, { y: scrollY });   // the visit began on this book: nothing to go back to
+    leaving = { path: under, y: scrollY };   // keep the row the closing flight actually landed on
     history.go(-Math.min(run, depth));   // past the start of the visit if it began on one of these books
     // A browser keeps only so many steps; if the run went further back than that, the address is set here.
-    setTimeout(() => { if (leaving && place(location.pathname).b) { replace(leaving); leaving = null; } }, 400);
+    setTimeout(() => { if (leaving && place(location.pathname).b) { replace(leaving.path, { y: leaving.y }); leaving = null; } }, 400);
   }
   Object.assign(hooks, {
     opened: (b) => push("/" + b.address, { under: location.pathname, run: 1 }),
@@ -133,14 +133,19 @@
     header.closeMenu(); closePicker();
     const p = openPanel(); if (p) hidePanel(p);
     let at = place(location.pathname);
+    const landed = leaving !== null;
     if (leaving) {
-      if (at.b && !at.v) { replace(leaving); at = place(leaving); }
+      if (at.b && !at.v) { replace(leaving.path); at = place(leaving.path); }
+      // Put back has already landed. Browser Back/Forward still restore their own saved position.
+      st.y = leaving.y;
+      history.replaceState({ ...entry(), y: st.y }, "");
       leaving = null;
     }
     if (at.b && !at.v) return takeOut(at.b, st, dir);
     if (isOpen()) await closeBook();
     setView(at.v, at.b, { section: at.section, note: at.note, how: at.lost ? "replace" : "none" });
-    await restore(st.y);
+    // Put back only needs the address changed: rebuilding its already visible shelf can shift it again.
+    if (!landed) await restore(st.y);
   }
   // The page as it was left: the shelf laid out again (it was out of sight) and scrolled where it stood.
   async function restore(y) {
@@ -184,12 +189,12 @@
   // A book out of sight is scrolled to first; it leaves the shelf only once it has come to rest there (a flight
   // that starts while the page still moves takes off from the wrong place and looks rushed). Rest means the book
   // is on screen and has stopped moving; scrollend isn't relied on, as Safari may not send it.
-  async function openShelved(b) {
+  async function prepareShelved(b, added = false) {
     const el = slots.get(b?.key);
     if (!el) return;
     const r = el.getBoundingClientRect(), far = r.bottom < 0 || r.top > innerHeight;
-    if (far) await layOutShelves();
-    if (far && motionOK()) {
+    if (far || added) await layOutShelves();
+    if ((far || added) && motionOK()) {
       el.scrollIntoView({ block: "center", behavior: "smooth" });
       await new Promise((done) => {
         const until = performance.now() + 3000;
@@ -203,8 +208,24 @@
         };
         setTimeout(look, 40);
       });
-    } else if (far) el.scrollIntoView({ block: "center", behavior: "instant" });
-    openBook(b, el);
+    } else if (far || added) el.scrollIntoView({ block: "center", behavior: "instant" });
+    return el;
+  }
+  async function openShelved(b) {
+    const el = await prepareShelved(b);
+    if (el) await openBook(b, el);
+  }
+  // Adding from another page first brings back the shelf. Reload does its one layout there;
+  // the destination settles before the arrival, and the new book then opens through normal history.
+  async function showAdded(bookId) {
+    setView("shelf");
+    await tick();
+    await reload();
+    const b = data.books.find((x) => x.id === bookId);
+    const el = await prepareShelved(b, true);
+    if (!el || ui.view !== "shelf") return;
+    await flyIn(b);
+    if (ui.view === "shelf" && !isOpen()) await openBook(b, el);
   }
   // Shelves out of view aren't laid out; each stands in at a guessed height until it has been drawn once (then
   // it keeps its real one). On a first visit a scroll to a far book would aim with those guesses and stop in
@@ -289,5 +310,5 @@
 <Selbar />
 <PhoneMenu bind:this={phoneMenu} {setView} />
 <Marker bind:this={marker} onNote={openNotes} />
-<Adder bind:this={adder} {openShelved} />
+<Adder bind:this={adder} {openShelved} {showAdded} />
 <Export bind:this={exporter} />

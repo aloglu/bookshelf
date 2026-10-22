@@ -1,0 +1,19 @@
+# An isolated instance of the review branch. See docs/REVIEW-TESTING.md.
+name: bookshelf-review
+services:
+  bookshelf-review:
+    image: ${BOOKSHELF_REVIEW_IMAGE:-ghcr.io/aloglu/bookshelf:review-fixes}
+    container_name: bookshelf-review
+    restart: unless-stopped
+    ports:
+      - "${BOOKSHELF_REVIEW_BIND:-127.0.0.1}:${BOOKSHELF_REVIEW_PORT:-18081}:8080"
+    environment:
+      BOOKSHELF_ADMIN_USER: admin
+      BOOKSHELF_ADMIN_PASSWORD: "${BOOKSHELF_REVIEW_PASSWORD:?Set a password for the review instance}"
+      BOOKSHELF_TRUSTED_PROXIES: ${BOOKSHELF_REVIEW_TRUSTED_PROXIES:-}
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+    volumes:
+      - review-data:/data
+volumes:
+  review-data:

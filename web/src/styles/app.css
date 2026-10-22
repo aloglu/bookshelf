@@ -55,7 +55,7 @@
 }
 
 * { box-sizing: border-box; }
-html { scrollbar-gutter: stable; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }   /* iOS would otherwise enlarge small text in wide blocks on its own */   /* a search that shortens the page never shifts the header sideways */
+html { overflow-y: auto; scrollbar-gutter: stable; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }   /* Keep the viewport's scroll owner stable as a reader/card releases its overflow lock. */
 body {
   background: radial-gradient(1200px 500px at 50% -120px, var(--wall), var(--wall-2) 75%);
   background-color: var(--wall-2);
