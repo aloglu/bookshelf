@@ -4,9 +4,9 @@
   import { onMount, tick } from "svelte";
   import { ui, data, load, reload, fetchEntriesEarly, setSelecting, toggleChosen, saveBook, replaceCover, setSpine, setHidden, removeBooks, startReading, finishReading, setAside } from "./lib/app.svelte.js";
   import { mountShelves, relayout, slots, view } from "./engine/shelf.js";
-  import { mountReader, openBook, closeBook, closeOnto, showInHand, canLeave, hooks, isOpen, dismissInBook, zoomed, putZoomBack, flyIn } from "./engine/reader.js";
+  import { mountReader, openBook, closeBook, closeOnto, showInHand, canLeave, hooks, isOpen, dismissInBook, zoomed, putZoomBack } from "./engine/reader.js";
   import { cloth } from "./engine/look.js";
-  import { isPhone, motionOK, root } from "./engine/model.js";
+  import { cover, isPhone, motionOK, prefetch, root } from "./engine/model.js";
   import { closePicker } from "./lib/colorpicker.js";
   import { typingRules, openPanel, hidePanel } from "./lib/panels.js";
   import { toast } from "./lib/toast.js";
@@ -216,16 +216,20 @@
     if (el) await openBook(b, el);
   }
   // Adding from another page first brings back the shelf. Reload does its one layout there;
-  // the destination settles before the arrival, and the new book then opens through normal history.
+  // the destination settles before one normal opening flight. Load its cover while the shelf moves.
   async function showAdded(bookId) {
     setView("shelf");
     await tick();
     await reload();
     const b = data.books.find((x) => x.id === bookId);
+    if (!b) return;
+    prefetch(b);
+    // The thumbnail is enough for the first frame; a stalled image must not prevent opening the book.
+    const ready = Promise.race([cover(b.thumb || b.cover).ready, new Promise((done) => setTimeout(done, 1500))]);
     const el = await prepareShelved(b, true);
+    await ready;
     if (!el || ui.view !== "shelf") return;
-    await flyIn(b);
-    if (ui.view === "shelf" && !isOpen()) await openBook(b, el);
+    if (!isOpen()) await openBook(b, el);
   }
   // Shelves out of view aren't laid out; each stands in at a guessed height until it has been drawn once (then
   // it keeps its real one). On a first visit a scroll to a far book would aim with those guesses and stop in

@@ -55,7 +55,7 @@ Click **+** (Add book) in the header.
    click **Look up**. Bookshelf asks Open Library, then Google Books.
 2. A card shows what was found, with the cover. Every field can be changed;
    **Replace cover** takes a picture of your own. Click **Add to the shelf** and
-   the shelf scrolls to its place, the book flies in, and its details open.
+   the shelf scrolls to its place and the book opens with its usual animation.
    Adding from Statistics, All notes, or Settings returns to the shelf first;
    an active search is cleared so the new book is visible.
 

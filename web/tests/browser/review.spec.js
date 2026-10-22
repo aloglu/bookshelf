@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { fileURLToPath } from "node:url";
 const origin = "http://127.0.0.1:18323";
 const headers = { Origin: origin };
 
@@ -19,20 +20,30 @@ test.beforeEach(async ({ page }) => {
 
 async function trace(page, title) {
   await page.evaluate((title) => {
-    window.reviewTrace = { active: true, frames: [] };
+    window.reviewTrace = { active: true, frames: [], visibility: [] };
+    const reader = document.querySelector("#reader");
+    window.reviewTrace.observer = new MutationObserver((changes) => {
+      for (const change of changes) window.reviewTrace.visibility.push(change.oldValue === null ? "hide" : "show");
+    });
+    window.reviewTrace.observer.observe(reader, { attributes: true, attributeFilter: ["hidden"], attributeOldValue: true });
     const frame = () => {
       const trace = window.reviewTrace;
       if (!trace.active) return;
       const slot = title ? [...document.querySelectorAll(".slot")].find((el) => el.book?.title === title) : document.querySelector(".slot.out");
       const rect = slot?.getBoundingClientRect();
-      trace.frames.push({ y: scrollY, hidden: document.querySelector("#reader").hidden, top: rect?.top, bottom: rect?.bottom, height: innerHeight });
+      const cover = document.querySelector("#lid-out img");
+      trace.frames.push({ y: scrollY, hidden: document.querySelector("#reader").hidden, top: rect?.top, bottom: rect?.bottom, height: innerHeight, coverReady: !!cover?.complete && cover.naturalWidth > 0 });
       requestAnimationFrame(frame);
     };
     requestAnimationFrame(frame);
   }, title);
 }
 async function stopTrace(page, testInfo, name) {
-  const frames = await page.evaluate(() => { window.reviewTrace.active = false; return window.reviewTrace.frames; });
+  const { frames, visibility } = await page.evaluate(() => {
+    window.reviewTrace.active = false; window.reviewTrace.observer.disconnect();
+    return { frames: window.reviewTrace.frames, visibility: window.reviewTrace.visibility };
+  });
+  await testInfo.attach(`${name}-visibility`, { body: JSON.stringify(visibility), contentType: "application/json" });
   await testInfo.attach(name, { body: JSON.stringify(frames), contentType: "application/json" });
   return frames;
 }
@@ -78,6 +89,8 @@ for (const path of ["/", "/stats", "/notes", "/settings/library"]) test(`adding 
   await expect(page.locator("#reader")).not.toHaveClass(/solo/);
   const book = (await (await page.request.get("/api/library")).json()).books.find((b) => b.title === title);
   await expect(page).toHaveURL(origin + "/" + book.address);
+  // A steady destination alone misses a closed-book preview that lands and opens a second time.
+  expect(await page.evaluate(() => window.reviewTrace.visibility)).toEqual(["show"]);
   const frames = await stopTrace(page, testInfo, "arrival");
   const flying = frames.filter((f) => !f.hidden && f.top !== undefined);
   expect(flying.length).toBeGreaterThan(5);
@@ -91,6 +104,28 @@ for (const path of ["/", "/stats", "/notes", "/settings/library"]) test(`adding 
   await expect(page.locator("#d-title")).toHaveText(title);
   await page.goBack();
   await expect(page.locator("#reader")).toBeHidden();
+});
+
+test("a new book's cover is ready when its single opening starts", async ({ page }, testInfo) => {
+  // The book is near the top, so a long scroll cannot accidentally mask an unloaded thumbnail.
+  await page.route("**/covers/**", async (route) => {
+    await new Promise((done) => setTimeout(done, 500));
+    await route.continue();
+  });
+  await page.getByRole("button", { name: "Add book", exact: true }).click();
+  await page.getByRole("button", { name: "Enter the details by hand", exact: true }).click();
+  const title = `Cover ready ${testInfo.project.name}`;
+  await page.locator('#adder input[name="title"]').fill(title);
+  await page.locator('#adder input[name="author"]').fill("000 First");
+  await page.locator('#adder input[type="file"]').setInputFiles(fileURLToPath(new URL("../fixtures/isbn-9780140328721.png", import.meta.url)));
+  await trace(page, title);
+  await page.getByRole("button", { name: "Add to the shelf", exact: true }).click();
+  await expect(page.locator("#reader")).toHaveClass(/flat/);
+  expect(await page.evaluate(() => window.reviewTrace.visibility)).toEqual(["show"]);
+  const frames = await stopTrace(page, testInfo, "opening-with-cover");
+  const visible = frames.filter((frame) => !frame.hidden);
+  expect(visible.length).toBeGreaterThan(5);
+  expect(visible.every((frame) => frame.coverReady)).toBe(true);
 });
 
 test("addition clears a phone-width search and opens correctly with reduced motion", async ({ page }, testInfo) => {

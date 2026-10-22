@@ -1,6 +1,6 @@
 <script>
   // Adding a book: look up its ISBN (typed, or read from the barcode), check the details on a card with its
-  // cover, then it flies into its place on the shelf. A periodical's ISSN, or a book with neither, is
+  // cover, then the shelf scrolls to the saved book and opens it. A periodical's ISSN, or a book with neither, is
   // entered by hand.
   import { tick } from "svelte";
   import { api } from "../lib/api.js";
@@ -36,8 +36,8 @@
     } catch (e) {
       if (token !== asking) return;
       if (e.status === 409) status = { text: `${e.message} `, show: e.data.book };
-      else if (e.status === 404) status = { text: "Open Library and Google Books don’t know this ISBN. ", byHand: true };
-      else status = { text: `${e.message.replace(/\.$/, "")}, or `, byHand: true, lower: true };   // "Try again in a minute, or enter the details by hand."
+      else if (e.status === 404) status = { text: "Open Library and Google Books don’t know this ISBN.", byHand: true };
+      else status = { text: e.message, byHand: true };
       return;
     }
     if (token !== asking) return;
@@ -131,16 +131,16 @@
           <button type="button" class="btn" onclick={startScan}><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V5h3M17 5h3v3M20 16v3h-3M7 19H4v-3M8 9v6M11 9v6M14 9v6M17 9v6"/></svg>Scan barcode</button>
         </div>
       </form>
-      <p class="status" role="status">
+      <p class="lookup-status" role="status">
         {#if status}
-          {#if status.spin}<i class="spin"></i>{/if}{status.text}{#if status.show}<button type="button" class="link" onclick={() => showIt(status.show)}>Show it</button>{/if}{#if status.byHand}<button type="button" class="link" onclick={byHand}>{status.lower ? "enter the details by hand" : "Enter the details by hand"}</button>.{/if}
+          {#if status.spin}<i class="spin" aria-hidden="true"></i>{/if}<span>{status.text}{#if status.show}<button type="button" class="link" onclick={() => showIt(status.show)}>Show it</button>{/if}</span>
         {/if}
       </p>
-      <p class="fine">No ISBN? <button type="button" class="link" onclick={byHand}>Enter the details by hand</button>.</p>
+      <p class="fine">{#if !status?.byHand}No ISBN? {/if}<button type="button" class="link" onclick={byHand}>Enter the details by hand</button>.</p>
     </div>
     <div class="stack" hidden={step !== "scan"}>
       <h2>Scan the barcode</h2>
-      <div class="viewfinder"><video bind:this={video} muted playsinline></video></div>
+      <div class="viewfinder"><video bind:this={video} muted playsinline></video><span class="scan-line" aria-hidden="true"></span></div>
       <div class="row-btns"><button type="button" class="btn" onclick={back}>Type it instead</button></div>
     </div>
     {#if draft}

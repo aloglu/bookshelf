@@ -592,6 +592,9 @@ select.inp option { background: var(--surface); color: var(--ink); }   /* the op
 .tag { font-variant-numeric: tabular-nums; padding: 1px 7px; border-radius: 5px; background: color-mix(in oklab, var(--ink) 8%, transparent); color: var(--ink); }
 .status { display: flex; align-items: center; gap: 10px; min-height: 1.4em; margin: 0; font-size: .9rem; color: var(--muted); }
 .status.ok { color: var(--ink); }
+.lookup-status { display: flex; align-items: flex-start; gap: 8px; min-height: 1.4em; margin: 0; font-size: .88rem; line-height: 1.5; color: var(--muted); }
+.lookup-status .spin { flex: none; margin-top: .2em; }
+.lookup-status .link { text-align: left; }
 .spin { width: 15px; height: 15px; border-radius: 50%; border: 2px solid color-mix(in oklab, var(--muted) 35%, transparent); border-top-color: var(--accent); animation: spin .7s linear infinite; }
 @keyframes spin { to { rotate: 1turn; } }
 .check2 { display: flex; align-items: center; gap: 8px; font-size: .88rem; color: var(--ink); }
@@ -610,10 +613,13 @@ select.inp option { background: var(--surface); color: var(--ink); }   /* the op
     linear-gradient(#f3ead8, #f3ead8) bottom left / 22px 3px, linear-gradient(#f3ead8, #f3ead8) bottom left / 3px 22px,
     linear-gradient(#f3ead8, #f3ead8) bottom right / 22px 3px, linear-gradient(#f3ead8, #f3ead8) bottom right / 3px 22px;
   background-repeat: no-repeat; }
-.viewfinder::after { content: ""; position: absolute; left: 16%; right: 16%; top: 24%; height: 2px; background: #e3c27c; box-shadow: 0 0 12px #e3c27c; animation: sweep 1.8s ease-in-out infinite alternate; }
-@keyframes sweep { to { top: 76%; } }
+.scan-line { position: absolute; left: 16%; right: 16%; top: 24%; height: 52%; pointer-events: none; will-change: transform; animation: sweep 1.8s ease-in-out infinite alternate; }
+.scan-line::after { content: ""; position: absolute; inset: 0 0 auto; height: 2px; background: #e3c27c; box-shadow: 0 0 12px #e3c27c; }
+/* Moving a layer avoids laying out the scan line on every frame while decoding is busy. */
+@keyframes sweep { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(0, 100%, 0); } }
+@media (prefers-reduced-motion: reduce) { .scan-line { animation: none; transform: translateY(50%); will-change: auto; } }
 .viewfinder video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-.viewfinder::before, .viewfinder::after { z-index: 1; }
+.viewfinder::before, .scan-line { z-index: 1; }
 .viewfinder p { position: absolute; left: 0; right: 0; bottom: 12px; margin: 0; text-align: center; color: #d9cdb7; font-size: .8rem; }
 
 /* Confirming a found book: its cover beside the details, all editable. */

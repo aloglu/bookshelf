@@ -15,13 +15,21 @@ It is for checking the reported problems before a release. It does not move
   of the owner's Chrome closing effect. Browser Back/Forward retain their own
   saved-position behavior.
 - Adding returns to the shelf, clears an active search, lays out and scrolls
-  to the new book, waits for its destination to settle, lands it, then opens
-  its details. Adding from Statistics, Notes, and Settings uses this sequence.
+  to the new book, waits for its destination to settle, then uses the existing
+  opening animation once. Covers load while the shelf moves. Adding from
+  Statistics, Notes, and Settings uses this sequence. The first candidate's
+  extra closed-book arrival/landing before opening has been removed following
+  the owner's test.
 - The scanner asks for ideal 1920×1080 rear-camera video, accepting what the
   device can provide. It tries the bundled reader if a native reader fails
   or keeps missing, reports repeated decoder errors, and releases the camera
   when scanning succeeds, fails, or is cancelled. Old scans cannot take over
   a newly opened scan. Accepted book/periodical codes must pass their checksum.
+- The lookup message uses the full text width, with one manual-entry action
+  below it. The decorative scan line moves with a transform rather than
+  changing its layout position each frame; reduced motion leaves it stationary.
+  Camera capture settings, decoder choice and scan timing are unchanged from
+  the first review image, which the owner reports scans well on iPhone Safari.
 
 HTTPS, camera permission, sign-in, server access controls, storage format,
 fonts, and text handling retain their existing rules. The decoder dependencies
@@ -120,8 +128,9 @@ docker compose --env-file .review.env -f docker-compose.review.yml down
   does not establish that this visual symptom is resolved.
 - [ ] Add a book whose sorted position is near the beginning, middle, and end
   of the shelf. Expect the shelf to reach its position before the flight,
-  the destination to stay still during the flight, and its details to open
-  automatically with the new book's address in the URL.
+  the destination to stay still during the flight, and one normal opening
+  with the new book's address in the URL. There should be no closed-book preview
+  that returns to the shelf before opening again. Try an uploaded cover too.
 - [ ] Repeat adding from **Statistics**, **All notes**, and **Settings**.
   Also add with a search active at phone width, where the Add button remains
   available. Expect the shelf and newly added book to appear; a former search
@@ -170,6 +179,13 @@ docker compose --env-file .review.env -f docker-compose.review.yml down
 - [ ] If an error appears, record its wording. If access to Safari's Web Inspector
   is available, the console's `Bookshelf scanner` messages show actual stream
   dimensions and backend changes; these logs contain no images or ISBNs.
+- [ ] Check the scan line while scanning a small barcode. It should sweep smoothly
+  within the guide (remain still with reduced motion). Confirm scanning still
+  reads the same small codes as the first candidate. This decoration change does
+  not alter the video frames or decoder.
+- [ ] If lookup reports busy sources or an unknown ISBN, check that its message
+  reads across the available width and **Enter the details by hand** appears
+  once below it. The action should keep the scanned identifier in the form.
 
 **Proposed acceptance target:** at least 95% of small-barcode attempts read the
 correct identifier within 3 seconds after stable framing, at least 4/5 successes

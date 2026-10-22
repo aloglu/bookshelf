@@ -472,34 +472,6 @@ export function refill(b, fade = false) {
   if (fade && motionOK()) leaf.animate([{ opacity: .3 }, { opacity: 1 }], { duration: 320, easing: EASE });
 }
 
-// The caller has laid out and scrolled to the new book before its flight starts.
-export async function flyIn(b) {
-  const el = slots.get(b.key);
-  if (!el || busy || isOpen()) return;
-  markOut(b);
-  busy = true; returnFocus = el;
-  reader.classList.remove("solo");
-  reader.hidden = false;
-  measure(); fill(b);
-  lid.style.transform = "rotateY(0deg)"; carry.style.transform = "translateX(0)";
-  bar.style.visibility = "hidden";
-  if (motionOK()) {
-    dimIn(scrim);
-    tome.animate([{ opacity: 0, transform: `${rest(b)} translateY(26px)` }, { opacity: 1, transform: `${rest(b)} translateY(0px)` }], { duration: 420, easing: EASE });
-    await new Promise((res) => setTimeout(res, 420));   // the arrival finishes before the book flies home
-    const p = shelfPose(b);
-    if (p) {
-      const { frames, clips } = flightPath(p, b, 0);
-      const land = tome.animate(frames.reverse(), { duration: 820, fill: "forwards" });
-      stage.animate(clips.reverse(), { duration: 820, fill: "forwards" });
-      dimOut(scrim, 260);
-      await settled(land, 820);
-    }
-  }
-  bar.style.visibility = "";
-  putAway(b);
-}
-
 // The cover is a small thumbnail at the head of the page on a phone. A tap lifts a copy of it to the middle of
 // the screen as large as fits; a tap anywhere puts it back exactly where it came from.
 let unzoom = null;
