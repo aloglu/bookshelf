@@ -316,6 +316,8 @@ Guides for people running Bookshelf, step by step, saying what they should see, 
 
 - 2026-10-24, ready for **Bookshelf 2.1.1**: the owner considers the review candidate's reported problems resolved (issues #5 and #6, closed by the release). Kept, as the owner decided: the scanner switching from a browser's own barcode reader to ZXing after 12 straight misses (a native reader may run without errors yet never find anything), and the camera asked again without preferred sizes on `OverconstrainedError` (the spec says preferred sizes can't cause it; three lines against a camera that won't start). Removed what only served the review build: its image jobs and branch name in CI, `docker-compose.review.yml` and `docs/REVIEW-TESTING.md`; the browser tests stay in CI. The version set to 2.1.1.
 
+- 2026-10-24, **Bookshelf 2.1.1 released** (https://github.com/aloglu/bookshelf/releases/tag/v2.1.1): `v2.1.1-review` fast-forwarded into `main` after its CI passed (issues #5 and #6 closed by it), tag `v2.1.1`; images on `ghcr.io/aloglu/bookshelf` (`2.1.1`, `2`, `latest`, amd64 and arm64) and the programs for Linux, macOS and Windows, checked against `SHA256SUMS` and reporting 2.1.1. The release notes were written for the release page. The branch was deleted after the release.
+
 ## Follow-ups
 
 - **Additional ISBN lookup sources (later, requested 2026-10-22):** assess sources beyond the existing Open Library → Google Books fallback, especially coverage of the owner's Turkish editions and availability when current sources miss or rate-limit. Compare coverage, API access/terms, limits and metadata quality before choosing providers. No lookup-provider changes in this correction.
