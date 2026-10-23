@@ -36,11 +36,10 @@ fonts, and text handling retain their existing rules. The decoder dependencies
 have not changed. The guide still covers a full-frame scan; there is no new
 crop, zoom, torch control, or OCR of the printed digits.
 
-**Still to verify:** the owner's Chrome closing/settling effect, the reported
-uppercase-i appearance in Firefox, and real small-barcode scanning on iPhone
-13 Safari. The Turkish-letter check below is a reproduction/regression check;
-this candidate does not claim to fix an unconfirmed character defect. The
-phone-width automated test runs desktop Firefox, not iOS Safari.
+**Owner checks (2026-10-24):** the owner considers the Chrome closing/settling
+effect, the uppercase-i appearance in Firefox and iPhone 13 Safari scanning
+resolved (issues #5 and #6). The phone-width automated test runs desktop
+Firefox, not iOS Safari.
 
 ## Deploy a separate instance
 

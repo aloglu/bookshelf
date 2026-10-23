@@ -131,12 +131,12 @@
           <button type="button" class="btn" onclick={startScan}><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V5h3M17 5h3v3M20 16v3h-3M7 19H4v-3M8 9v6M11 9v6M14 9v6M17 9v6"/></svg>Scan barcode</button>
         </div>
       </form>
-      <p class="lookup-status" role="status">
+      <p class="lookup-status" class:quiet={!status} role="status">
         {#if status}
           {#if status.spin}<i class="spin" aria-hidden="true"></i>{/if}<span>{status.text}{#if status.show}<button type="button" class="link" onclick={() => showIt(status.show)}>Show it</button>{/if}</span>
         {/if}
       </p>
-      <p class="fine">{#if !status?.byHand}No ISBN? {/if}<button type="button" class="link" onclick={byHand}>Enter the details by hand</button>.</p>
+      <p class="fine">{#if !status?.byHand}No ISBN?{" "}{/if}<button type="button" class="link" onclick={byHand}>Enter the details by hand</button>.</p>
     </div>
     <div class="stack" hidden={step !== "scan"}>
       <h2>Scan the barcode</h2>

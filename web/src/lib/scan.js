@@ -1,12 +1,15 @@
 // Reading a book's barcode with the camera: the browser's own barcode reader where it has one,
 // otherwise ZXing, loaded only when scanning starts and served by Bookshelf itself (never a CDN).
+// ZXing compares its settings by identity and drops its compiled reader when they differ, so they are
+// given once a visit: a second scan reuses the reader instead of compiling its megabyte again.
+let zxing = null;
 async function fallbackDetector() {
   try {
-    const [{ BarcodeDetector, prepareZXingModule }, { default: wasm }] = await Promise.all([
-      import("barcode-detector/ponyfill"),
-      import("zxing-wasm/reader/zxing_reader.wasm?url"),
-    ]);
-    prepareZXingModule({ overrides: { locateFile: (path, prefix) => (path.endsWith(".wasm") ? wasm : prefix + path) } });
+    zxing ??= Promise.all([import("barcode-detector/ponyfill"), import("zxing-wasm/reader/zxing_reader.wasm?url")]).then(([lib, { default: wasm }]) => {
+      lib.prepareZXingModule({ overrides: { locateFile: (path, prefix) => (path.endsWith(".wasm") ? wasm : prefix + path) } });
+      return lib.BarcodeDetector;
+    });
+    const BarcodeDetector = await zxing.catch((error) => { zxing = null; throw error; });   // a failed download can be tried again
     return { reader: new BarcodeDetector({ formats: ["ean_13"] }), native: false };
   } catch {
     throw barcodeError();

@@ -310,11 +310,15 @@ Guides for people running Bookshelf, step by step, saying what they should see, 
 
 - 2026-10-22, review build infrastructure: browser checks use the official Playwright container, pinned by version and digest to the installed test package, after Ubuntu dependency downloads stalled CI. The same browser suite runs against the program built by the Go checks, with disposable data and saved failure traces. This changes the test environment only, not the application or its Docker runtime image.
 
+- 2026-10-24: the scanner prepares ZXing once a visit. ZXing compares its settings by identity, and each scan gave it new ones, so every scan after the first discarded the compiled reader and compiled its 1 MB again (already so on `main`). A failed download can still be tried again. Decoding, camera settings and scan timing are unchanged.
+
+- 2026-10-24: Add book's spacing. With no lookup message the empty status row is taken out of the layout (positioned out of flow, not hidden, so screen readers still announce the first message) and the manual-entry line sits directly below the buttons; the space after “No ISBN?” is explicit, as Svelte dropped it at the end of its block. A message takes its usual row with manual entry beneath it. A browser test covers both states.
+
 ## Follow-ups
 
 - **Additional ISBN lookup sources (later, requested 2026-10-22):** assess sources beyond the existing Open Library → Google Books fallback, especially coverage of the owner's Turkish editions and availability when current sources miss or rate-limit. Compare coverage, API access/terms, limits and metadata quality before choosing providers. No lookup-provider changes in this correction.
 
-- **Review candidate, before release:** follow [the deployment and test checklist](../REVIEW-TESTING.md) on the owner's desktop Firefox and Chrome and iPhone 13 Safari. The Firefox closing jump was reproduced; Chrome's reported closing lock-in effect and Firefox's uppercase-i appearance remain unconfirmed. The owner reports that barcode scanning now works well on iPhone 13 Safari; the full small-barcode acceptance target has not been measured. Recheck after the decoration-only scan-line change. Desktop Firefox at phone width and synthetic scanner video do not establish iOS behavior. Keep this candidate separate from production until the owner completes these checks.
+- **Review candidate, before release:** the owner considers the reported problems resolved (2026-10-24; issues #5 and #6, closed when the branch reaches `main`). Before merging, remove or generalise what only serves this candidate: the `v2.1.1-review` branch name in `.github/workflows/ci.yml` (its review-image jobs and the Docker job's condition), `docker-compose.review.yml`, and [REVIEW-TESTING.md](../REVIEW-TESTING.md), which describes this one build.
 
 - **Retake the README clips each release** so they show what the release brings. The recorder (seeding, takes, encoding) is kept outside the repository, in `~/workspaces/bookshelf-demo-clip`; upload the new clips through GitHub's editor (a README plays only videos uploaded that way, up to 10 MB each) and swap the two addresses in the README.
 

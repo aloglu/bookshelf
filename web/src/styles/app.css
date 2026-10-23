@@ -55,7 +55,7 @@
 }
 
 * { box-sizing: border-box; }
-html { overflow-y: auto; scrollbar-gutter: stable; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }   /* Keep the viewport's scroll owner stable as a reader/card releases its overflow lock. */
+html { overflow-y: auto; scrollbar-gutter: stable; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }   /* iOS would otherwise enlarge small text in wide blocks on its own */   /* a search that shortens the page never shifts the header sideways */   /* the page keeps its scrolling as the open book or a card lets it go (Firefox jumped) */
 body {
   background: radial-gradient(1200px 500px at 50% -120px, var(--wall), var(--wall-2) 75%);
   background-color: var(--wall-2);
@@ -595,6 +595,7 @@ select.inp option { background: var(--surface); color: var(--ink); }   /* the op
 .lookup-status { display: flex; align-items: flex-start; gap: 8px; min-height: 1.4em; margin: 0; font-size: .88rem; line-height: 1.5; color: var(--muted); }
 .lookup-status .spin { flex: none; margin-top: .2em; }
 .lookup-status .link { text-align: left; }
+.lookup-status.quiet { position: absolute; min-height: 0; }   /* nothing to say: out of the way, but still there for a screen reader to hear the next message */
 .spin { width: 15px; height: 15px; border-radius: 50%; border: 2px solid color-mix(in oklab, var(--muted) 35%, transparent); border-top-color: var(--accent); animation: spin .7s linear infinite; }
 @keyframes spin { to { rotate: 1turn; } }
 .check2 { display: flex; align-items: center; gap: 8px; font-size: .88rem; color: var(--ink); }
