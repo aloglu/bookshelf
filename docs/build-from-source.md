@@ -75,9 +75,9 @@ npm run test:browser
 ```
 
 The browser suite builds a server and uses a new temporary library on port
-18323. It stops the server and removes that test library afterwards. The
-[review checklist](REVIEW-TESTING.md) covers separate Docker deployment and
-the real-device checks that these automated tests cannot establish.
+18323. It stops the server and removes that test library afterwards. It runs
+desktop Firefox and Chromium, so check camera scanning and anything specific
+to iPhone Safari on the device itself.
 
 ## Build the Docker image
 

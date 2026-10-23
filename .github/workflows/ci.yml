@@ -71,7 +71,6 @@ jobs:
 
   docker:
     name: Docker
-    if: github.ref != 'refs/heads/v2.1.1-review'
     needs: checks
     runs-on: ubuntu-24.04
     steps:
@@ -86,75 +85,3 @@ jobs:
           cache-to: type=gha,mode=max
       - name: Smoke test
         run: docker/smoke-test.sh bookshelf:test
-
-  # This branch publishes only review tags. Release/latest tags remain owned by release.yml.
-  review-image:
-    name: Review image (${{ matrix.arch }})
-    if: github.event_name == 'push' && github.ref == 'refs/heads/v2.1.1-review'
-    needs: checks
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - arch: amd64
-            runner: ubuntu-24.04
-          - arch: arm64
-            runner: ubuntu-24.04-arm
-    runs-on: ${{ matrix.runner }}
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - uses: actions/checkout@v5
-      - uses: docker/setup-buildx-action@v4
-      - name: Build the candidate
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          load: true
-          tags: bookshelf:review
-          build-args: VERSION=review-${{ github.sha }}
-          labels: |
-            org.opencontainers.image.source=https://github.com/aloglu/bookshelf
-            org.opencontainers.image.revision=${{ github.sha }}
-          provenance: false
-          cache-from: type=gha,scope=review-${{ matrix.arch }}
-          cache-to: type=gha,scope=review-${{ matrix.arch }},mode=max
-      - name: Smoke test the candidate
-        run: docker/smoke-test.sh bookshelf:review
-      - uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Publish the tested image
-        env:
-          IMAGE: ghcr.io/aloglu/bookshelf:review-${{ github.sha }}-${{ matrix.arch }}
-        run: |
-          docker tag bookshelf:review "$IMAGE"
-          docker push "$IMAGE"
-
-  review-publish:
-    name: Review image (publish)
-    needs: review-image
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - uses: docker/setup-buildx-action@v4
-      - uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Publish both architectures under review tags
-        env:
-          IMAGE: ghcr.io/aloglu/bookshelf
-          REVIEW_SHA: ${{ github.sha }}
-        run: |
-          docker buildx imagetools create \
-            -t "$IMAGE:review-$REVIEW_SHA" -t "$IMAGE:review-fixes" \
-            "$IMAGE:review-$REVIEW_SHA-amd64" "$IMAGE:review-$REVIEW_SHA-arm64"
-          docker buildx imagetools inspect "$IMAGE:review-$REVIEW_SHA"
-          echo "Test image: \`$IMAGE:review-$REVIEW_SHA\` (amd64 and arm64)" >> "$GITHUB_STEP_SUMMARY"
